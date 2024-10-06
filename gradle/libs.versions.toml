@@ -4,6 +4,8 @@ compose-plugin = "1.6.11"
 junit = "4.13.2"
 kotlin = "2.0.20"
 kotlinx-coroutines = "1.8.1"
+kotlin-compile-testing = "1.6.0"
+compose-compiler = "1.5.14"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -12,6 +14,8 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+compose-compiler = { group = "androidx.compose.compiler", name = "compiler", version.ref = "compose-compiler" }
+kotlin-compile-testing = { group = "com.github.tschuchortdev", name = "kotlin-compile-testing-ksp", version.ref = "kotlin-compile-testing" }
 
 [plugins]
 jetbrainsCompose = { id = "org.jetbrains.compose", version.ref = "compose-plugin" }

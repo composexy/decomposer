@@ -1,24 +1,12 @@
 package com.composexy.decomposer
 
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
-import com.composexy.decomposer.compile.getComposeCompiler
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
+import androidx.compose.ui.window.singleWindowApplication
 
-fun main() = application {
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "decomposer",
-    ) {
-        App()
-        val source = """
-            class KClass {
-                fun foo() {
-                    val string = "a string"
-                }
-            }
-        """
-        val compiler = getComposeCompiler()
-        val result = compiler.decompose(source)
-        println(result.decomposedSource)
-    }
+fun main() = singleWindowApplication(
+    title = "decomposer",
+    state = WindowState(placement = WindowPlacement.Maximized)
+) {
+    Application()
 }

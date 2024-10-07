@@ -51,7 +51,6 @@ kotlin {
     }
 }
 
-
 compose.desktop {
     application {
         mainClass = "com.composexy.decomposer.MainKt"

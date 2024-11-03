@@ -1,4 +1,4 @@
-package com.composexy.decomposer
+package com.decomposer
 
 interface Platform {
     val name: String

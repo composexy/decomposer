@@ -1,4 +1,4 @@
-package com.composexy.decomposer
+package com.decomposer
 
 class Greeting {
     private val platform = getPlatform()

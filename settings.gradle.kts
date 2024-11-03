@@ -29,3 +29,6 @@ dependencyResolutionManagement {
 }
 
 include(":composeApp")
+include(":runtime")
+include(":compiler-plugin")
+include(":compiler-plugin-gradle")

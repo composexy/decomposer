@@ -1,6 +1,6 @@
 plugins {
     id("java-library")
-    alias(libs.plugins.jetbrainsKotlinJvm)
+    alias(libs.plugins.kotlin.jvm)
 }
 
 java {
@@ -12,4 +12,14 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
     }
+}
+
+dependencies {
+    compileOnly(libs.kotlin.compilerEmbeddable)
+    compileOnly(libs.kotlin.stdlib)
+    implementation(libs.autoService)
+    testImplementation(libs.kotlin.reflect)
+    testImplementation(libs.kotlin.stdlib)
+    testImplementation(libs.kotlin.compilerEmbeddable)
+    testImplementation(libs.junit)
 }

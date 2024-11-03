@@ -4,7 +4,6 @@ compose-multiplatform = "1.7.0"
 junit = "4.13.2"
 kotlin = "2.0.21"
 kotlinx-coroutines = "1.9.0"
-jetbrainsKotlinJvm = "2.0.21"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -26,4 +25,5 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+mavenPublish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }

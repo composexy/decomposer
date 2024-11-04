@@ -38,6 +38,8 @@ android {
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:enabled=true")
+        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:irStorageEnabled=true")
+        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:sourceStorageEnabled=true")
     }
 }
 

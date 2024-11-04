@@ -2,7 +2,6 @@
 
 package com.decomposer.compiler
 
-import com.google.auto.service.AutoService
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.com.intellij.mock.MockProject
@@ -13,7 +12,6 @@ import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 
 @OptIn(ExperimentalCompilerApi::class)
-@AutoService(ComponentRegistrar::class)
 class DecomposerComponentRegistrar : ComponentRegistrar {
     override val supportsK2: Boolean
         get() = true

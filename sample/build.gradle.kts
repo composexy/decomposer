@@ -35,9 +35,17 @@ android {
     }
 }
 
-dependencies {
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:enabled=true")
+    }
+}
 
-    implementation(libs.appcompat.v7)
+dependencies {
+    platform(libs.compose.bom)
+    implementation(libs.androidx.activity.compose)
+    implementation(projects.runtime)
+    kotlinCompilerPluginClasspath(projects.compilerPlugin)
     testImplementation(libs.junit)
     androidTestImplementation(libs.runner)
     androidTestImplementation(libs.espresso.core)

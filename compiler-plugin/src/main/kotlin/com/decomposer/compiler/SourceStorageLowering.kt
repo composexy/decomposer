@@ -7,6 +7,7 @@ class SourceStorageLowering(
     messageCollector: MessageCollector
 ) : BaseDecomposerLowering(messageCollector) {
     override fun visitFileNew(declaration: IrFile): IrFile {
-        return super.visitFileNew(declaration)
+        println("Running SourceStorageLowering")
+        return declaration
     }
 }

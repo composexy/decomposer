@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.config.CompilerConfigurationKey
 class DecomposerCommandLineProcessor : CommandLineProcessor {
 
     internal companion object {
-        private const val DESCRIPTION_BOOLEAN = "<true | false>"
+        private const val DESCRIPTION_BOOLEAN = "<true|false>"
 
         val OPTION_ENABLED = CliOption(
             optionName = "enabled",

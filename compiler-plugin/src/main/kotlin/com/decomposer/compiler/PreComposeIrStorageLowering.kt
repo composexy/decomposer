@@ -27,7 +27,9 @@ class PreComposeIrStorageLowering(
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun visitFileNew(declaration: IrFile): IrFile {
-        val serializedIr = irSerializer.serializeIrFile(declaration)
+        val serializedIr = withSerializeIrOption(configuration) {
+            irSerializer.serializeIrFile(declaration)
+        }
 
         val annotation = IrConstructorCallImpl(
             startOffset = UNDEFINED_OFFSET,
@@ -35,7 +37,7 @@ class PreComposeIrStorageLowering(
             type = preComposeIrClass.defaultType,
             symbol = preComposeIrClass.constructors.first(),
             typeArgumentsCount = 0,
-            constructorTypeArgumentsCount = 0,
+            constructorTypeArgumentsCount = 0
         )
 
         annotation.putValueArgument(0, irConst(serializedIr.contentToString()))

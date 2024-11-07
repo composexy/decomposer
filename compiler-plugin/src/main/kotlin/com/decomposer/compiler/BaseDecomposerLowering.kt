@@ -22,18 +22,19 @@ abstract class BaseDecomposerLowering(
         messageCollector.report(CompilerMessageSeverity.LOGGING, message)
     }
 
-    protected fun withSerializeIrOption(
+    protected fun <R> withSerializeIrOption(
         compilerConfiguration: CompilerConfiguration,
-        block: CompilerConfiguration.() -> Unit
-    ) {
+        block: () -> R
+    ): R {
         val previous = compilerConfiguration[JVMConfigurationKeys.SERIALIZE_IR]
             ?: JvmSerializeIrMode.NONE
-        try {
+        val result = try {
             compilerConfiguration.put(JVMConfigurationKeys.SERIALIZE_IR, JvmSerializeIrMode.ALL)
-            compilerConfiguration.apply(block)
+            block()
         } finally {
             compilerConfiguration.put(JVMConfigurationKeys.SERIALIZE_IR, previous)
         }
+        return result
     }
 
     protected fun getTopLevelClass(classId: ClassId): IrClassSymbol {

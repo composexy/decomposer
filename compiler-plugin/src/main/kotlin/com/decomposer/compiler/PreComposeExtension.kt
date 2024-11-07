@@ -13,7 +13,10 @@ class PreComposeExtension(
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         val preComposeIrStorageEnabled = configuration[KEY_PRE_COMPOSE_IR_STORAGE_ENABLED] == true
         if (preComposeIrStorageEnabled) {
-            moduleFragment.transform(PreComposeIrStorageLowering(messageCollector), null)
+            moduleFragment.transform(
+                PreComposeIrStorageLowering(messageCollector, configuration, pluginContext),
+                null
+            )
         }
     }
 }

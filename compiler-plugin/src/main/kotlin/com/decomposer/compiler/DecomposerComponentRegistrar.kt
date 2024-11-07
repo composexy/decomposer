@@ -36,4 +36,8 @@ class DecomposerComponentRegistrar : ComponentRegistrar {
             )
         }
     }
+
+    companion object {
+        private const val COMPOSE_PLUGIN_ID = "androidx.compose.compiler.plugins.kotlin"
+    }
 }

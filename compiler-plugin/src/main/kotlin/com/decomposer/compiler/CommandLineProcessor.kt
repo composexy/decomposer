@@ -21,18 +21,18 @@ class DecomposerCommandLineProcessor : CommandLineProcessor {
             allowMultipleOccurrences = false
         )
 
-        val OPTION_IR_STORAGE_ENABLED = CliOption(
-            optionName = "irStorageEnabled",
+        val OPTION_POST_COMPOSE_IR_STORAGE_ENABLED = CliOption(
+            optionName = "postComposeIrStorageEnabled",
             valueDescription = DESCRIPTION_BOOLEAN,
-            description = KEY_IR_STORAGE_ENABLED.toString(),
+            description = KEY_POST_COMPOSE_IR_STORAGE_ENABLED.toString(),
             required = false,
             allowMultipleOccurrences = false
         )
 
-        val OPTION_SOURCE_STORAGE_ENABLED = CliOption(
-            optionName = "sourceStorageEnabled",
+        val OPTION_PRE_COMPOSE_IR_STORAGE_ENABLED = CliOption(
+            optionName = "preComposeIrStorageEnabled",
             valueDescription = DESCRIPTION_BOOLEAN,
-            description = KEY_SOURCE_STORAGE_ENABLED.toString(),
+            description = KEY_PRE_COMPOSE_IR_STORAGE_ENABLED.toString(),
             required = false,
             allowMultipleOccurrences = false
         )
@@ -43,8 +43,8 @@ class DecomposerCommandLineProcessor : CommandLineProcessor {
     override val pluginOptions: Collection<AbstractCliOption> =
         listOf(
             OPTION_ENABLED,
-            OPTION_IR_STORAGE_ENABLED,
-            OPTION_SOURCE_STORAGE_ENABLED
+            OPTION_POST_COMPOSE_IR_STORAGE_ENABLED,
+            OPTION_PRE_COMPOSE_IR_STORAGE_ENABLED
         )
 
     override fun processOption(
@@ -56,11 +56,11 @@ class DecomposerCommandLineProcessor : CommandLineProcessor {
             OPTION_ENABLED.optionName -> {
                 configuration.put(KEY_ENABLED, value.toBoolean())
             }
-            OPTION_IR_STORAGE_ENABLED.optionName -> {
-                configuration.put(KEY_IR_STORAGE_ENABLED, value.toBoolean())
+            OPTION_POST_COMPOSE_IR_STORAGE_ENABLED.optionName -> {
+                configuration.put(KEY_POST_COMPOSE_IR_STORAGE_ENABLED, value.toBoolean())
             }
-            OPTION_SOURCE_STORAGE_ENABLED.optionName ->  {
-                configuration.put(KEY_SOURCE_STORAGE_ENABLED, value.toBoolean())
+            OPTION_PRE_COMPOSE_IR_STORAGE_ENABLED.optionName ->  {
+                configuration.put(KEY_PRE_COMPOSE_IR_STORAGE_ENABLED, value.toBoolean())
             }
             else -> error("Unknown decomposer plugin option: ${option.optionName}")
         }
@@ -71,10 +71,10 @@ internal val KEY_ENABLED = CompilerConfigurationKey<Boolean>(
     "Disable all decomposer features if false."
 )
 
-internal val KEY_IR_STORAGE_ENABLED = CompilerConfigurationKey<Boolean>(
+internal val KEY_POST_COMPOSE_IR_STORAGE_ENABLED = CompilerConfigurationKey<Boolean>(
     "Storage all IR files of current compilation after compose compiler plugin is run."
 )
 
-internal val KEY_SOURCE_STORAGE_ENABLED = CompilerConfigurationKey<Boolean>(
-    "Storage all source files of current compilation."
+internal val KEY_PRE_COMPOSE_IR_STORAGE_ENABLED = CompilerConfigurationKey<Boolean>(
+    "Storage all IR files of current compilation before compose compiler plugin is run."
 )

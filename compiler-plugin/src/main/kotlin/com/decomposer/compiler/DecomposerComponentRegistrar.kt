@@ -25,12 +25,12 @@ class DecomposerComponentRegistrar : ComponentRegistrar {
             CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY, MessageCollector.NONE)
         project.extensionArea.getExtensionPoint(IrGenerationExtension.extensionPointName).run {
             registerExtension(
-                DecomposerBeforeComposeExtension(messageCollector, configuration),
+                PreComposeExtension(messageCollector, configuration),
                 LoadingOrder.FIRST,
                 project
             )
             registerExtension(
-                DecomposerAfterComposeExtension(messageCollector, configuration),
+                PostComposeExtensions(messageCollector, configuration),
                 LoadingOrder.LAST,
                 project
             )

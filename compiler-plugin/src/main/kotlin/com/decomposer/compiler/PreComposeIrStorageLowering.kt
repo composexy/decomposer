@@ -3,11 +3,11 @@ package com.decomposer.compiler
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.ir.declarations.IrFile
 
-class IrStorageLowering(
+class PreComposeIrStorageLowering(
     messageCollector: MessageCollector
 ) : BaseDecomposerLowering(messageCollector) {
     override fun visitFileNew(declaration: IrFile): IrFile {
-        println("Running IrStorageLowering")
+        println("Running SourceStorageLowering")
         return declaration
     }
 }

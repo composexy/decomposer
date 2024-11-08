@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.metadata.jvm.deserialization.bytesToStrings
 
 class PreComposeIrStorageLowering(
     messageCollector: MessageCollector,
@@ -29,7 +30,7 @@ class PreComposeIrStorageLowering(
     override fun visitFileNew(declaration: IrFile): IrFile {
         val serializedIr = withSerializeIrOption(configuration) {
             irSerializer.serializeIrFile(declaration)
-        }
+        } ?: return declaration
 
         val annotation = IrConstructorCallImpl(
             startOffset = UNDEFINED_OFFSET,
@@ -40,7 +41,7 @@ class PreComposeIrStorageLowering(
             constructorTypeArgumentsCount = 0
         )
 
-        annotation.putValueArgument(0, irConst(serializedIr.contentToString()))
+        annotation.putValueArgument(0, irStringArray(bytesToStrings(serializedIr)))
         declaration.annotations += annotation
 
         return declaration

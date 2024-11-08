@@ -10,8 +10,11 @@ import org.jetbrains.kotlin.config.JvmSerializeIrMode
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
+import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.name.ClassId
 
 abstract class BaseDecomposerLowering(
@@ -49,6 +52,18 @@ abstract class BaseDecomposerLowering(
             context.irBuiltIns.stringType,
             IrConstKind.String,
             value
+        )
+    }
+
+    protected fun irStringArray(value: Array<String>): IrExpression {
+        val builtIns = context.irBuiltIns
+        val arrayType = builtIns.arrayClass.typeWith(builtIns.stringType)
+        return IrVarargImpl(
+            UNDEFINED_OFFSET,
+            UNDEFINED_OFFSET,
+            type = arrayType,
+            varargElementType = builtIns.stringType,
+            elements = value.map { irConst(it) }
         )
     }
 }

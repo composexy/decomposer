@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
@@ -18,12 +17,10 @@ class PostComposeIrStorageLowering(
     private val configuration: CompilerConfiguration,
     context: IrPluginContext
 ) : BaseDecomposerLowering(messageCollector, context) {
+
     private val irSerializer = JvmIrSerializerImpl(configuration)
     private val postComposeIrClass = getTopLevelClass(CLASS_ID_POST_COMPOSE_IR)
 
-    override fun visitModuleFragment(declaration: IrModuleFragment): IrModuleFragment {
-        return super.visitModuleFragment(declaration)
-    }
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun visitFileNew(declaration: IrFile): IrFile {

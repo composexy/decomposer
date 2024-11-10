@@ -13,6 +13,8 @@ androidx-material = "1.12.0"
 androidx-test-junit = "1.2.1"
 autoService = "1.1.1"
 compose-multiplatform = "1.7.0"
+dexlib2 = "2.5.2"
+dx = "1.7"
 junit = "4.13.2"
 kotlin = "2.1.0-Beta2"
 kotlinx-coroutines = "1.9.0"
@@ -25,6 +27,8 @@ composeNavigation = "2.8.3"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+dexlib2 = { module = "org.smali:dexlib2", version.ref = "dexlib2" }
+dx = { module = "com.google.android.tools:dx", version.ref = "dx" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

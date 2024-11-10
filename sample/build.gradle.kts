@@ -45,7 +45,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.dx)
     platform(libs.compose.bom)
+    implementation(libs.dexlib2)
     implementation(libs.androidx.activity.compose)
     implementation(projects.runtime)
     kotlinCompilerPluginClasspath(projects.compilerPlugin)

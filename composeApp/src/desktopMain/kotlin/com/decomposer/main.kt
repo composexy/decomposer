@@ -13,6 +13,9 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.channels.consumeEach
+import org.jetbrains.kotlin.backend.jvm.serialization.proto.JvmIr
+import org.jetbrains.kotlin.metadata.jvm.deserialization.stringsToBytes
+import org.jetbrains.kotlin.protobuf.CodedInputStream
 import kotlin.time.Duration.Companion.seconds
 
 fun main() = application {
@@ -46,11 +49,20 @@ fun setupWebSocket() {
                     when (frame) {
                         is Frame.Text -> {
                             val receivedText = frame.readText()
-                            println("Received $receivedText")
+                            //println("Received $receivedText")
+                            val array = arrayOf(receivedText)
+                            val bytes = stringsToBytes(array)
+                            val bytes2 = ByteArray(bytes.size - 1)
+                            bytes.copyInto(bytes2, 0, 1)
+                            val jvmIr = JvmIr.ClassOrFile.parseFrom(bytes2.codedInputStream)
+                            jvmIr.stringList.forEach {
+                                print("$it ")
+                            }
+                            jvmIr.debugInfoList.forEach {
+                                print("$it ")
+                            }
                         }
-                        is Frame.Binary -> {
-                            // Handle binary frames if needed
-                        }
+                        is Frame.Binary -> { }
                         else -> {
                             println("Unknown Received $frame")
                         }
@@ -60,3 +72,10 @@ fun setupWebSocket() {
         }
     }.start(wait = false)
 }
+
+val ByteArray.codedInputStream: CodedInputStream
+    get() {
+        val codedInputStream = CodedInputStream.newInstance(this)
+        codedInputStream.setRecursionLimit(65535) // The default 64 is blatantly not enough for IR.
+        return codedInputStream
+    }

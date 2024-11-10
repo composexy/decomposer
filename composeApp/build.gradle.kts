@@ -20,6 +20,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
         }
         desktopMain.dependencies {
+            implementation(libs.kotlin.compilerEmbeddable)
             implementation(libs.ktor.server.core)
             implementation(libs.ktor.server.netty)
             implementation(libs.ktor.server.websockets)

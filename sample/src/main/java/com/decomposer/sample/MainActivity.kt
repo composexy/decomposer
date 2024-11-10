@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.e("Test", "Connection opened")
-                webSocket.send("Hello, WebSocket!")
+                //webSocket.send("Hello, WebSocket!")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {

@@ -20,6 +20,9 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
         }
         desktopMain.dependencies {
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.netty)
+            implementation(libs.ktor.server.websockets)
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
         }

@@ -45,6 +45,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.okhttp)
     implementation(libs.dx)
     platform(libs.compose.bom)
     implementation(libs.dexlib2)

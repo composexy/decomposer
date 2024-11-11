@@ -1,5 +1,8 @@
 package com.decomposer.runtime.ir.expressions
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class StatementOrigin {
     SAFE_CALL,
     UMINUS,

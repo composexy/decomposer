@@ -2,7 +2,9 @@ package com.decomposer.runtime.ir.declarations
 
 import com.decomposer.runtime.ir.symbols.PropertySymbol
 import com.decomposer.runtime.ir.symbols.SimpleFunctionSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 abstract class SimpleFunction : Function(), OverridableDeclaration<SimpleFunctionSymbol>,
     AttributeContainer {
     abstract override val symbol: SimpleFunctionSymbol

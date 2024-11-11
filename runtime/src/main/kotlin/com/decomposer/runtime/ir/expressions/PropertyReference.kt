@@ -5,7 +5,9 @@ import com.decomposer.runtime.ir.declarations.AttributeContainer
 import com.decomposer.runtime.ir.symbols.FieldSymbol
 import com.decomposer.runtime.ir.symbols.PropertySymbol
 import com.decomposer.runtime.ir.symbols.SimpleFunctionSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class PropertyReference(
     val field: FieldSymbol?,
     val getter: SimpleFunctionSymbol?,
@@ -18,7 +20,6 @@ data class PropertyReference(
     override val valueArguments: List<Expression?>,
     override val typeArguments: List<Type?>,
     override val type: Type,
-    override val attributeMap: List<Any?>?,
     override val endOffset: Int,
     override val attributeOwnerId: AttributeContainer,
     override val originalBeforeInline: AttributeContainer?

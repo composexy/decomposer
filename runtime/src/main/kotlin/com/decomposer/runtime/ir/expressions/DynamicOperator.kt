@@ -1,5 +1,8 @@
 package com.decomposer.runtime.ir.expressions
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class DynamicOperator(val image: String, val isAssignmentOperator: Boolean = false) {
     UNARY_PLUS("+"),
     UNARY_MINUS("-"),

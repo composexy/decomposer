@@ -4,7 +4,9 @@ import com.decomposer.runtime.ir.Type
 import com.decomposer.runtime.ir.Name
 import com.decomposer.runtime.ir.expressions.ConstructorCall
 import com.decomposer.runtime.ir.symbols.LocalDelegatedPropertySymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class LocalDelegatedProperty(
     override val symbol: LocalDelegatedPropertySymbol,
     val type: Type,
@@ -12,7 +14,6 @@ data class LocalDelegatedProperty(
     val delegate: Variable,
     val getter: SimpleFunction,
     val setter: SimpleFunction?,
-    override val attributeMap: List<Any?>?,
     override val startOffset: Int,
     override val endOffset: Int,
     override val parent: DeclarationParent,

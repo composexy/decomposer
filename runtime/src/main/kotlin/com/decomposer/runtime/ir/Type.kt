@@ -3,12 +3,15 @@ package com.decomposer.runtime.ir
 import com.decomposer.runtime.ir.symbols.ClassSymbol
 import com.decomposer.runtime.ir.symbols.ClassifierSymbol
 import com.decomposer.runtime.ir.symbols.TypeAliasSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 sealed class Type : IrTypeProjection, AnnotationContainer {
     final override val type: Type
         get() = this
 }
 
+@Serializable
 abstract class ErrorType(
     private val errorClassStubSymbol: ClassSymbol,
     val isMarkedNullable: Boolean = false
@@ -17,14 +20,17 @@ abstract class ErrorType(
         get() = errorClassStubSymbol
 }
 
+@Serializable
 abstract class DynamicType : Type()
 
+@Serializable
 enum class SimpleTypeNullability {
     MARKED_NULLABLE,
     NOT_SPECIFIED,
     DEFINITELY_NOT_NULL
 }
 
+@Serializable
 abstract class SimpleType : Type() {
     abstract val classifier: ClassifierSymbol
     abstract val nullability: SimpleTypeNullability
@@ -34,6 +40,7 @@ abstract class SimpleType : Type() {
     override val variance = Variance.INVARIANT
 }
 
+@Serializable
 sealed interface IrTypeArgument
 
 interface IrStarProjection : IrTypeArgument

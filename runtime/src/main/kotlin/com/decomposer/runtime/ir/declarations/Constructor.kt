@@ -6,7 +6,9 @@ import com.decomposer.runtime.ir.Visibility
 import com.decomposer.runtime.ir.expressions.Body
 import com.decomposer.runtime.ir.expressions.ConstructorCall
 import com.decomposer.runtime.ir.symbols.ConstructorSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Constructor(
     override val symbol: ConstructorSymbol,
     val isPrimary: Boolean,
@@ -18,7 +20,6 @@ data class Constructor(
     override val extensionReceiverParameter: ValueParameter?,
     override val contextReceiverParametersCount: Int,
     override val body: Body?,
-    override val attributeMap: List<Any?>?,
     override val startOffset: Int,
     override val endOffset: Int,
     override val parent: DeclarationParent,

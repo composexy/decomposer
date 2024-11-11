@@ -5,7 +5,9 @@ import com.decomposer.runtime.ir.Name
 import com.decomposer.runtime.ir.Visibility
 import com.decomposer.runtime.ir.expressions.ConstructorCall
 import com.decomposer.runtime.ir.symbols.Symbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Property(
     override val symbol: Symbol,
     override val overriddenSymbols: List<Symbol>,
@@ -18,7 +20,6 @@ data class Property(
     val backingField: Field?,
     val getter: SimpleFunction?,
     val setter: SimpleFunction?,
-    override val attributeMap: List<Any?>?,
     override var startOffset: Int,
     override var endOffset: Int,
     override val parent: DeclarationParent,

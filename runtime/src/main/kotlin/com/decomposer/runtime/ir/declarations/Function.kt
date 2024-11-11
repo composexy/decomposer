@@ -3,7 +3,9 @@ package com.decomposer.runtime.ir.declarations
 import com.decomposer.runtime.ir.Type
 import com.decomposer.runtime.ir.expressions.Body
 import com.decomposer.runtime.ir.symbols.FunctionSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 sealed class Function : DeclarationBase, PossiblyExternalDeclaration,
     DeclarationWithVisibility, TypeParametersContainer, SymbolOwner, DeclarationParent,
     ReturnTarget, MemberWithContainerSource, MetadataSourceOwner {

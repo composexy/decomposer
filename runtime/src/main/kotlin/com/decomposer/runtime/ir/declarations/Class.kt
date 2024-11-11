@@ -7,7 +7,9 @@ import com.decomposer.runtime.ir.Name
 import com.decomposer.runtime.ir.Visibility
 import com.decomposer.runtime.ir.expressions.ConstructorCall
 import com.decomposer.runtime.ir.symbols.ClassSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Class(
     override val symbol: ClassSymbol,
     val kind: ClassKind,
@@ -22,7 +24,6 @@ data class Class(
     val superTypes: List<Type>,
     val thisReceiver: ValueParameter?,
     val sealedSubclasses: List<ClassSymbol>,
-    override val attributeMap: List<Any?>?,
     override val startOffset: Int,
     override val endOffset: Int,
     override val parent: DeclarationParent,

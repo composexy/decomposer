@@ -6,10 +6,11 @@ import com.decomposer.runtime.ir.declarations.AttributeContainer
 import com.decomposer.runtime.ir.declarations.ReturnTarget
 import com.decomposer.runtime.ir.declarations.SymbolOwner
 import com.decomposer.runtime.ir.symbols.ReturnableBlockSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class ReturnableBlock(
     override val symbol: ReturnableBlockSymbol,
-    override val attributeMap: List<Any?>?,
     override val origin: StatementOrigin?,
     override val type: Type,
     override val startOffset: Int,

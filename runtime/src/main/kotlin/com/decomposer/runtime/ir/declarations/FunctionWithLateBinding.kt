@@ -8,7 +8,9 @@ import com.decomposer.runtime.ir.expressions.Body
 import com.decomposer.runtime.ir.expressions.ConstructorCall
 import com.decomposer.runtime.ir.symbols.PropertySymbol
 import com.decomposer.runtime.ir.symbols.SimpleFunctionSymbol
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class FunctionWithLateBinding(
     val isBound: Boolean,
     override val annotations: List<ConstructorCall>,
@@ -26,7 +28,6 @@ data class FunctionWithLateBinding(
     override val extensionReceiverParameter: ValueParameter?,
     override val contextReceiverParametersCount: Int,
     override val body: Body?,
-    override val attributeMap: List<Any?>?,
     override var startOffset: Int,
     override var endOffset: Int,
     override val parent: DeclarationParent,

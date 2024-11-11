@@ -19,17 +19,21 @@ import com.decomposer.runtime.ir.declarations.ValueDeclaration
 import com.decomposer.runtime.ir.declarations.ValueParameter
 import com.decomposer.runtime.ir.declarations.Variable
 import com.decomposer.runtime.ir.expressions.ReturnableBlock
+import kotlinx.serialization.Serializable
 
-interface Symbol {
+@Serializable
+sealed interface Symbol {
     val owner: SymbolOwner
     val hasDescriptor: Boolean
     val isBound: Boolean
 }
 
-interface BindableSymbol<Owner : SymbolOwner> : Symbol {
+@Serializable
+sealed interface BindableSymbol<Owner : SymbolOwner> : Symbol {
     override val owner: Owner
 }
 
+@Serializable
 sealed interface PackageFragmentSymbol : Symbol
 
 interface FileSymbol : PackageFragmentSymbol, BindableSymbol<File>

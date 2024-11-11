@@ -16,6 +16,7 @@ kotlin {
 dependencies {
     compileOnly(libs.kotlin.compilerEmbeddable)
     compileOnly(libs.kotlin.stdlib)
+    compileOnly(projects.runtime)
     implementation(libs.autoService)
     testImplementation(libs.kotlin.reflect)
     testImplementation(libs.kotlin.stdlib)

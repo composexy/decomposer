@@ -16,15 +16,12 @@ import com.decomposer.runtime.ir.declarations.SymbolOwner
 import com.decomposer.runtime.ir.declarations.TypeAlias
 import com.decomposer.runtime.ir.declarations.TypeParameter
 import com.decomposer.runtime.ir.declarations.ValueDeclaration
-import com.decomposer.runtime.ir.declarations.ValueParameter
-import com.decomposer.runtime.ir.declarations.Variable
 import com.decomposer.runtime.ir.expressions.ReturnableBlock
 import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface Symbol {
     val owner: SymbolOwner
-    val hasDescriptor: Boolean
     val isBound: Boolean
 }
 
@@ -36,35 +33,110 @@ sealed interface BindableSymbol<Owner : SymbolOwner> : Symbol {
 @Serializable
 sealed interface PackageFragmentSymbol : Symbol
 
-interface FileSymbol : PackageFragmentSymbol, BindableSymbol<File>
-interface ExternalPackageFragmentSymbol : PackageFragmentSymbol, BindableSymbol<ExternalPackageFragment>
-interface AnonymousInitializerSymbol : BindableSymbol<AnonymousInitializer>
-interface EnumEntrySymbol : BindableSymbol<EnumEntry>
-interface FieldSymbol : BindableSymbol<Field>
+@Serializable
+data class FileSymbol(
+    override val owner: File,
+    override val isBound: Boolean
+) : PackageFragmentSymbol, BindableSymbol<File>
 
+@Serializable
+data class ExternalPackageFragmentSymbol(
+    override val owner: ExternalPackageFragment,
+    override val isBound: Boolean
+) : PackageFragmentSymbol, BindableSymbol<ExternalPackageFragment>
+
+@Serializable
+data class AnonymousInitializerSymbol(
+    override val owner: AnonymousInitializer,
+    override val isBound: Boolean
+) : BindableSymbol<AnonymousInitializer>
+
+@Serializable
+data class EnumEntrySymbol(
+    override val owner: EnumEntry,
+    override val isBound: Boolean
+) : BindableSymbol<EnumEntry>
+
+@Serializable
+data class FieldSymbol(
+    override val owner: Field,
+    override val isBound: Boolean
+) : BindableSymbol<Field>
+
+@Serializable
 sealed interface ClassifierSymbol : Symbol
 
-interface ClassSymbol : ClassifierSymbol, BindableSymbol<Class>
-interface TypeParameterSymbol : ClassifierSymbol, BindableSymbol<TypeParameter>
+@Serializable
+data class ClassSymbol(
+    override val owner: Class,
+    override val isBound: Boolean
+) : ClassifierSymbol, BindableSymbol<Class>
 
+@Serializable
+data class TypeParameterSymbol(
+    override val owner: TypeParameter,
+    override val isBound: Boolean
+) : ClassifierSymbol, BindableSymbol<TypeParameter>
+
+@Serializable
 sealed interface ValueSymbol : Symbol {
     override val owner: ValueDeclaration
 }
 
-interface ValueParameterSymbol : ValueSymbol, BindableSymbol<ValueParameter>
-interface VariableSymbol : ValueSymbol, BindableSymbol<Variable>
+@Serializable
+data class ValueParameterSymbol(
+    override val isBound: Boolean,
+    override val owner: ValueDeclaration,
+) : ValueSymbol, BindableSymbol<ValueDeclaration>
 
+@Serializable
+data class VariableSymbol(
+    override val owner: ValueDeclaration,
+    override val isBound: Boolean
+) : ValueSymbol, BindableSymbol<ValueDeclaration>
+
+@Serializable
 sealed interface ReturnTargetSymbol : Symbol {
     override val owner: ReturnTarget
 }
 
+@Serializable
 sealed interface FunctionSymbol : ReturnTargetSymbol {
     override val owner: Function
 }
 
-interface ConstructorSymbol : FunctionSymbol, BindableSymbol<Constructor>
-interface SimpleFunctionSymbol : FunctionSymbol, BindableSymbol<SimpleFunction>
-interface ReturnableBlockSymbol : ReturnTargetSymbol, BindableSymbol<ReturnableBlock>
-interface PropertySymbol : BindableSymbol<Property>
-interface LocalDelegatedPropertySymbol : BindableSymbol<LocalDelegatedProperty>
-interface TypeAliasSymbol : BindableSymbol<TypeAlias>
+@Serializable
+data class ConstructorSymbol(
+    override val owner: Constructor,
+    override val isBound: Boolean
+) : FunctionSymbol, BindableSymbol<Constructor>
+
+@Serializable
+data class SimpleFunctionSymbol(
+    override val owner: SimpleFunction,
+    override val isBound: Boolean
+) : FunctionSymbol, BindableSymbol<SimpleFunction>
+
+@Serializable
+data class ReturnableBlockSymbol(
+    override val owner: ReturnableBlock,
+    override val isBound: Boolean
+) : ReturnTargetSymbol, BindableSymbol<ReturnableBlock>
+
+@Serializable
+data class PropertySymbol(
+    override val owner: Property,
+    override val isBound: Boolean
+) : BindableSymbol<Property>
+
+@Serializable
+data class LocalDelegatedPropertySymbol(
+    override val owner: LocalDelegatedProperty,
+    override val isBound: Boolean
+) : BindableSymbol<LocalDelegatedProperty>
+
+@Serializable
+data class TypeAliasSymbol(
+    override val owner: TypeAlias,
+    override val isBound: Boolean
+) : BindableSymbol<TypeAlias>

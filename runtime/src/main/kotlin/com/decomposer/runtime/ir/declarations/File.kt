@@ -12,6 +12,6 @@ data class File(
     override var packageFqName: String,
     override val startOffset: Int,
     override val endOffset: Int,
-    override val declarations: MutableList<Declaration>,
+    override val declarations: List<Declaration>,
     override val annotations: List<ConstructorCall>
 ) : PackageFragment(), MutableAnnotationContainer, MetadataSourceOwner

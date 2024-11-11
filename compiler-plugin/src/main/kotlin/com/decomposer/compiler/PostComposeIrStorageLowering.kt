@@ -21,7 +21,6 @@ class PostComposeIrStorageLowering(
     private val irSerializer = JvmIrSerializerImpl(configuration)
     private val postComposeIrClass = getTopLevelClass(CLASS_ID_POST_COMPOSE_IR)
 
-
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun visitFileNew(declaration: IrFile): IrFile {
         val serializedIr = withSerializeIrOption(configuration) {

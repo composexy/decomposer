@@ -1,16 +1,24 @@
 package com.decomposer.runtime.ir.declarations
 
 import com.decomposer.runtime.ir.IrType
+import com.decomposer.runtime.ir.Name
+import com.decomposer.runtime.ir.expressions.IrConstructorCall
 import com.decomposer.runtime.ir.expressions.IrExpressionBody
 import com.decomposer.runtime.ir.symbols.IrValueParameterSymbol
 
-abstract class IrValueParameter : IrDeclarationBase(), IrValueDeclaration {
-    abstract val isAssignable: Boolean
-    abstract override val symbol: IrValueParameterSymbol
-    abstract var varargElementType: IrType?
-    abstract var isCrossinline: Boolean
-    abstract var isNoinline: Boolean
-    abstract var isHidden: Boolean
-    abstract var defaultValue: IrExpressionBody?
-    var index: Int = -1
-}
+data class IrValueParameter(
+    val isAssignable: Boolean,
+    override val symbol: IrValueParameterSymbol,
+    val varargElementType: IrType?,
+    val isCrossinline: Boolean,
+    val isNoinline: Boolean,
+    val isHidden: Boolean,
+    val defaultValue: IrExpressionBody?,
+    override val attributeMap: List<Any?>?,
+    override val startOffset: Int,
+    override val endOffset: Int,
+    override val parent: IrDeclarationParent,
+    override val annotations: List<IrConstructorCall>,
+    override val type: IrType,
+    override val name: Name
+) : IrDeclarationBase, IrValueDeclaration

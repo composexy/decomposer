@@ -5,6 +5,6 @@ import com.decomposer.runtime.ir.IrStatement
 import com.decomposer.runtime.ir.IrType
 import com.decomposer.runtime.ir.declarations.IrAttributeContainer
 
-abstract class IrExpression : IrElementBase(), IrStatement, IrVarargElement, IrAttributeContainer {
-    abstract var type: IrType
+abstract class IrExpression : IrElementBase, IrStatement, IrVarargElement, IrAttributeContainer {
+    abstract val type: IrType
 }

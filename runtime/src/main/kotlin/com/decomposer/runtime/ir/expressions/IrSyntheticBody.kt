@@ -1,8 +1,11 @@
 package com.decomposer.runtime.ir.expressions
 
-abstract class IrSyntheticBody : IrBody() {
-    abstract var kind: IrSyntheticBodyKind
-}
+data class IrSyntheticBody(
+    val kind: IrSyntheticBodyKind,
+    override val startOffset: Int,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int
+) : IrBody()
 
 enum class IrSyntheticBodyKind {
     ENUM_VALUES,

@@ -1,7 +1,15 @@
 package com.decomposer.runtime.ir.expressions
 
+import com.decomposer.runtime.ir.IrType
+import com.decomposer.runtime.ir.declarations.IrAttributeContainer
 import com.decomposer.runtime.ir.symbols.IrEnumEntrySymbol
 
-abstract class IrGetEnumValue : IrGetSingletonValue() {
-    abstract override var symbol: IrEnumEntrySymbol
-}
+data class IrGetEnumValue(
+    override val symbol: IrEnumEntrySymbol,
+    override val startOffset: Int,
+    override val type: IrType,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int,
+    override val attributeOwnerId: IrAttributeContainer,
+    override val originalBeforeInline: IrAttributeContainer?
+) : IrGetSingletonValue()

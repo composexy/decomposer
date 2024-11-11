@@ -1,5 +1,8 @@
 package com.decomposer.runtime.ir.expressions
 
-abstract class IrExpressionBody : IrBody() {
-    abstract var expression: IrExpression
-}
+data class IrExpressionBody(
+    val expression: IrExpression,
+    override val startOffset: Int,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int
+) : IrBody()

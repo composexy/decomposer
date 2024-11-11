@@ -1,6 +1,6 @@
 package com.decomposer.runtime.ir.declarations
 
-class IrFileEntry(
+data class IrFileEntry(
     val name: String,
     val maxOffset: Int
 )

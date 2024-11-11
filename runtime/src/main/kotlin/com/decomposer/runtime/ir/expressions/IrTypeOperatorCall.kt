@@ -1,12 +1,19 @@
 package com.decomposer.runtime.ir.expressions
 
 import com.decomposer.runtime.ir.IrType
+import com.decomposer.runtime.ir.declarations.IrAttributeContainer
 
-abstract class IrTypeOperatorCall : IrExpression() {
-    abstract var operator: IrTypeOperator
-    abstract var argument: IrExpression
-    abstract var typeOperand: IrType
-}
+data class IrTypeOperatorCall(
+    val operator: IrTypeOperator,
+    val argument: IrExpression,
+    val typeOperand: IrType,
+    override val startOffset: Int,
+    override val type: IrType,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int,
+    override val attributeOwnerId: IrAttributeContainer,
+    override val originalBeforeInline: IrAttributeContainer?
+) : IrExpression()
 
 enum class IrTypeOperator {
     CAST,

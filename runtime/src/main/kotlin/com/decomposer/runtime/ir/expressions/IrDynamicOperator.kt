@@ -8,7 +8,6 @@ enum class IrDynamicOperator(val image: String, val isAssignmentOperator: Boolea
     POSTFIX_INCREMENT("++", isAssignmentOperator = true),
     PREFIX_DECREMENT("--", isAssignmentOperator = true),
     POSTFIX_DECREMENT("--", isAssignmentOperator = true),
-
     BINARY_PLUS("+"),
     BINARY_MINUS("-"),
     MUL("*"),
@@ -24,14 +23,12 @@ enum class IrDynamicOperator(val image: String, val isAssignmentOperator: Boolea
     EXCLEQEQ("!=="),
     ANDAND("&&"),
     OROR("||"),
-
     EQ("=", isAssignmentOperator = true),
     PLUSEQ("+=", isAssignmentOperator = true),
     MINUSEQ("-=", isAssignmentOperator = true),
     MULEQ("*=", isAssignmentOperator = true),
     DIVEQ("/=", isAssignmentOperator = true),
     MODEQ("%=", isAssignmentOperator = true),
-
     ARRAY_ACCESS("[]"),
     INVOKE("()")
 }

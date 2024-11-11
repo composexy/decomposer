@@ -1,5 +1,14 @@
 package com.decomposer.runtime.ir.expressions
 
-abstract class IrGetClass : IrExpression() {
-    abstract var argument: IrExpression
-}
+import com.decomposer.runtime.ir.IrType
+import com.decomposer.runtime.ir.declarations.IrAttributeContainer
+
+data class IrGetClass(
+    val argument: IrExpression,
+    override val startOffset: Int,
+    override val type: IrType,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int,
+    override val attributeOwnerId: IrAttributeContainer,
+    override val originalBeforeInline: IrAttributeContainer?
+) : IrExpression()

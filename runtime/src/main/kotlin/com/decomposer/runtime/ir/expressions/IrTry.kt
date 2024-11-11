@@ -1,7 +1,16 @@
 package com.decomposer.runtime.ir.expressions
 
-abstract class IrTry : IrExpression() {
-    abstract var tryResult: IrExpression
-    abstract val catches: MutableList<IrCatch>
-    abstract var finallyExpression: IrExpression?
-}
+import com.decomposer.runtime.ir.IrType
+import com.decomposer.runtime.ir.declarations.IrAttributeContainer
+
+data class IrTry(
+    val tryResult: IrExpression,
+    val catches: MutableList<IrCatch>,
+    val finallyExpression: IrExpression?,
+    override val startOffset: Int,
+    override val type: IrType,
+    override val attributeMap: List<Any?>?,
+    override val endOffset: Int,
+    override val attributeOwnerId: IrAttributeContainer,
+    override val originalBeforeInline: IrAttributeContainer?
+) : IrExpression()

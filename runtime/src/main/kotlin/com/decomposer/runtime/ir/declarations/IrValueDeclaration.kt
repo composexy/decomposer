@@ -5,5 +5,5 @@ import com.decomposer.runtime.ir.symbols.IrValueSymbol
 
 interface IrValueDeclaration : IrDeclarationWithName, IrSymbolOwner {
     override val symbol: IrValueSymbol
-    var type: IrType
+    val type: IrType
 }

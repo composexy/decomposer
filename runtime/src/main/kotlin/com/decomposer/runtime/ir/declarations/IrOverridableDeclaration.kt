@@ -6,6 +6,6 @@ sealed interface IrOverridableDeclaration<S : IrSymbol> : IrOverridableMember {
     override var startOffset: Int
     override var endOffset: Int
     override val symbol: S
-    var isFakeOverride: Boolean
-    var overriddenSymbols: List<S>
+    val isFakeOverride: Boolean
+    val overriddenSymbols: List<S>
 }

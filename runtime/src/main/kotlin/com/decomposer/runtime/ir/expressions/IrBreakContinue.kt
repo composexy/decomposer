@@ -1,6 +1,6 @@
 package com.decomposer.runtime.ir.expressions
 
 abstract class IrBreakContinue : IrExpression() {
-    abstract var loop: IrLoop
-    abstract var label: String?
+    abstract val loop: IrLoop
+    abstract val label: String?
 }

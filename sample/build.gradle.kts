@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.composeCompiler)
+    kotlin(libs.plugins.kotlin.serialization.get().pluginId) version libs.versions.kotlin
 }
 
 android {
@@ -47,6 +48,7 @@ kotlin {
 dependencies {
     implementation(libs.okhttp)
     implementation(libs.dx)
+    implementation(libs.kotlinx.serializationJson)
     platform(libs.compose.bom)
     implementation(libs.dexlib2)
     implementation(libs.androidx.activity.compose)

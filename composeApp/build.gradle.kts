@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    kotlin(libs.plugins.kotlin.serialization.get().pluginId) version libs.versions.kotlin
 }
 
 kotlin {
@@ -20,8 +21,10 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
         }
         desktopMain.dependencies {
+            implementation(projects.runtime)
             implementation(libs.kotlin.compilerEmbeddable)
             implementation(libs.ktor.server.core)
+            implementation(libs.kotlinx.serializationJson)
             implementation(libs.ktor.server.netty)
             implementation(libs.ktor.server.websockets)
             implementation(compose.desktop.currentOs)

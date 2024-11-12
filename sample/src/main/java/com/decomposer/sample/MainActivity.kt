@@ -9,8 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.lifecycleScope
+import com.decomposer.runtime.SerializedIrFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -22,8 +24,10 @@ import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.ValueType
 import org.jf.dexlib2.iface.ClassDef
 import org.jf.dexlib2.iface.value.ArrayEncodedValue
+import org.jf.dexlib2.iface.value.EncodedValue
 import org.jf.dexlib2.iface.value.StringEncodedValue
 import java.io.File
+import java.lang.reflect.AnnotatedElement
 import java.util.zip.ZipFile
 
 class MainActivity : ComponentActivity() {
@@ -79,7 +83,30 @@ class MainActivity : ComponentActivity() {
                         classDef.annotations.forEach { annotation ->
                             //Log.e("Test", "${annotation.type}")
                             if (annotation.type == "Lcom/decomposer/runtime/PostComposeIr;") {
-                                annotation.elements.forEach { ele ->
+                                var fileData: Array<String> = emptyArray()
+                                var fqName = ""
+                                var path = ""
+                                var types: Array<String> = emptyArray()
+                                var signatures: Array<String> = emptyArray()
+                                var strings: Array<String> = emptyArray()
+                                var bodies: Array<String> = emptyArray()
+                                var declarations: Array<String> = emptyArray()
+                                var debugInfo: Array<String> = emptyArray()
+                                var backendSpecificMetadata: Array<String> = emptyArray()
+                                annotation.elements.forEachIndexed { index, ele ->
+                                    when (ele.name) {
+                                        "fileData" -> fileData = extractStringArray(ele.value)
+                                        "fqName" -> fqName = extractString(ele.value)
+                                        "path" -> path = extractString(ele.value)
+                                        "types" -> types = extractStringArray(ele.value)
+                                        "signatures" -> signatures = extractStringArray(ele.value)
+                                        "strings" -> strings = extractStringArray(ele.value)
+                                        "bodies" -> bodies = extractStringArray(ele.value)
+                                        "declarations" -> declarations = extractStringArray(ele.value)
+                                        "debugInfo" -> debugInfo = extractStringArray(ele.value)
+                                        "backendSpecificMetadata" -> backendSpecificMetadata = extractStringArray(ele.value)
+                                    }
+                                    /*
                                     val stringList = mutableListOf<String>()
                                     if (ele.value.valueType == ValueType.ARRAY) {
                                         val arrayValue = ele.value as ArrayEncodedValue  // Cast to a list of elements
@@ -98,7 +125,23 @@ class MainActivity : ComponentActivity() {
                                         Log.e("Test", "Sending $it ")
                                         webSocket.send(it)
                                     }
+                                    */
                                 }
+                                val data = SerializedIrFile(
+                                    fileData = fileData,
+                                    fqName = fqName,
+                                    path = path,
+                                    types = types,
+                                    signatures = signatures,
+                                    strings = strings,
+                                    bodies = bodies,
+                                    declarations = declarations,
+                                    debugInfo = debugInfo,
+                                    backendSpecificMetadata = backendSpecificMetadata
+                                )
+                                val json = Json.encodeToString(SerializedIrFile.serializer(), data)
+                                Log.e("Test", json)
+                                webSocket.send(json)
                             }
                         }
                     }
@@ -115,6 +158,31 @@ class MainActivity : ComponentActivity() {
             // Clean up temporary directory if needed
             tempDexDir.deleteRecursively()
         }
+    }
+
+    fun extractStringArray(value: EncodedValue): Array<String> {
+        val stringList = mutableListOf<String>()
+        if (value.valueType == ValueType.ARRAY) {
+            val arrayValue = value as ArrayEncodedValue  // Cast to a list of elements
+            arrayValue.value.forEach { item ->
+                if (item.valueType == ValueType.STRING) {
+                    item as StringEncodedValue
+                    val stringValue = item.value
+                    stringList.add(stringValue)  // Add each string to the list
+                }
+            }
+        }
+
+        // Convert the list to an Array<String>
+        return stringList.toTypedArray()
+    }
+
+    fun extractString(value: EncodedValue): String {
+        if (value.valueType == ValueType.STRING) {
+            val stringValue = value as StringEncodedValue
+            return stringValue.value
+        }
+        return ""
     }
 
     fun start(): WebSocket {

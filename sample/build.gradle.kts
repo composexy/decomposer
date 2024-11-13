@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.decomposer.sample"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -45,8 +45,12 @@ kotlin {
 }
 
 dependencies {
-    platform(libs.compose.bom)
+    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
     implementation(projects.runtime)
     kotlinCompilerPluginClasspath(projects.compilerPlugin)
     testImplementation(libs.junit)

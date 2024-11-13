@@ -65,6 +65,8 @@ class IrSerializeTransformer(
             } ?: irStringArray(emptyArray())
         )
 
+        declaration.annotations += annotation
+
         return declaration
     }
 }

@@ -10,6 +10,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.lifecycleScope
 import com.decomposer.runtime.SerializedIrFile
+import com.decomposer.sample.proto.IdSignature
+import com.decomposer.sample.proto.IrDeclaration
+import com.decomposer.sample.proto.IrExpression
+import com.decomposer.sample.proto.IrFile
+import com.decomposer.sample.proto.IrStatement
+import com.decomposer.sample.proto.IrType
+import com.google.protobuf.util.JsonFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -19,6 +26,8 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import org.jetbrains.kotlin.library.encodings.WobblyTF8
+import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
 import org.jf.dexlib2.DexFileFactory
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.ValueType
@@ -26,8 +35,8 @@ import org.jf.dexlib2.iface.ClassDef
 import org.jf.dexlib2.iface.value.ArrayEncodedValue
 import org.jf.dexlib2.iface.value.EncodedValue
 import org.jf.dexlib2.iface.value.StringEncodedValue
+import java.io.DataInputStream
 import java.io.File
-import java.lang.reflect.AnnotatedElement
 import java.util.zip.ZipFile
 
 class MainActivity : ComponentActivity() {
@@ -139,8 +148,9 @@ class MainActivity : ComponentActivity() {
                                     debugInfo = debugInfo,
                                     backendSpecificMetadata = backendSpecificMetadata
                                 )
+                                debug(data)
                                 val json = Json.encodeToString(SerializedIrFile.serializer(), data)
-                                Log.e("Test", json)
+                                //Log.e("Test", json)
                                 webSocket.send(json)
                             }
                         }
@@ -157,6 +167,127 @@ class MainActivity : ComponentActivity() {
         } finally {
             // Clean up temporary directory if needed
             tempDexDir.deleteRecursively()
+        }
+    }
+
+    fun debug(serializedIrFile: SerializedIrFile) {
+        val fileData = serializedIrFile.fileData
+        val fqName = serializedIrFile.fqName
+        val path = serializedIrFile.path
+        val types = serializedIrFile.types
+        val signatures = serializedIrFile.signatures
+        val strings = serializedIrFile.strings
+        val bodies = serializedIrFile.bodies
+        val declarations = serializedIrFile.declarations
+        val debugInfo = serializedIrFile.debugInfo
+        val backendSpecificMetadata = serializedIrFile.backendSpecificMetadata
+
+        val irFile = IrFile.parseFrom(BitEncoding.decodeBytes(fileData))
+        val jsonPrinter = JsonFormat.printer()
+        val irFileJson = jsonPrinter.print(irFile)
+        Log.e("Test", "irFile:\n$irFileJson")
+
+        val irTypes = readMemoryArray(BitEncoding.decodeBytes(types)) {
+            IrType.parseFrom(it)
+        }
+        irTypes.forEach {
+            Log.e("Test", "irType:${jsonPrinter.print(it)}")
+        }
+        val irSignatures = readMemoryArray(BitEncoding.decodeBytes(signatures)) {
+            IdSignature.parseFrom(it)
+        }
+        irSignatures.forEach {
+            Log.e("Test", "irSignature:${jsonPrinter.print(it)}")
+        }
+        val irBodies = readMemoryArray(BitEncoding.decodeBytes(bodies)) {
+            var isExpression = true
+            var isStatement = true
+            try {
+                val express = IrExpression.parseFrom(it)
+                Log.e("Test", "irExpression:${jsonPrinter.print(express)}")
+            } catch (e: Exception) {
+                isExpression = false
+            }
+            if (!isExpression) {
+                try {
+                    val stats = IrStatement.parseFrom(it)
+                    Log.e("Test", "irStatement:${jsonPrinter.print(stats)}")
+                } catch (e: Exception) {
+                    isStatement = false
+                }
+            }
+            it
+        }
+        val irDeclarations = readMemoryDeclaration(BitEncoding.decodeBytes(declarations))
+        irDeclarations.forEach {
+            Log.e("Test", "irDeclaration:${jsonPrinter.print(it)}")
+        }
+    }
+
+    fun <R> readMemoryArray(byteArray: ByteArray, block: (ByteArray) -> R): List<R> {
+        val input = DataInputStream(byteArray.inputStream())
+        val size = input.readInt()
+        val lengths = IntArray(size)
+        for (i in 0 until  size) {
+            lengths[i] = input.readInt()
+        }
+        val byteArrays = mutableListOf<ByteArray>()
+        for (i in 0 until  size) {
+            byteArrays.add(ByteArray(lengths[i]))
+        }
+        for (i in 0 until  size) {
+            input.read(byteArrays[i])
+        }
+        return byteArrays.map {
+            block(it)
+        }
+    }
+
+    fun readMemoryString(byteArray: ByteArray): List<String> {
+        val input = DataInputStream(byteArray.inputStream())
+        val size = input.readInt()
+        val lengths = IntArray(size)
+        for (i in 0 until  size) {
+            lengths[i] = input.readInt()
+        }
+        val byteArrays = mutableListOf<ByteArray>()
+        for (i in 0 until  size) {
+            byteArrays.add(ByteArray(lengths[i]))
+        }
+        for (i in 0 until  size) {
+            input.read(byteArrays[i])
+        }
+        return byteArrays.map {
+            WobblyTF8.decode(it)
+        }
+    }
+
+    private val SINGLE_INDEX_RECORD_SIZE = 3 * Int.SIZE_BYTES
+    private val INDEX_HEADER_SIZE = Int.SIZE_BYTES
+
+    fun readMemoryDeclaration(byteArray: ByteArray): List<IrDeclaration> {
+        val input = DataInputStream(byteArray.inputStream())
+        val size = input.readInt()
+
+        val ids = IntArray(size)
+        val offsets = IntArray(size)
+        val sizes = IntArray(size)
+
+        for (i in 0 until  size) {
+            ids[i] = input.readInt()
+            offsets[i] = input.readInt()
+            sizes[i] = input.readInt()
+        }
+
+        val byteArrays = mutableListOf<ByteArray>()
+        for (i in 0 until  size) {
+            byteArrays.add(ByteArray(sizes[i]))
+        }
+        for (i in 0 until  size) {
+            input.read(byteArrays[i])
+        }
+        return byteArrays.map {
+            IrDeclaration.parseFrom(it)
         }
     }
 

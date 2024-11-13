@@ -62,8 +62,10 @@ ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktorSer
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktorServerCore" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktorServerCore" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobufKotlin" }
-protobuf-kotlin-v3253 = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobufKotlinVersion" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobufKotlinVersion" }
+protobuf-java-util = { module = "com.google.protobuf:protobuf-java-util", version = "4.28.3" }
+protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobufKotlinVersion" }
+
 runner = { group = "com.android.support.test", name = "runner", version.ref = "runner" }
 espresso-core = { group = "com.android.support.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 appcompat-v7 = { group = "com.android.support", name = "appcompat-v7", version.ref = "appcompatV7" }

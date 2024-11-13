@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.Packaging
 import com.google.protobuf.gradle.id
 
 plugins {
@@ -10,12 +11,12 @@ plugins {
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:3.17.3" // Protocol Buffers compiler
+        artifact = "com.google.protobuf:protoc:3.25.3" // Protocol Buffers compiler
     }
     generateProtoTasks {
         all().forEach { task ->
             task.builtins {
-                id("kotlin")
+                id("java")
             }
         }
     }
@@ -27,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "com.decomposer.sample"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -51,6 +52,10 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    packaging {
+        exclude("kotlin/*/*")
+        exclude("kotlin/*")
+    }
 }
 
 kotlin {
@@ -62,9 +67,12 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.protobuf.kotlin.v3253)
+    api(libs.protobuf.java)
+    api(libs.protobuf.kotlin)
+    implementation(libs.protobuf.java.util)
     implementation(libs.okhttp)
     implementation(libs.dx)
+    implementation(libs.kotlin.compilerEmbeddable)
     implementation(libs.kotlinx.serializationJson)
     platform(libs.compose.bom)
     implementation(libs.dexlib2)

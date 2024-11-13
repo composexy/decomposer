@@ -16,14 +16,18 @@ import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
 
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 class IrSerializeTransformer(
-    private val composed: Boolean,
+    composed: Boolean,
     messageCollector: MessageCollector,
     private val configuration: CompilerConfiguration,
     context: IrPluginContext
 ) : BaseDecomposerTransformer(messageCollector, context) {
 
     private val irSerializer = JvmIrSerializerImpl(configuration)
-    private val composeIrClass = getTopLevelClass(CLASS_ID_COMPOSE_IR)
+    private val composeIrClass = if (composed) {
+        getTopLevelClass(CLASS_ID_POST_COMPOSE_IR)
+    } else {
+        getTopLevelClass(CLASS_ID_PRE_COMPOSE_IR)
+    }
 
     override fun visitFileNew(declaration: IrFile): IrFile {
         return withSerializeIrOption(configuration) {
@@ -31,16 +35,14 @@ class IrSerializeTransformer(
 
             if (fileIr != null) {
                 declaration.annotations += irComposeIrCall().apply {
-                    putValueArgument(0, irConst(composed))
-                    putValueArgument(1, irStringArray(BitEncoding.encodeBytes(fileIr)))
+                    putValueArgument(0, irStringArray(BitEncoding.encodeBytes(fileIr)))
                 }
             }
 
             for (irClass in declaration.declarations.filterIsInstance<IrClass>()) {
                 val topLevelClassIr = irSerializer.serializeTopLevelIrClass(irClass) ?: continue
                 irClass.annotations += irComposeIrCall().apply {
-                    putValueArgument(0, irConst(composed))
-                    putValueArgument(1, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
+                    putValueArgument(0, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
                 }
             }
 

@@ -1,9 +1,12 @@
+import com.google.protobuf.gradle.id
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.mavenPublish)
+    alias(libs.plugins.protobuf)
+    kotlin(libs.plugins.kotlinx.serialization.get().pluginId) version libs.versions.kotlin
 }
 
 java {
@@ -13,6 +16,20 @@ java {
 
 group = "com.decomposer.runtime"
 version = "0.0.1"
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${libs.versions.protobuf}"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                id("java")
+            }
+            task.inputs.files(file("src/commonMain"))
+        }
+    }
+}
 
 kotlin {
     jvm("desktop")
@@ -27,6 +44,9 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                api(libs.protobuf.java)
+                implementation(libs.protobuf.java.util)
+                implementation(libs.kotlinx.serializationJson)
             }
         }
         val commonTest by getting {
@@ -36,6 +56,7 @@ kotlin {
         }
         val androidMain by getting {
             dependencies {
+                implementation(libs.dexlib2)
             }
         }
         val androidUnitTest by getting {

@@ -14,7 +14,12 @@ class PostComposeExtensions(
         val postComposeIrStorageEnabled = configuration[KEY_POST_COMPOSE_IR_STORAGE_ENABLED] == true
         if (postComposeIrStorageEnabled) {
             moduleFragment.transform(
-                PostComposeIrStorageLowering(messageCollector, configuration, pluginContext),
+                IrSerializeTransformer(
+                    composed = true,
+                    messageCollector = messageCollector,
+                    configuration = configuration,
+                    context = pluginContext
+                ),
                 null
             )
         }

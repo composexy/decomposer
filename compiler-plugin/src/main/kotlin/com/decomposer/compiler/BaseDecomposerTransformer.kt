@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.name.ClassId
 
-abstract class BaseDecomposerLowering(
+abstract class BaseDecomposerTransformer(
     private val messageCollector: MessageCollector,
     private val context: IrPluginContext
 ) : IrElementTransformerVoidWithContext() {
@@ -51,6 +51,16 @@ abstract class BaseDecomposerLowering(
             UNDEFINED_OFFSET,
             context.irBuiltIns.stringType,
             IrConstKind.String,
+            value
+        )
+    }
+
+    protected fun irConst(value: Boolean): IrConst {
+        return IrConstImpl(
+            UNDEFINED_OFFSET,
+            UNDEFINED_OFFSET,
+            context.irBuiltIns.booleanType,
+            IrConstKind.Boolean,
             value
         )
     }

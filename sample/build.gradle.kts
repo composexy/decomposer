@@ -1,8 +1,24 @@
+import com.google.protobuf.gradle.id
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.protobuf)
     kotlin(libs.plugins.kotlin.serialization.get().pluginId) version libs.versions.kotlin
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.17.3" // Protocol Buffers compiler
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                id("kotlin")
+            }
+        }
+    }
 }
 
 android {
@@ -46,6 +62,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.protobuf.kotlin.v3253)
     implementation(libs.okhttp)
     implementation(libs.dx)
     implementation(libs.kotlinx.serializationJson)

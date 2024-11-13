@@ -1,15 +1,13 @@
 package com.decomposer.compiler
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
-import org.jetbrains.kotlin.backend.common.serialization.DeclarationTable
-import org.jetbrains.kotlin.backend.common.serialization.IrFileSerializer
-import org.jetbrains.kotlin.backend.jvm.serialization.JvmGlobalDeclarationTable
+import org.jetbrains.kotlin.backend.jvm.JvmIrSerializerImpl
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
+import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
@@ -24,17 +22,34 @@ class IrSerializeTransformer(
     context: IrPluginContext
 ) : BaseDecomposerTransformer(messageCollector, context) {
 
-    private val irFileSerializer = IrFileSerializer(
-        declarationTable = DeclarationTable(JvmGlobalDeclarationTable()),
-        compatibilityMode = CompatibilityMode.CURRENT,
-        languageVersionSettings = configuration.languageVersionSettings,
-        sourceBaseDirs = emptyList()
-    )
+    private val irSerializer = JvmIrSerializerImpl(configuration)
     private val composeIrClass = getTopLevelClass(CLASS_ID_COMPOSE_IR)
 
     override fun visitFileNew(declaration: IrFile): IrFile {
-        val serializedIr = irFileSerializer.serializeIrFile(declaration)
-        val annotation = IrConstructorCallImpl(
+        return withSerializeIrOption(configuration) {
+            val fileIr = irSerializer.serializeIrFile(declaration)
+
+            if (fileIr != null) {
+                declaration.annotations += irComposeIrCall().apply {
+                    putValueArgument(0, irConst(composed))
+                    putValueArgument(1, irStringArray(BitEncoding.encodeBytes(fileIr)))
+                }
+            }
+
+            for (irClass in declaration.declarations.filterIsInstance<IrClass>()) {
+                val topLevelClassIr = irSerializer.serializeTopLevelIrClass(irClass) ?: continue
+                irClass.annotations += irComposeIrCall().apply {
+                    putValueArgument(0, irConst(composed))
+                    putValueArgument(1, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
+                }
+            }
+
+            declaration
+        }
+    }
+
+    private fun irComposeIrCall(): IrConstructorCall =
+        IrConstructorCallImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = composeIrClass.defaultType,
@@ -42,31 +57,4 @@ class IrSerializeTransformer(
             typeArgumentsCount = 0,
             constructorTypeArgumentsCount = 0
         )
-
-        annotation.putValueArgument(0, irConst(composed))
-        annotation.putValueArgument(1, irStringArray(BitEncoding.encodeBytes(serializedIr.fileData)))
-        annotation.putValueArgument(2, irConst(serializedIr.fqName))
-        annotation.putValueArgument(3, irConst(serializedIr.path))
-        annotation.putValueArgument(4, irStringArray(BitEncoding.encodeBytes(serializedIr.types)))
-        annotation.putValueArgument(5, irStringArray(BitEncoding.encodeBytes(serializedIr.signatures)))
-        annotation.putValueArgument(6, irStringArray(BitEncoding.encodeBytes(serializedIr.strings)))
-        annotation.putValueArgument(7, irStringArray(BitEncoding.encodeBytes(serializedIr.bodies)))
-        annotation.putValueArgument(8, irStringArray(BitEncoding.encodeBytes(serializedIr.declarations)))
-        annotation.putValueArgument(
-            9,
-            serializedIr.debugInfo?.let {
-                irStringArray(BitEncoding.encodeBytes(it))
-            } ?: irStringArray(emptyArray())
-        )
-        annotation.putValueArgument(
-            10,
-            serializedIr.backendSpecificMetadata?.let {
-                irStringArray(BitEncoding.encodeBytes(it))
-            } ?: irStringArray(emptyArray())
-        )
-
-        declaration.annotations += annotation
-
-        return declaration
-    }
 }

@@ -14,7 +14,12 @@ class PreComposeExtension(
         val preComposeIrStorageEnabled = configuration[KEY_PRE_COMPOSE_IR_STORAGE_ENABLED] == true
         if (preComposeIrStorageEnabled) {
             moduleFragment.transform(
-                PreComposeIrStorageLowering(messageCollector, configuration, pluginContext),
+                IrSerializeTransformer(
+                    composed = false,
+                    messageCollector = messageCollector,
+                    configuration = configuration,
+                    context = pluginContext
+                ),
                 null
             )
         }

@@ -1,11 +1,11 @@
 syntax = "proto2";
-package com.decomposer.runtime.ir.proto;
+package com.decomposer.runtime.ir;
 
 // Changes to this proto are tracked by KotlinAbiVersion version. See KotlinAbiVersion KDoc.
 
 option java_multiple_files = true;
 option java_outer_classname = "KotlinIr";
-option optimize_for = LITE_RUNTIME;
+option optimize_for = SPEED;
 
 /* ------ Top Level --------------------------------------------- */
 

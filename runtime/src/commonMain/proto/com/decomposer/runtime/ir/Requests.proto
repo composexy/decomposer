@@ -1,0 +1,26 @@
+syntax = "proto2";
+package com.decomposer.runtime.ir;
+import "com/decomposer/runtime/ir/KotlinIr.proto";
+import "com/decomposer/runtime/ir/JvmIr.proto";
+
+option java_outer_classname = "IrRpc";
+option optimize_for = SPEED;
+
+message FileTree {
+    repeated FileEntry files = 1;
+}
+
+message FileTreeRequest {}
+
+message FileTreeResponse {
+    required FileTree file_tree = 1;
+}
+
+message JvmIrRequest {
+    required bool composed = 1;
+    repeated string paths = 2;
+}
+
+message JvmIrResponse {
+    repeated ClassOrFile class_or_files = 1;
+}

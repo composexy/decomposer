@@ -1,0 +1,8 @@
+syntax = "proto2";
+package com.decomposer.runtime.ir;
+import "com/decomposer/runtime/ir/Requests.proto";
+
+service IrService {
+    rpc FetchFileTree(FileTreeRequest) returns (FileTreeResponse) {}
+    rpc FetchJvmIrs(JvmIrRequest) returns (JvmIrResponse) {}
+}

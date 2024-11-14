@@ -9,7 +9,19 @@ plugins {
 }
 
 wire {
-    kotlin {}
+    kotlin {
+        rpcRole = "server"
+        rpcCallStyle = "suspending"
+        singleMethodServices = false
+        exclusive = false
+        includes = listOf("com.decomposer.runtime.ir.IrService")
+    }
+
+    kotlin {
+        rpcRole = "client"
+        rpcCallStyle = "suspending"
+        singleMethodServices = false
+    }
 }
 
 java {
@@ -34,6 +46,9 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.serializationJson)
+                implementation(libs.squareup.wire.runtime)
+                implementation(libs.squareup.wire.grpc.client)
+                implementation(libs.squareup.wire.grpc.server)
             }
         }
         val commonTest by getting {

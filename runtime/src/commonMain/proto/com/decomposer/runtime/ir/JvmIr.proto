@@ -3,7 +3,7 @@ package com.decomposer.runtime.ir;
 import "com/decomposer/runtime/ir/KotlinIr.proto";
 
 option java_outer_classname = "JvmIr";
-option optimize_for = LITE_RUNTIME;
+option optimize_for = SPEED;
 
 /* Stored in JVM .class annotations */
 

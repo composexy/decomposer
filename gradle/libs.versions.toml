@@ -28,6 +28,7 @@ dexlib2 = "2.5.2"
 ktorServerCore = "3.0.1"
 okhttp = "4.12.0"
 wire = "4.9.11"
+moshi = "1.15.0"
 
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -67,6 +68,10 @@ appcompat-v7 = { group = "com.android.support", name = "appcompat-v7", version.r
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 dexlib2 = { module = "org.smali:dexlib2", version.ref = "dexlib2" }
 kotlinx-serializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+squareup-moshi = { group = " com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshi" }
+squareup-wire-runtime = { group = "com.squareup.wire", name = "wire-runtime", version.ref = "wire" }
+squareup-wire-grpc-client = { group = "com.squareup.wire", name = "wire-grpc-client", version.ref = "wire" }
+squareup-wire-grpc-server = { group = "com.squareup.wire", name = "wire-grpc-server", version.ref = "wire" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -79,4 +84,3 @@ wire = { id = "com.squareup.wire", version.ref = "wire" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinx-serialization = { id = "plugin.serialization", version.ref = "kotlin" }
-protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }

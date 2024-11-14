@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.decomposer.sample"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -30,6 +30,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    packaging {
+        resources.excludes.add("kotlin/**.kotlin_builtins")
     }
     kotlinOptions {
         jvmTarget = "11"

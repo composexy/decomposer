@@ -4,9 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 class MainActivity : ComponentActivity() {
@@ -15,11 +18,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                Greeting(
-                    message = "Hello Decomposer!",
-                    modifier = Modifier.padding(innerPadding)
-                )
+                Column {
+                    Greeting(
+                        message = "Hello Decomposer!",
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                    Footer(
+                        message = "Bye!",
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+fun Footer(modifier: Modifier, message: String) {
+    Text(modifier = modifier, text = message)
 }

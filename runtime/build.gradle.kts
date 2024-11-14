@@ -9,19 +9,7 @@ plugins {
 }
 
 wire {
-    kotlin {
-        rpcRole = "server"
-        rpcCallStyle = "suspending"
-        singleMethodServices = false
-        exclusive = false
-        includes = listOf("com.decomposer.runtime.ir.IrService")
-    }
-
-    kotlin {
-        rpcRole = "client"
-        rpcCallStyle = "suspending"
-        singleMethodServices = false
-    }
+    kotlin {}
 }
 
 java {

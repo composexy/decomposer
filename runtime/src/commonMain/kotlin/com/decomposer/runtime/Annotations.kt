@@ -4,6 +4,8 @@ package com.decomposer.runtime
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PreComposeIr(
+    val filePath: String,
+    val isFileFacade: Boolean,
     val data: Array<String>
 )
 
@@ -11,5 +13,7 @@ annotation class PreComposeIr(
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PostComposeIr(
+    val filePath: String,
+    val isFileFacade: Boolean,
     val data: Array<String>
 )

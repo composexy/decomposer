@@ -35,14 +35,18 @@ class IrSerializeTransformer(
 
             if (fileIr != null) {
                 declaration.annotations += irComposeIrCall().apply {
-                    putValueArgument(0, irStringArray(BitEncoding.encodeBytes(fileIr)))
+                    putValueArgument(0, irConst(declaration.fileEntry.name))
+                    putValueArgument(1, irConst(true))
+                    putValueArgument(2, irStringArray(BitEncoding.encodeBytes(fileIr)))
                 }
             }
 
             for (irClass in declaration.declarations.filterIsInstance<IrClass>()) {
                 val topLevelClassIr = irSerializer.serializeTopLevelIrClass(irClass) ?: continue
                 irClass.annotations += irComposeIrCall().apply {
-                    putValueArgument(0, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
+                    putValueArgument(0, irConst(declaration.fileEntry.name))
+                    putValueArgument(1, irConst(false))
+                    putValueArgument(2, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
                 }
             }
 

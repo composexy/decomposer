@@ -6,14 +6,14 @@ import "com/decomposer/runtime/ir/JvmIr.proto";
 option java_outer_classname = "IrRpc";
 option optimize_for = SPEED;
 
-message FileTree {
-    repeated FileEntry files = 1;
+message IrProject {
+    repeated string files = 1;
 }
 
-message FileTreeRequest {}
+message IrProjectRequest {}
 
-message FileTreeResponse {
-    required FileTree file_tree = 1;
+message IrProjectResponse {
+    required IrProject file_tree = 1;
 }
 
 message JvmIrRequest {

@@ -9,6 +9,6 @@ data class VirtualFileIr(
 )
 
 interface ProjectScanner {
-    suspend fun fetchProjectStructure(): Set<String>
+    suspend fun fetchProjectSnapshot(): Set<String>
     suspend fun fetchIr(filePath: String): VirtualFileIr
 }

@@ -1,11 +1,15 @@
 package com.decomposer.runtime.connection
 
+import com.decomposer.runtime.Command
+import com.decomposer.runtime.CommandHandler
+import com.decomposer.runtime.Logger
 import com.decomposer.runtime.connection.model.DeviceDescriptor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.pingInterval
+import io.ktor.client.plugins.websocket.receiveDeserialized
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
@@ -19,12 +23,15 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import java.net.ConnectException
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
-abstract class Client(
-    private val serverPort: Int = ConnectionContract.DEFAULT_SERVER_PORT
-) {
+internal abstract class Client(
+    private val serverPort: Int,
+    private val commandHandlers: Set<CommandHandler>
+) : Logger {
+    private val loggerTag = this::class.java.simpleName
     private var serverProbeJob: Job? = null
     private var sessionJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -48,15 +55,22 @@ abstract class Client(
         serverProbeJob?.cancel()
         serverProbeJob = coroutineScope.launch {
             while (true) {
-                connection.webSocket(
-                    method = HttpMethod.Get,
-                    host = "localhost",
-                    port = serverPort,
-                    path = "/connect"
-                ) {
-                    serverProbeJob?.cancel()
-                    serverProbeJob = null
-                    runSession(session = this)
+                try {
+                    connection.webSocket(
+                        method = HttpMethod.Get,
+                        host = "localhost",
+                        port = serverPort,
+                        path = "/connect"
+                    ) {
+                        serverProbeJob?.cancel()
+                        serverProbeJob = null
+                        runSession(session = this)
+                    }
+                } catch (ex: Exception) {
+                    when (ex) {
+                        is ConnectException -> log(Logger.Level.INFO, loggerTag, "${ex.message}")
+                        else -> log(Logger.Level.ERROR, loggerTag, ex.stackTraceToString())
+                    }
                 }
                 delay(PROBE_INTERVAL_SECONDS.seconds)
             }
@@ -72,14 +86,23 @@ abstract class Client(
     private fun runSession(session: DefaultClientWebSocketSession) = with(session) {
         this@Client.session = session
         sessionJob?.cancel()
-        sessionJob = coroutineScope.launch {
-
+        sessionJob = launch {
+            val command = receiveDeserialized<Command>()
+            commandHandlers.forEach { handler ->
+                if (handler.expectedKey == command.key) {
+                    launch {
+                        with(handler) {
+                            session.processCommand(command)
+                        }
+                    }
+                }
+            }
         }
     }
 
     private fun closeSession(session: DefaultClientWebSocketSession) = with(session) {
-        coroutineScope.launch {
-            close(CloseReason(CloseReason.Codes.NORMAL, "stop"))
+        launch {
+            close(CloseReason(CloseReason.Codes.NORMAL, "close"))
             sessionJob?.cancel()
             sessionJob = null
         }

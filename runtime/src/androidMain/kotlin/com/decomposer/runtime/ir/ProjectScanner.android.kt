@@ -6,7 +6,6 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
 import org.jf.dexlib2.DexFileFactory
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.ValueType
@@ -26,12 +25,17 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
         scanProject(context)
     }
 
-    private val uncommitedFilePaths: MutableSet<String> = mutableSetOf()
-    private val uncommitedProjectFiles: MutableMap<String, ProjectFile> = mutableMapOf()
+    private val uncommitedFilePaths = mutableSetOf<String>()
+    private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()
+    private val uncommitedOriginalIrFiles = mutableMapOf<String, List<String>>()
+    private val uncommitedComposedIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
+    private val uncommitedOriginalIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
+
     private var projectStructure: ProjectStructure? = null
     private var projectFiles: Map<String, ProjectFile>? = null
-    private val projectStructureWaiters: MutableList<Continuation<ProjectStructure>> = mutableListOf()
-    private val irWaitersByPath: MutableMap<String, Continuation<IrFetchResult>> = mutableMapOf()
+
+    private val projectStructureWaiters = mutableListOf<Continuation<ProjectStructure>>()
+    private val irWaitersByPath = mutableMapOf<String, Continuation<IrFetchResult>>()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     override suspend fun fetchProjectStructure(): ProjectStructure = suspendCoroutine { continuation ->
@@ -64,15 +68,23 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
         }
     }
 
+    private fun clearUncommitedData() {
+        uncommitedFilePaths.clear()
+        uncommitedComposedIrFiles.clear()
+        uncommitedComposedIrTopLevelClasses.clear()
+        uncommitedOriginalIrFiles.clear()
+        uncommitedOriginalIrTopLevelClasses.clear()
+    }
+
     private fun scanProject(context: Context) {
         coroutineScope.launch {
-            uncommitedProjectFiles.clear()
-            uncommitedFilePaths.clear()
             val apkFile = File(context.applicationInfo.sourceDir)
             val scanDir = context.getDir(SCANNER_DIR, Context.MODE_PRIVATE)
+            val zipFile = ZipFile(apkFile)
+
+            clearUncommitedData()
 
             try {
-                val zipFile = ZipFile(apkFile)
                 val dexEntries = zipFile.entries().asSequence()
                     .filter { it.name.endsWith(".dex") }
                     .toList()
@@ -92,29 +104,33 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
                         Log.w(TAG, "Cannot delete temporary file ${virtualDexFile.name}")
                     }
                 }
-                zipFile.close()
-                commitProjectStructure()
-                commitProjectFiles()
+
+                commitProjectData()
+                resumeProjectStructureWaiters()
+                resumeIrWaiters()
             } catch (ex: Exception) {
                 Log.e(TAG, ex.stackTraceToString())
             } finally {
+                zipFile.close()
                 scanDir.deleteRecursively()
-                resumeProjectStructureWaiters()
-                resumeIrWaiters()
+                clearUncommitedData()
             }
         }
     }
 
-    private fun commitProjectStructure() {
+    private fun commitProjectData() {
         projectStructure = ProjectStructure(
             projectFilePaths = uncommitedFilePaths
         )
-        uncommitedFilePaths.clear()
-    }
-
-    private fun commitProjectFiles() {
-        projectFiles = uncommitedProjectFiles
-        uncommitedProjectFiles.clear()
+        projectFiles = uncommitedFilePaths.associateWith { filePath ->
+            ProjectFile(
+                projectFilePath = filePath,
+                composedIrFile = uncommitedComposedIrFiles[filePath],
+                composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath] ?: emptySet(),
+                originalIrFile = uncommitedOriginalIrFiles[filePath],
+                originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet()
+            )
+        }
     }
 
     private fun processDexClass(clazz: ClassDef) {
@@ -148,6 +164,18 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
         composed: Boolean
     ) {
         uncommitedFilePaths.add(filePath)
+        when {
+            fileFacade && composed -> uncommitedComposedIrFiles[filePath] = ir
+            fileFacade && !composed -> uncommitedOriginalIrFiles[filePath] = ir
+            !fileFacade && composed -> {
+                uncommitedComposedIrTopLevelClasses.putIfAbsent(filePath, mutableSetOf())
+                uncommitedComposedIrTopLevelClasses[filePath]!!.add(ir)
+            }
+            else -> {
+                uncommitedOriginalIrTopLevelClasses.putIfAbsent(filePath, mutableSetOf())
+                uncommitedOriginalIrTopLevelClasses[filePath]!!.add(ir)
+            }
+        }
     }
 
     private fun extractIsFileFacade(value: EncodedValue): Boolean? {
@@ -195,7 +223,7 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
         irWaitersByPath.forEach {
             val filePath = it.key
             val waiter = it.value
-            val projectFile = projectFiles[filePath]
+            val projectFile = projectFiles?.get(filePath)
             if (projectFile == null) {
                 val element = IrFetchResult.Element(
                     filePath = filePath,

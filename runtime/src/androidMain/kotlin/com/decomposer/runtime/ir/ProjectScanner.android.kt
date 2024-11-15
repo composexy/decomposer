@@ -113,15 +113,19 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
     }
 
     private fun commitProjectData() {
-        projectStructure = uncommitedFilePaths
-        projectFiles = uncommitedFilePaths.associateWith { filePath ->
-            ProjectFile(
-                projectFilePath = filePath,
-                composedIrFile = uncommitedComposedIrFiles[filePath],
-                composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath] ?: emptySet(),
-                originalIrFile = uncommitedOriginalIrFiles[filePath],
-                originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet()
-            )
+        projectStructure = mutableSetOf<String>().also {
+            it.addAll(uncommitedFilePaths)
+        }
+        projectFiles = mutableMapOf<String, ProjectFile>().also {
+            it.putAll(uncommitedFilePaths.associateWith { filePath ->
+                ProjectFile(
+                    projectFilePath = filePath,
+                    composedIrFile = uncommitedComposedIrFiles[filePath],
+                    composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath] ?: emptySet(),
+                    originalIrFile = uncommitedOriginalIrFiles[filePath],
+                    originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet()
+                )
+            })
         }
     }
 

@@ -1,6 +1,6 @@
 package com.decomposer.runtime.ir
 
-data class VirtualFileIr(
+internal data class VirtualFileIr(
     val filePath: String,
     val composedIrFile: List<String>?,
     val composedTopLevelIrClasses: Set<List<String>>,
@@ -8,7 +8,7 @@ data class VirtualFileIr(
     val originalTopLevelIrClasses: Set<List<String>>
 )
 
-interface ProjectScanner {
+internal interface ProjectScanner {
     suspend fun fetchProjectSnapshot(): Set<String>
     suspend fun fetchIr(filePath: String): VirtualFileIr
 }

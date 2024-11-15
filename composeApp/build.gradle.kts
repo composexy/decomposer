@@ -21,6 +21,8 @@ kotlin {
             implementation(libs.ktor.server.core)
             implementation(libs.ktor.server.netty)
             implementation(libs.ktor.server.websockets)
+            implementation(libs.ktor.server.contentNegotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlin.compilerEmbeddable)
             implementation(projects.runtime)
         }

@@ -4,7 +4,7 @@ import com.decomposer.runtime.Command
 import com.decomposer.runtime.CommandHandler
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.connection.model.DeviceDescriptor
-import com.decomposer.runtime.connection.model.Session
+import com.decomposer.runtime.connection.model.SessionData
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -15,11 +15,13 @@ import io.ktor.client.plugins.websocket.pingInterval
 import io.ktor.client.plugins.websocket.receiveDeserialized
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.close
 import kotlinx.coroutines.CoroutineScope
@@ -49,7 +51,13 @@ internal abstract class Client(
                 .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
                 .build()
         }
-        install(ContentNegotiation)
+        install(ContentNegotiation) {
+            json(
+                Json {
+                    prettyPrint = true
+                }
+            )
+        }
         install(WebSockets) {
             pingInterval = PING_INTERVAL_SECONDS.seconds
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
@@ -67,14 +75,12 @@ internal abstract class Client(
                             host = "localhost"
                             port = ConnectionContract.DEFAULT_SERVER_PORT
                             path(ConnectionContract.DEFAULT_CONNECTION_PATH)
-                            headers {
-                                ConnectionContract.HEADER_DEVICE_TYPE to device.deviceType.name
-                            }
                         }
+                        header(ConnectionContract.HEADER_DEVICE_TYPE, device.deviceType.name)
                     }
                     when (response.status) {
                         HttpStatusCode.OK -> {
-                            val sessionData = response.body<Session>()
+                            val sessionData = response.body<SessionData>()
                             sessionStartJob?.cancel()
                             sessionStartJob = coroutineScope.launch {
                                 httpClient.webSocket(
@@ -94,7 +100,6 @@ internal abstract class Client(
                         }
                         else -> {
                             log(Logger.Level.INFO, loggerTag, "Unexpected status code: ${response.status}")
-                            continue
                         }
                     }
                 } catch (ex: Exception) {

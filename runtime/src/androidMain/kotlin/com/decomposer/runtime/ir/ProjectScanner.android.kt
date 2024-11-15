@@ -19,7 +19,7 @@ import java.util.zip.ZipFile
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
-class AndroidProjectScanner(private val context: Context): ProjectScanner {
+internal class AndroidProjectScanner(private val context: Context): ProjectScanner {
 
     private val uncommitedFilePaths = mutableSetOf<String>()
     private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()

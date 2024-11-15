@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Command(
     val key: String,
-    val parameters: List<String>
+    val parameters: List<String> = emptyList()
 )
 
 object CommandKeys {

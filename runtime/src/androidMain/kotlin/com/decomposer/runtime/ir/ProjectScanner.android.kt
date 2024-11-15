@@ -19,11 +19,7 @@ import java.util.zip.ZipFile
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
-class AndroidProjectScanner(context: Context): ProjectScanner {
-
-    init {
-        scanProject(context)
-    }
+class AndroidProjectScanner(context: Context, autoScan: Boolean): ProjectScanner {
 
     private val uncommitedFilePaths = mutableSetOf<String>()
     private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()
@@ -37,6 +33,10 @@ class AndroidProjectScanner(context: Context): ProjectScanner {
     private val projectStructureWaiters = mutableListOf<Continuation<ProjectStructure>>()
     private val irWaitersByPath = mutableMapOf<String, Continuation<IrFetchResult>>()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
+
+    init {
+        if (autoScan) scanProject(context)
+    }
 
     override suspend fun fetchProjectStructure(): ProjectStructure = suspendCoroutine { continuation ->
         val structure = projectStructure

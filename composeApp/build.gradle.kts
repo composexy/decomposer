@@ -18,6 +18,11 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.netty)
+            implementation(libs.ktor.server.websockets)
+            implementation(libs.kotlin.compilerEmbeddable)
+            implementation(projects.runtime)
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

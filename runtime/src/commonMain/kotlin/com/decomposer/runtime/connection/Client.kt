@@ -18,7 +18,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.headers
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
@@ -131,7 +130,7 @@ internal abstract class Client(
 
     private fun runSession(session: DefaultClientWebSocketSession) = with(session) {
         this@Client.websocketSession = session
-        launch {
+        launch(Job()) {
             while (true) {
                 val command = receiveDeserialized<Command>()
                 commandHandlers.forEach { handler ->

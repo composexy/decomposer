@@ -26,6 +26,7 @@ import io.ktor.server.websocket.receiveDeserialized
 import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.timeout
 import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.send
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
@@ -60,6 +61,7 @@ internal class DefaultServer(private val serverPort: Int) {
                     if (session == null) {
                         println("Cannot find session $sessionId")
                     } else {
+                        send("HiHiHi")
                         with(session) {
                             handleSession()
                         }

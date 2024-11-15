@@ -1,0 +1,17 @@
+package com.decomposer.runtime.connection.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+class ProjectSnapshot(
+    val fileTree: Set<String>
+)
+
+@Serializable
+class VirtualFileIr(
+    val filePath: String,
+    val composedIrFile: List<String>,
+    val composedTopLevelIrClasses: Set<List<String>>,
+    val originalIrFile: List<String>,
+    val originalTopLevelIrClasses: Set<List<String>>
+)

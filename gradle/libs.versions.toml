@@ -21,7 +21,7 @@ runner = "1.0.2"
 espressoCore = "3.0.2"
 appcompatV7 = "28.0.0"
 activity = "1.9.3"
-composeBom = "2024.10.01"
+composeBom = "2024.11.00"
 composeNavigation = "2.8.3"
 kotlinx-serialization = "1.7.3"
 dexlib2 = "2.5.2"
@@ -29,6 +29,7 @@ ktorServerCore = "3.0.1"
 okhttp = "4.12.0"
 wire = "4.9.11"
 moshi = "1.15.0"
+ktor = "3.0.1"
 
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -72,6 +73,12 @@ squareup-moshi = { group = " com.squareup.moshi", name = "moshi-kotlin-codegen",
 squareup-wire-runtime = { group = "com.squareup.wire", name = "wire-runtime", version.ref = "wire" }
 squareup-wire-grpc-client = { group = "com.squareup.wire", name = "wire-grpc-client", version.ref = "wire" }
 squareup-wire-grpc-server = { group = "com.squareup.wire", name = "wire-grpc-server", version.ref = "wire" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor"}
+ktor-client-websocket = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor"}
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor"}
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor"}
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor"}
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor"}
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

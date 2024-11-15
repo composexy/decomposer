@@ -37,6 +37,10 @@ kotlin {
                 implementation(libs.squareup.wire.runtime)
                 implementation(libs.squareup.wire.grpc.client)
                 implementation(libs.squareup.wire.grpc.server)
+                implementation(libs.ktor.client.okhttp)
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.websocket)
+                implementation(libs.ktor.serialization.kotlinx.json)
             }
         }
         val commonTest by getting {

@@ -27,18 +27,18 @@ class AndroidProjectScanner(context: Context, autoScan: Boolean): ProjectScanner
     private val uncommitedComposedIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
     private val uncommitedOriginalIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
 
-    private var projectStructure: ProjectStructure? = null
+    private var projectStructure: Set<String>? = null
     private var projectFiles: Map<String, ProjectFile>? = null
 
-    private val projectStructureWaiters = mutableListOf<Continuation<ProjectStructure>>()
-    private val irWaitersByPath = mutableMapOf<String, Continuation<IrFetchResult>>()
+    private val projectStructureWaiters = mutableListOf<Continuation<Set<String>>>()
+    private val irWaitersByPath = mutableMapOf<String, Continuation<VirtualFileIr>>()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     init {
         if (autoScan) scanProject(context)
     }
 
-    override suspend fun fetchProjectStructure(): ProjectStructure = suspendCoroutine { continuation ->
+    override suspend fun fetchProjectStructure(): Set<String> = suspendCoroutine { continuation ->
         val structure = projectStructure
         if (structure != null) {
             continuation.resumeWith(Result.success(structure))
@@ -47,24 +47,22 @@ class AndroidProjectScanner(context: Context, autoScan: Boolean): ProjectScanner
         }
     }
 
-    override suspend fun fetchIr(
-        request: IrFetchRequest
-    ): IrFetchResult = suspendCoroutine { continuation ->
+    override suspend fun fetchIr(filePath: String): VirtualFileIr = suspendCoroutine { continuation ->
         val projectFiles = projectFiles
         if (projectFiles != null) {
-            val projectFile = projectFiles[request.element.filePath]
-            val element = IrFetchResult.Element(
-                filePath = request.element.filePath,
+            val projectFile = projectFiles[filePath]
+            val virtualFileIr = VirtualFileIr(
+                filePath = filePath,
                 composedIrFile = projectFile?.composedIrFile,
                 composedTopLevelIrClasses = projectFile?.composedTopLevelIrClasses ?: emptySet(),
                 originalIrFile = projectFile?.originalIrFile,
                 originalTopLevelIrClasses = projectFile?.originalTopLevelIrClasses ?: emptySet()
             )
             continuation.resumeWith(
-                Result.success(IrFetchResult(element))
+                Result.success(virtualFileIr)
             )
         } else {
-            irWaitersByPath[request.element.filePath] = continuation
+            irWaitersByPath[filePath] = continuation
         }
     }
 
@@ -119,9 +117,7 @@ class AndroidProjectScanner(context: Context, autoScan: Boolean): ProjectScanner
     }
 
     private fun commitProjectData() {
-        projectStructure = ProjectStructure(
-            projectFilePaths = uncommitedFilePaths
-        )
+        projectStructure = uncommitedFilePaths
         projectFiles = uncommitedFilePaths.associateWith { filePath ->
             ProjectFile(
                 projectFilePath = filePath,
@@ -224,29 +220,26 @@ class AndroidProjectScanner(context: Context, autoScan: Boolean): ProjectScanner
             val filePath = it.key
             val waiter = it.value
             val projectFile = projectFiles?.get(filePath)
-            if (projectFile == null) {
-                val element = IrFetchResult.Element(
+            val virtualFileIr = if (projectFile == null) {
+                VirtualFileIr(
                     filePath = filePath,
                     composedIrFile = null,
                     composedTopLevelIrClasses = emptySet(),
                     originalIrFile = null,
                     originalTopLevelIrClasses = emptySet()
                 )
-                waiter.resumeWith(
-                    Result.success(IrFetchResult(element))
-                )
             } else {
-                val element = IrFetchResult.Element(
+                VirtualFileIr(
                     filePath = filePath,
                     composedIrFile = projectFile.composedIrFile,
                     composedTopLevelIrClasses = projectFile.composedTopLevelIrClasses,
                     originalIrFile = projectFile.originalIrFile,
                     originalTopLevelIrClasses = projectFile.originalTopLevelIrClasses
                 )
-                waiter.resumeWith(
-                    Result.success(IrFetchResult(element))
-                )
             }
+            waiter.resumeWith(
+                Result.success(virtualFileIr)
+            )
         }
         irWaitersByPath.clear()
     }

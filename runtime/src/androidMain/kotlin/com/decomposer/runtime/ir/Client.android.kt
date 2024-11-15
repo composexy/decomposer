@@ -12,8 +12,5 @@ internal class AndroidClient(
     commandHandlers: Set<CommandHandler> = emptySet()
 ) : Client(serverPort, commandHandlers), Logger by AndroidLogger {
     override fun buildDeviceDescriptor(): DeviceDescriptor =
-        DeviceDescriptor(
-            deviceType = DeviceType.ANDROID,
-            serialNumber = ""
-        )
+        DeviceDescriptor(deviceType = DeviceType.ANDROID)
 }

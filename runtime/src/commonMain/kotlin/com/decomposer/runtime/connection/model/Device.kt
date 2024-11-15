@@ -4,8 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 class DeviceDescriptor(
-    val deviceType: DeviceType,
-    val serialNumber: String
+    val deviceType: DeviceType
 )
 
 @Serializable

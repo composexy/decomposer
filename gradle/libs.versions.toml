@@ -73,12 +73,13 @@ squareup-moshi = { group = " com.squareup.moshi", name = "moshi-kotlin-codegen",
 squareup-wire-runtime = { group = "com.squareup.wire", name = "wire-runtime", version.ref = "wire" }
 squareup-wire-grpc-client = { group = "com.squareup.wire", name = "wire-grpc-client", version.ref = "wire" }
 squareup-wire-grpc-server = { group = "com.squareup.wire", name = "wire-grpc-server", version.ref = "wire" }
-ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor"}
-ktor-client-websocket = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor"}
-ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor"}
-ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor"}
-ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor"}
-ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor"}
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-contentNegotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-websocket = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

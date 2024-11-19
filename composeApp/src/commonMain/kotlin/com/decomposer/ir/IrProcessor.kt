@@ -137,7 +137,6 @@ internal class DebugInfoTable(
 )
 
 internal class KotlinFile(
-    private val filePath: String,
     private val topLevelDeclarations : TopLevelTable,
     private val topLevelClasses : List<TopLevelTable>
 )
@@ -764,13 +763,13 @@ internal class FileLocalSignature(
 internal class AccessorSignature(
     val propertySignatureIndex: Int,
     val nameIndex: Int,
-    val accessorHashIdIndex: Int,
+    val accessorHashIdIndex: Long,
     val flags: Long?,
     val debugInfoIndex: Int?
 ) : Signature
 
 internal class ScopedLocalSignature(
-    val scopedLocalSignatureIndex: Int
+    val signatureId: Int
 ) : Signature
 
 internal class CompositeSignature(
@@ -824,7 +823,7 @@ internal class IrProcessor {
         val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
     }
 
-    private fun parseSignature(signature: IdSignature): Signature? {
+    private fun parseIdSignature(signature: IdSignature): Signature? {
         return when {
             signature.public_sig != null -> parsePublicSignature(signature.public_sig!!)
             signature.accessor_sig != null -> parseAccessSignature(signature.accessor_sig!!)
@@ -840,31 +839,56 @@ internal class IrProcessor {
     }
 
     private fun parseFileSignature(fileSig: IrFileSignature): FileSignature {
-        TODO("Not yet implemented")
+        return FileSignature
     }
 
     private fun parseLocalSignature(localSig: IrLocalSignature): LocalSignature {
-        TODO("Not yet implemented")
+        return LocalSignature(
+            localFqNameIndexes = localSig.local_fq_name,
+            localHash = localSig.local_hash,
+            debugInfoIndex = localSig.debug_info
+        )
     }
 
     private fun parseCompositeSignature(compositeSig: IrCompositeSignature): CompositeSignature {
-        TODO("Not yet implemented")
+        return CompositeSignature(
+            containerIdIndex = compositeSig.container_sig,
+            innerSignatureIndex = compositeSig.inner_sig
+        )
     }
 
     private fun parseScopedLocalSignature(scopedLocalSig: Int): ScopedLocalSignature {
-        TODO("Not yet implemented")
+        return ScopedLocalSignature(
+            signatureId = scopedLocalSig
+        )
     }
 
     private fun parsePrivateSignature(privateSig: IrFileLocalIdSignature): FileLocalSignature {
-        TODO("Not yet implemented")
+        return FileLocalSignature(
+            containerIdIndex = privateSig.container,
+            localIdIndex = privateSig.local_id,
+            debugInfoIndex = privateSig.debug_info
+        )
     }
 
     private fun parseAccessSignature(accessorSig: IrAccessorIdSignature): AccessorSignature {
-        TODO("Not yet implemented")
+        return AccessorSignature(
+            propertySignatureIndex = accessorSig.property_signature,
+            nameIndex = accessorSig.name,
+            accessorHashIdIndex = accessorSig.accessor_hash_id,
+            flags = accessorSig.flags,
+            debugInfoIndex = accessorSig.debug_info
+        )
     }
 
     private fun parsePublicSignature(publicSig: IrCommonIdSignature): CommonSignature {
-        TODO("Not yet implemented")
+        return CommonSignature(
+            packageFqNameIndexes = publicSig.package_fq_name,
+            declarationFqNameIndexes = publicSig.declaration_fq_name,
+            memberUniqueIdIndex = publicSig.member_uniq_id,
+            flags = publicSig.flags,
+            debugInfoIndex = publicSig.debug_info
+        )
     }
 
     private fun parseType(type: IrType): SimpleType {

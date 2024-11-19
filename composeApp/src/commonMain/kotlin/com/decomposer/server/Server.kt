@@ -1,6 +1,6 @@
 package com.decomposer.server
 
-import com.decomposer.ir.VirtualFileProcessor
+import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.Command
 import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.connection.ConnectionContract
@@ -92,7 +92,7 @@ internal class DefaultServer(private val serverPort: Int) {
 }
 
 internal class Session {
-    private val virtualFileProcessor = VirtualFileProcessor()
+    private val irProcessor = IrProcessor()
     private lateinit var projectSnapshot: ProjectSnapshot
     private val virtualFileIrByFilePath = mutableMapOf<String, VirtualFileIr>()
 
@@ -103,7 +103,7 @@ internal class Session {
             sendSerialized(Command(CommandKeys.VIRTUAL_FILE_IR, listOf(it)))
             val virtualFileIr = receiveDeserialized<VirtualFileIr>()
             virtualFileIrByFilePath[it] = virtualFileIr
-            virtualFileProcessor.processVirtualFileIr(virtualFileIr)
+            irProcessor.processVirtualFileIr(virtualFileIr)
         }
     }
 }

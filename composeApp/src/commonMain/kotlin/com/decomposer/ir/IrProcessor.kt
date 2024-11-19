@@ -3,6 +3,7 @@ package com.decomposer.ir
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.runtime.ir.ClassOrFile
 import com.decomposer.runtime.ir.FieldAccessCommon
+import com.decomposer.runtime.ir.IdSignature
 import com.decomposer.runtime.ir.IrAnonymousInit
 import com.decomposer.runtime.ir.IrBlock
 import com.decomposer.runtime.ir.IrBlockBody
@@ -95,6 +96,12 @@ import org.jetbrains.kotlin.backend.common.serialization.encodings.ValueParamete
 import org.jetbrains.kotlin.descriptors.ClassKind as KClassKind
 import org.jetbrains.kotlin.descriptors.Modality as KModality
 import org.jetbrains.kotlin.types.Variance as KVariance
+import com.decomposer.runtime.ir.FileSignature as IrFileSignature
+import com.decomposer.runtime.ir.CommonIdSignature as IrCommonIdSignature
+import com.decomposer.runtime.ir.AccessorIdSignature as IrAccessorIdSignature
+import com.decomposer.runtime.ir.FileLocalIdSignature as IrFileLocalIdSignature
+import com.decomposer.runtime.ir.CompositeSignature as IrCompositeSignature
+import com.decomposer.runtime.ir.LocalSignature as IrLocalSignature
 
 internal class TopLevelTable(
     internal val declarations : DeclarationTable,
@@ -736,48 +743,48 @@ internal class Loop(
     val originalNameIndex: Int?
 )
 
-internal sealed interface IdSignature
+internal sealed interface Signature
 
-internal data object FileSignature : IdSignature
+internal data object FileSignature : Signature
 
-internal class CommonIdSignature(
+internal class CommonSignature(
     val packageFqNameIndexes: List<Int>,
     val declarationFqNameIndexes: List<Int>,
     val memberUniqueIdIndex: Long?,
     val flags: Long?,
     val debugInfoIndex: Int?
-) : IdSignature
+) : Signature
 
 internal class FileLocalSignature(
     val containerIdIndex: Int,
     val localIdIndex: Long,
     val debugInfoIndex: Int?
-) : IdSignature
+) : Signature
 
-internal class AccessorIdSignature(
+internal class AccessorSignature(
     val propertySignatureIndex: Int,
     val nameIndex: Int,
     val accessorHashIdIndex: Int,
     val flags: Long?,
     val debugInfoIndex: Int?
-) : IdSignature
+) : Signature
 
 internal class ScopedLocalSignature(
     val scopedLocalSignatureIndex: Int
-) : IdSignature
+) : Signature
 
 internal class CompositeSignature(
     val containerIdIndex: Int,
     val innerSignatureIndex: Int
-) : IdSignature
+) : Signature
 
 internal class LocalSignature(
     val localFqNameIndexes: List<Int>,
     val localHash: Long?,
     val debugInfoIndex: Int?
-) : IdSignature
+) : Signature
 
-internal class VirtualFileProcessor {
+internal class IrProcessor {
     private val processorScope = CoroutineScope(Dispatchers.Default)
     private val originalFilesByPath = mutableMapOf<String, KotlinFile>()
     private val composedFilesByPath = mutableMapOf<String, KotlinFile>()
@@ -815,6 +822,49 @@ internal class VirtualFileProcessor {
     private fun processOriginalIrClass(path: String, data: List<String>) {
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
+    }
+
+    private fun parseSignature(signature: IdSignature): Signature? {
+        return when {
+            signature.public_sig != null -> parsePublicSignature(signature.public_sig!!)
+            signature.accessor_sig != null -> parseAccessSignature(signature.accessor_sig!!)
+            signature.private_sig != null -> parsePrivateSignature(signature.private_sig!!)
+            signature.scoped_local_sig != null -> {
+                parseScopedLocalSignature(signature.scoped_local_sig!!)
+            }
+            signature.composite_sig != null -> parseCompositeSignature(signature.composite_sig!!)
+            signature.local_sig != null -> parseLocalSignature(signature.local_sig!!)
+            signature.file_sig != null -> parseFileSignature(signature.file_sig!!)
+            else -> null
+        }
+    }
+
+    private fun parseFileSignature(fileSig: IrFileSignature): FileSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parseLocalSignature(localSig: IrLocalSignature): LocalSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parseCompositeSignature(compositeSig: IrCompositeSignature): CompositeSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parseScopedLocalSignature(scopedLocalSig: Int): ScopedLocalSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parsePrivateSignature(privateSig: IrFileLocalIdSignature): FileLocalSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parseAccessSignature(accessorSig: IrAccessorIdSignature): AccessorSignature {
+        TODO("Not yet implemented")
+    }
+
+    private fun parsePublicSignature(publicSig: IrCommonIdSignature): CommonSignature {
+        TODO("Not yet implemented")
     }
 
     private fun parseType(type: IrType): SimpleType {

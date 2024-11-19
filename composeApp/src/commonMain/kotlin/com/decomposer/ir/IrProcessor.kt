@@ -72,6 +72,7 @@ import com.decomposer.runtime.ir.IrVariable
 import com.decomposer.runtime.ir.IrWhen
 import com.decomposer.runtime.ir.IrWhile
 import com.decomposer.runtime.ir.MemberAccessCommon
+import com.decomposer.runtime.ir.XStatementOrExpression
 import com.squareup.moshi.Moshi
 import com.squareup.wire.WireJsonAdapterFactory
 import kotlinx.coroutines.CoroutineScope
@@ -112,32 +113,74 @@ internal class TopLevelTable(
     internal val debugInfos : DebugInfoTable
 )
 
-internal class DeclarationTable {
+internal class DeclarationTable(
+    private val data: List<Declaration>
+) {
+    operator fun get(index: Int): Declaration {
+        return data[index]
+    }
 
+    val size: Int
+        get() = data.size
 }
 
-internal class TypeTable {
+internal class TypeTable(
+    private val data: List<SimpleType>
+) {
+    operator fun get(index: Int): SimpleType {
+        return data[index]
+    }
 
+    val size: Int
+        get() = data.size
 }
 
-internal class SignatureTable {
+internal class SignatureTable(
+    private val data: List<Signature>
+) {
+    operator fun get(index: Int): Signature {
+        return data[index]
+    }
 
+    val size: Int
+        get() = data.size
 }
 
 internal class StringTable(
     private val data: List<String>
-)
+) {
+    operator fun get(index: Int): String {
+        return data[index]
+    }
 
-internal class BodyTable {
+    val size: Int
+        get() = data.size
+}
 
+internal class BodyTable(
+    private val data: List<Body>
+) {
+    operator fun get(index: Int): Body {
+        return data[index]
+    }
+
+    val size: Int
+        get() = data.size
 }
 
 internal class DebugInfoTable(
     private val data: List<String>
-)
+) {
+    operator fun get(index: Int): String {
+        return data[index]
+    }
+
+    val size: Int
+        get() = data.size
+}
 
 internal class KotlinFile(
-    private val topLevelDeclarations : TopLevelTable,
+    private val topLevelDeclarations : TopLevelTable?,
     private val topLevelClasses : List<TopLevelTable>
 )
 
@@ -155,6 +198,16 @@ internal class SimpleType(
         DEFINITELY_NOT_NULL
     }
 }
+
+internal sealed interface Body
+
+internal class ExpressionBody(
+    val expression: Expression
+) : Body
+
+internal class StatementBody(
+    val statement: Statement
+) : Body
 
 internal class MemberAccess(
     val extensionReceiver: Expression?,
@@ -783,47 +836,106 @@ internal class LocalSignature(
     val debugInfoIndex: Int?
 ) : Signature
 
+internal data object EmptySignature : Signature
+
 internal class IrProcessor {
     private val processorScope = CoroutineScope(Dispatchers.Default)
-    private val originalFilesByPath = mutableMapOf<String, KotlinFile>()
-    private val composedFilesByPath = mutableMapOf<String, KotlinFile>()
+    private val originalFilesByPath = mutableMapOf<String, TopLevelTable>()
+    private val composedFilesByPath = mutableMapOf<String, TopLevelTable>()
+    private val originalTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
+    private val composedTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
+
+    fun composedFile(filePath: String): KotlinFile {
+        return KotlinFile(
+            topLevelDeclarations = composedFilesByPath[filePath],
+            topLevelClasses = composedTopLevelClassesByPath[filePath] ?: emptyList()
+        )
+    }
+
+    fun originalFile(filePath: String): KotlinFile {
+        return KotlinFile(
+            topLevelDeclarations = originalFilesByPath[filePath],
+            topLevelClasses = originalTopLevelClassesByPath[filePath] ?: emptyList()
+        )
+    }
 
     fun processVirtualFileIr(ir: VirtualFileIr) = processorScope.launch {
         if (ir.originalIrFile.isNotEmpty()) {
             processOriginalIrFile(ir.filePath, ir.originalIrFile)
         }
-        ir.originalTopLevelIrClasses.forEach {
-            processOriginalIrClass(ir.filePath, it)
-        }
+        processOriginalIrClasses(ir.filePath, ir.originalTopLevelIrClasses)
         if (ir.composedIrFile.isNotEmpty()) {
             processComposedIrFile(ir.filePath, ir.composedIrFile)
         }
-        ir.composedTopLevelIrClasses.forEach {
-            processComposedIrClass(ir.filePath, it)
+        processComposedIrClasses(ir.filePath, ir.composedTopLevelIrClasses)
+    }
+
+    private fun processComposedIrFile(filePath: String, data: List<String>) {
+        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
+        val file = ClassOrFile.ADAPTER.decode(protoByteArray)
+        val table = buildTopLevelTableCommon(file)
+        composedFilesByPath[filePath] = table
+    }
+
+    private fun processComposedIrClasses(filePath: String, data: Set<List<String>>) {
+        val tables = data.map {
+            val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
+            val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
+            buildTopLevelTableCommon(clazz)
+        }
+        composedTopLevelClassesByPath[filePath] = tables
+    }
+
+    private fun processOriginalIrFile(filePath: String, data: List<String>) {
+        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
+        val file = ClassOrFile.ADAPTER.decode(protoByteArray)
+        val table = buildTopLevelTableCommon(file)
+        originalFilesByPath[filePath] = table
+    }
+
+    private fun processOriginalIrClasses(filePath: String, data: Set<List<String>>) {
+        val tables = data.map {
+            val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
+            val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
+            buildTopLevelTableCommon(clazz)
+        }
+        originalTopLevelClassesByPath[filePath] = tables
+    }
+
+    private fun buildTopLevelTableCommon(classOrFile: ClassOrFile): TopLevelTable {
+        val strings = StringTable(classOrFile.com_decomposer_runtime_ir_string)
+        val debugInfos = DebugInfoTable(classOrFile.debug_info)
+        val declarations = DeclarationTable(
+            classOrFile.declaration.map { parseDeclaration(it) }
+        )
+        val types = TypeTable(
+            classOrFile.type.map { parseType(it) }
+        )
+        val signatures = SignatureTable(
+            classOrFile.signature.map { parseIdSignature(it) }
+        )
+        val bodies = BodyTable(
+            classOrFile.body.map { parseBody(it) }
+        )
+        return TopLevelTable(
+            declarations = declarations,
+            strings = strings,
+            debugInfos = debugInfos,
+            types = types,
+            signatures = signatures,
+            bodies = bodies
+        )
+    }
+
+    private fun parseBody(statementOrExpression: XStatementOrExpression): Body {
+        return if (statementOrExpression.expression != null) {
+            ExpressionBody(parseExpression(statementOrExpression.expression!!))
+        } else {
+            StatementBody(parseStatement(statementOrExpression.statement!!))
         }
     }
 
-    private fun processComposedIrFile(path: String, data: List<String>) {
-        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
-        val file = ClassOrFile.ADAPTER.decode(protoByteArray)
-    }
-
-    private fun processComposedIrClass(path: String, data: List<String>) {
-        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
-        val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
-    }
-
-    private fun processOriginalIrFile(path: String, data: List<String>) {
-        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
-        val file = ClassOrFile.ADAPTER.decode(protoByteArray)
-    }
-
-    private fun processOriginalIrClass(path: String, data: List<String>) {
-        val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
-        val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
-    }
-
-    private fun parseIdSignature(signature: IdSignature): Signature? {
+    private fun parseIdSignature(signature: IdSignature): Signature {
         return when {
             signature.public_sig != null -> parsePublicSignature(signature.public_sig!!)
             signature.accessor_sig != null -> parseAccessSignature(signature.accessor_sig!!)
@@ -834,7 +946,7 @@ internal class IrProcessor {
             signature.composite_sig != null -> parseCompositeSignature(signature.composite_sig!!)
             signature.local_sig != null -> parseLocalSignature(signature.local_sig!!)
             signature.file_sig != null -> parseFileSignature(signature.file_sig!!)
-            else -> null
+            else -> EmptySignature
         }
     }
 

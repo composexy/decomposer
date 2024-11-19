@@ -74,8 +74,8 @@ internal class DefaultServer(private val serverPort: Int) {
         when (deviceType) {
             DeviceType.ANDROID.name -> {
                 val sessionId = Uuid.random().toString()
-                call.respond(HttpStatusCode.OK, SessionData(sessionId, sessionUrl(sessionId)))
                 sessions[sessionId] = Session()
+                call.respond(HttpStatusCode.OK, SessionData(sessionId, sessionUrl(sessionId)))
             }
             else -> {
                 call.respond(HttpStatusCode.BadRequest)
@@ -104,6 +104,10 @@ internal class Session {
             val virtualFileIr = receiveDeserialized<VirtualFileIr>()
             virtualFileIrByFilePath[it] = virtualFileIr
             irProcessor.processVirtualFileIr(virtualFileIr)
+            val composedFile = irProcessor.composedFile(it)
+            val originalFile = irProcessor.originalFile(it)
+            println(composedFile)
+            println(originalFile)
         }
     }
 }

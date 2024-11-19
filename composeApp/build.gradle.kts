@@ -25,6 +25,7 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlin.compilerEmbeddable)
             implementation(libs.squareup.moshi)
+            implementation(libs.squareup.moshiAdapters)
             implementation(libs.squareup.wire.moshiAdapter)
             implementation(projects.runtime)
         }

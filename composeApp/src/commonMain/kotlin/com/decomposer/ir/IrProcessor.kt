@@ -77,7 +77,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.wire.WireJsonAdapterFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryCoordinates
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryNameAndType
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolData
@@ -85,6 +85,7 @@ import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryTypePro
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import com.decomposer.runtime.ir.Loop as IrLoop
 import org.jetbrains.kotlin.backend.common.serialization.encodings.ClassFlags as KClassFlags
 import org.jetbrains.kotlin.backend.common.serialization.encodings.FieldFlags as KFieldFlags
@@ -180,8 +181,9 @@ internal class DebugInfoTable(
 }
 
 internal class KotlinFile(
-    private val topLevelDeclarations : TopLevelTable?,
-    private val topLevelClasses : List<TopLevelTable>
+    internal val filePath: String,
+    internal val topLevelDeclarations : TopLevelTable?,
+    internal val topLevelClasses : List<TopLevelTable>
 )
 
 internal class SimpleType(
@@ -839,7 +841,6 @@ internal class LocalSignature(
 internal data object EmptySignature : Signature
 
 internal class IrProcessor {
-    private val processorScope = CoroutineScope(Dispatchers.Default)
     private val originalFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val composedFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val originalTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
@@ -847,6 +848,7 @@ internal class IrProcessor {
 
     fun composedFile(filePath: String): KotlinFile {
         return KotlinFile(
+            filePath = filePath,
             topLevelDeclarations = composedFilesByPath[filePath],
             topLevelClasses = composedTopLevelClassesByPath[filePath] ?: emptyList()
         )
@@ -854,12 +856,13 @@ internal class IrProcessor {
 
     fun originalFile(filePath: String): KotlinFile {
         return KotlinFile(
+            filePath = filePath,
             topLevelDeclarations = originalFilesByPath[filePath],
             topLevelClasses = originalTopLevelClassesByPath[filePath] ?: emptyList()
         )
     }
 
-    fun processVirtualFileIr(ir: VirtualFileIr) = processorScope.launch {
+    suspend fun processVirtualFileIr(ir: VirtualFileIr) = withContext(Dispatchers.Default) {
         if (ir.originalIrFile.isNotEmpty()) {
             processOriginalIrFile(ir.filePath, ir.originalIrFile)
         }
@@ -1896,16 +1899,22 @@ internal class IrProcessor {
             }
         )
     }
-}
 
-private val jsonAdapter = run {
-    val moshi = Moshi.Builder()
-        .add(WireJsonAdapterFactory())
-        .build()
-    moshi.adapter(ClassOrFile::class.java)
-}
+    private val classOrFileAdapter = runIf(DEBUG) {
+        val moshi = Moshi.Builder()
+            .add(WireJsonAdapterFactory())
+            .build()
+        moshi.adapter(ClassOrFile::class.java)
+    }
 
-private fun ClassOrFile.printJson() {
-    val json = jsonAdapter.indent("  ").toJson(this)
-    println(json)
+    private fun ClassOrFile.printJson() {
+        classOrFileAdapter?.let {
+            val json = it.indent("  ").toJson(this)
+            println(json)
+        }
+    }
+
+    companion object {
+        private const val DEBUG = true
+    }
 }

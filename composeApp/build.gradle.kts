@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    kotlin(libs.plugins.kotlinx.serialization.get().pluginId) version libs.versions.kotlin
 }
 
 kotlin {
@@ -27,6 +28,7 @@ kotlin {
             implementation(libs.squareup.moshi)
             implementation(libs.squareup.moshiAdapters)
             implementation(libs.squareup.wire.moshiAdapter)
+            implementation(libs.kotlinx.serializationJson)
             implementation(projects.runtime)
         }
         desktopMain.dependencies {

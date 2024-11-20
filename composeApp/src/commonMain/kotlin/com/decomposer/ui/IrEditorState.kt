@@ -18,14 +18,10 @@ fun rememberIrEditorState(kotlinFile: KotlinFile) = remember(kotlinFile.filePath
 @Stable
 class IrEditorState(private val kotlinFile: KotlinFile) : RememberObserver {
     var annotatedStringState by mutableStateOf<AnnotatedString?>(null)
-    var sourceLocationMetadata by mutableStateOf<Map<String, SourceLocation>?>(null)
-    var descriptionMetadata by mutableStateOf<Map<String, Description>?>(null)
 
     override fun onRemembered() {
         val visualData = IrVisualBuilder(kotlinFile).visualize()
         annotatedStringState = visualData.annotatedString
-        sourceLocationMetadata = visualData.sourceLocationMetadata
-        descriptionMetadata = visualData.descriptionMetadata
     }
 
     override fun onAbandoned() = Unit

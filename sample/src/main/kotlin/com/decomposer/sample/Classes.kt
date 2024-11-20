@@ -8,3 +8,7 @@ data class Name(
 data class Age(
     var currentAge: Int
 )
+
+typealias MyList<T> = Map<String, T>
+
+val list: MyList<Int>? = null

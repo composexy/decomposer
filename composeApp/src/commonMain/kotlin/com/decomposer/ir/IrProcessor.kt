@@ -708,7 +708,7 @@ enum class SyntheticBodyKind {
     ENUM_ENTRIES
 }
 
-interface TypeArgument
+sealed interface TypeArgument
 
 object StarProjection : TypeArgument
 

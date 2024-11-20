@@ -105,88 +105,46 @@ import com.decomposer.runtime.ir.FileLocalIdSignature as IrFileLocalIdSignature
 import com.decomposer.runtime.ir.CompositeSignature as IrCompositeSignature
 import com.decomposer.runtime.ir.LocalSignature as IrLocalSignature
 
-internal class TopLevelTable(
-    internal val declarations : DeclarationTable,
-    internal val types : TypeTable,
-    internal val signatures : SignatureTable,
-    internal val strings : StringTable,
-    internal val bodies : BodyTable,
-    internal val debugInfos : DebugInfoTable
+class TopLevelTable(
+    val declarations : DeclarationTable,
+    val types : TypeTable,
+    val signatures : SignatureTable,
+    val strings : StringTable,
+    val bodies : BodyTable,
+    val debugInfos : DebugInfoTable
 )
 
-internal class DeclarationTable(
-    private val data: List<Declaration>
-) {
-    operator fun get(index: Int): Declaration {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class TypeTable(
-    private val data: List<SimpleType>
-) {
-    operator fun get(index: Int): SimpleType {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class SignatureTable(
-    private val data: List<Signature>
-) {
-    operator fun get(index: Int): Signature {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class StringTable(
-    private val data: List<String>
-) {
-    operator fun get(index: Int): String {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class BodyTable(
-    private val data: List<Body>
-) {
-    operator fun get(index: Int): Body {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class DebugInfoTable(
-    private val data: List<String>
-) {
-    operator fun get(index: Int): String {
-        return data[index]
-    }
-
-    val size: Int
-        get() = data.size
-}
-
-internal class KotlinFile(
-    internal val filePath: String,
-    internal val topLevelDeclarations : TopLevelTable?,
-    internal val topLevelClasses : List<TopLevelTable>
+class DeclarationTable(
+    val data: List<Declaration>
 )
 
-internal class SimpleType(
+class TypeTable(
+    val data: List<SimpleType>
+)
+
+class SignatureTable(
+    val data: List<Signature>
+)
+
+class StringTable(
+    val data: List<String>
+)
+
+class BodyTable(
+    val data: List<Body>
+)
+
+class DebugInfoTable(
+    val data: List<String>
+)
+
+class KotlinFile(
+    val filePath: String,
+    val topLevelDeclarations : TopLevelTable?,
+    val topLevelClasses : List<TopLevelTable>
+)
+
+class SimpleType(
     val symbol: Symbol,
     val nullability: Nullability,
     val annotations: List<ConstructorCall>,
@@ -201,151 +159,151 @@ internal class SimpleType(
     }
 }
 
-internal sealed interface Body
+sealed interface Body
 
-internal class ExpressionBody(
+class ExpressionBody(
     val expression: Expression
 ) : Body
 
-internal class StatementBody(
+class StatementBody(
     val statement: Statement
 ) : Body
 
-internal class MemberAccess(
+class MemberAccess(
     val extensionReceiver: Expression?,
     val dispatchReceiver: Expression?,
     val typeArgumentIndexes: List<Int>,
     val valueArguments: List<Expression?>
 )
 
-internal class Abbreviation(
+class Abbreviation(
     val annotations: List<ConstructorCall>,
     val typeAlias: Symbol,
     val hasQuestionMark: Boolean,
     val arguments: List<TypeArgument>
 )
 
-internal class Expression(
+class Expression(
     val operation: Operation,
     val typeIndex: Int,
     val coordinate: Coordinate
 ) : StatementBase, VarargElement
 
-internal class Coordinate(
+class Coordinate(
     val startOffset: Int,
     val endOffset: Int
 )
 
-internal sealed interface Operation
+sealed interface Operation
 
-internal class Block(
+class Block(
     val statements: List<Statement>,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class Break(
+class Break(
     val loopIndex: Int,
     val labelIndex: Int?
 ) : Operation
 
-internal class Call(
+class Call(
     val symbol: Symbol,
     val memberAccess: MemberAccess,
     val superSymbol: Symbol?,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class ClassReference(
+class ClassReference(
     val classSymbol: Symbol,
     val classTypeIndex: Int
 ) : Operation
 
-internal class Composite(
+class Composite(
     val statements: List<Statement>,
     val originalNameIndex: Int?
 ) : Operation
 
-internal sealed interface Const : Operation
+sealed interface Const : Operation
 
-internal data object NullConst : Const
+data object NullConst : Const
 
-internal class BooleanConst(val value: Boolean) : Const
+class BooleanConst(val value: Boolean) : Const
 
-internal class CharConst(val value: Char) : Const
+class CharConst(val value: Char) : Const
 
-internal class ByteConst(val value: Byte) : Const
+class ByteConst(val value: Byte) : Const
 
-internal class ShortConst(val value: Short) : Const
+class ShortConst(val value: Short) : Const
 
-internal class IntConst(val value: Int) : Const
+class IntConst(val value: Int) : Const
 
-internal class LongConst(val value: Long) : Const
+class LongConst(val value: Long) : Const
 
-internal class FloatConst(val value: Float) : Const
+class FloatConst(val value: Float) : Const
 
-internal class DoubleConst(val value: Double) : Const
+class DoubleConst(val value: Double) : Const
 
-internal class StringConst(val valueIndex: Int) : Const
+class StringConst(val valueIndex: Int) : Const
 
-internal class Continue(
+class Continue(
     val loopIndex: Int,
     val labelIndex: Int?
 ) : Operation
 
-internal class DelegatingConstructorCall(
+class DelegatingConstructorCall(
     val symbol: Symbol,
     val memberAccess: MemberAccess
 ) : Operation
 
-internal class DoWhile(
+class DoWhile(
     val loop: Loop
 ) : Operation
 
-internal class EnumConstructorCall(
+class EnumConstructorCall(
     val symbol: Symbol,
     val memberAccess: MemberAccess
 ) : Operation
 
-internal class FunctionReference(
+class FunctionReference(
     val symbol: Symbol,
     val originNameIndex: Int?,
     val memberAccess: MemberAccess,
     val reflectionTargetSymbol: Symbol?
 ) : Operation
 
-internal class GetClass(
+class GetClass(
     val argument: Expression
 ) : Operation
 
-internal class GetEnumValue(
+class GetEnumValue(
     val symbol: Symbol
 ) : Operation
 
-internal class GetField(
+class GetField(
     val fieldAccess: FieldAccess,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class FieldAccess(
+class FieldAccess(
     val symbol: Symbol,
     val superSymbol: Symbol?,
     val receiver: Expression?
 )
 
-internal class GetObject(
+class GetObject(
     val symbol: Symbol
 ) : Operation
 
-internal class GetValue(
+class GetValue(
     val symbol: Symbol,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class InstanceInitializerCall(
+class InstanceInitializerCall(
     val symbol: Symbol
 ) : Operation
 
-internal class PropertyReference(
+class PropertyReference(
     val fieldSymbol: Symbol?,
     val getterSymbol: Symbol?,
     val setterSymbol: Symbol?,
@@ -354,38 +312,38 @@ internal class PropertyReference(
     val symbol: Symbol
 ) : Operation
 
-internal class Return(
+class Return(
     val returnTargetSymbol: Symbol,
     val value: Expression
 ) : Operation
 
-internal class SetField(
+class SetField(
     val fieldAccess: FieldAccess,
     val value: Expression,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class SetValue(
+class SetValue(
     val symbol: Symbol,
     val value: Expression,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class StringConcat(
+class StringConcat(
     val arguments: List<Expression>
 ) : Operation
 
-internal class Throw(
+class Throw(
     val value: Expression
 ) : Operation
 
-internal class Try(
+class Try(
     val result: Expression,
     val catch: List<Statement>,
     val finally: Expression?
 ) : Operation
 
-internal class TypeOp(
+class TypeOp(
     val operator: TypeOperator,
     val operandIndex: Int,
     val argument: Expression,
@@ -405,33 +363,33 @@ enum class TypeOperator {
     REINTERPRET_CAST
 }
 
-internal class Vararg(
+class Vararg(
     val elementTypeIndex: Int,
     val elements: List<VarargElement>
 ) : Operation
 
-internal sealed interface VarargElement
+sealed interface VarargElement
 
-internal class SpreadElement(
+class SpreadElement(
     val expression: Expression,
     val coordinate: Coordinate
 ) : VarargElement
 
-internal class When(
+class When(
     val branches: List<Statement>,
     val originalNameIndex: Int?
 ) : Operation
 
-internal class While(
+class While(
     val loop: Loop
 ) : Operation
 
-internal class DynamicMemberExpression(
+class DynamicMemberExpression(
     val memberNameIndex: Int?,
     val receiver: Expression
 ) : Operation
 
-internal class DynamicOperatorExpression(
+class DynamicOperatorExpression(
     val operator: DynamicOperator,
     val receiver: Expression,
     val argument: List<Expression>
@@ -470,7 +428,7 @@ enum class DynamicOperator {
     INVOKE
 }
 
-internal class LocalDelegatedPropertyReference(
+class LocalDelegatedPropertyReference(
     val delegateSymbol: Symbol,
     val getterSymbol: Symbol?,
     val setterSymbol: Symbol?,
@@ -478,38 +436,38 @@ internal class LocalDelegatedPropertyReference(
     val originalNameIndex: Int?
 ) : Operation
 
-internal class ConstructorCall(
+class ConstructorCall(
     val symbol: Symbol,
     val typeArgumentCount: Int,
     val memberAccess: MemberAccess,
     val originNameIndex: Int?
 ) : Operation
 
-internal class FunctionExpression(
+class FunctionExpression(
     val function: Function,
     val originNameIndex: Int?
 ) : Operation
 
-internal class ErrorExpression(
+class ErrorExpression(
     val descriptionIndex: Int
 ) : Operation
 
-internal class ErrorCallExpression(
+class ErrorCallExpression(
     val descriptionIndex: Int,
     val receiver: Expression?,
     val valueArguments: List<Expression>
 ) : Operation
 
-internal class Statement(
+class Statement(
     val coordinate: Coordinate,
     val statement: StatementBase
 )
 
-internal sealed interface StatementBase
+sealed interface StatementBase
 
-internal interface Declaration : StatementBase
+sealed interface Declaration : StatementBase
 
-internal class DeclarationBase(
+class DeclarationBase(
     val symbol: Symbol,
     val originalNameIndex: Int,
     val coordinate: Coordinate,
@@ -517,9 +475,9 @@ internal class DeclarationBase(
     val annotations: List<ConstructorCall>
 )
 
-internal sealed interface Flags
+sealed interface Flags
 
-internal class ClassFlags(
+class ClassFlags(
     val modality: Modality,
     val visibility: Visibility,
     val kind: ClassKind,
@@ -533,14 +491,14 @@ internal class ClassFlags(
     val hasEnumEntries: Boolean
 ) : Flags
 
-internal enum class Modality {
+enum class Modality {
     FINAL,
     SEALED,
     OPEN,
     ABSTRACT
 }
 
-internal enum class Visibility {
+enum class Visibility {
     PRIVATE,
     PRIVATE_TO_THIS,
     PROTECTED,
@@ -552,7 +510,7 @@ internal enum class Visibility {
     UNKNOWN
 }
 
-internal enum class ClassKind {
+enum class ClassKind {
     CLASS,
     INTERFACE,
     ENUM_CLASS,
@@ -561,7 +519,7 @@ internal enum class ClassKind {
     OBJECT
 }
 
-internal class FunctionFlags(
+class FunctionFlags(
     val modality: Modality,
     val visibility: Visibility,
     val isOperator: Boolean,
@@ -574,7 +532,7 @@ internal class FunctionFlags(
     val isFakeOverride: Boolean,
 ) : Flags
 
-internal class PropertyFlags(
+class PropertyFlags(
     val modality: Modality,
     val visibility: Visibility,
     val isVar: Boolean,
@@ -586,42 +544,42 @@ internal class PropertyFlags(
     val isFakeOverride: Boolean
 ) : Flags
 
-internal class ValueParameterFlags(
+class ValueParameterFlags(
     val isCrossInline: Boolean,
     val isNoInline: Boolean,
     val isHidden: Boolean,
     val isAssignable: Boolean
 ) : Flags
 
-internal class TypeAliasFlags(
+class TypeAliasFlags(
     val visibility: Visibility,
     val isActual: Boolean
 ) : Flags
 
-internal class TypeParameterFlags(
+class TypeParameterFlags(
     val variance: Variance,
     val isReified: Boolean
 ) : Flags
 
-internal class FieldFlags(
+class FieldFlags(
     val visibility: Visibility,
     val isFinal: Boolean,
     val isExternal: Boolean,
     val isStatic: Boolean
 ) : Flags
 
-internal class LocalVarFlags(
+class LocalVarFlags(
     val isVar: Boolean,
     val isConst: Boolean,
     val isLateinit: Boolean
 ) : Flags
 
-internal class AnonymousInit(
+class AnonymousInit(
     val base: DeclarationBase,
     val bodyIndex: Int?
 ) : Declaration
 
-internal class Class(
+class Class(
     val base: DeclarationBase,
     val nameIndex: Int,
     val thisReceiver: ValueParameter?,
@@ -632,21 +590,21 @@ internal class Class(
     val multiFieldValueClassRepresentation: MultiFieldValueClassRepresentation?
 ) : Declaration
 
-internal class InlineClassRepresentation(
+class InlineClassRepresentation(
     val underlyingPropertyNameIndex: Int,
     val underlyingPropertyTypeIndex: Int
 )
 
-internal class MultiFieldValueClassRepresentation(
+class MultiFieldValueClassRepresentation(
     val underlyingPropertyNameIndexes: List<Int>,
     val underlyingPropertyTypeIndexes: List<Int>
 )
 
-internal class Constructor(
+class Constructor(
     val base: FunctionBase
 ) : Declaration
 
-internal class FunctionBase(
+class FunctionBase(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
@@ -658,26 +616,26 @@ internal class FunctionBase(
     val bodyIndex: Int?
 )
 
-internal class EnumEntry(
+class EnumEntry(
     val base: DeclarationBase,
     val nameIndex: Int,
     val initializerIndex: Int?,
     val correspondingClass: Class?
 ) : Declaration
 
-internal class Field(
+class Field(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
     val initializerIndex: Int?
 ) : Declaration
 
-internal class Function(
+class Function(
     val base: FunctionBase,
     val overriden: List<Symbol>
 ) : Declaration
 
-internal class Property(
+class Property(
     val base: DeclarationBase,
     val nameIndex: Int,
     val backingField: Field?,
@@ -685,20 +643,20 @@ internal class Property(
     val setter: Function?
 ) : Declaration
 
-internal class TypeParameter(
+class TypeParameter(
     val base: DeclarationBase,
     val nameIndex: Int,
     val superTypeIndexes: List<Int>
 ) : Declaration
 
-internal class Variable(
+class Variable(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
     val initializer: Expression?
 ) : Declaration
 
-internal class ValueParameter(
+class ValueParameter(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
@@ -706,7 +664,7 @@ internal class ValueParameter(
     val defaultValueIndex: Int?
 ) : Declaration
 
-internal class LocalDelegatedProperty(
+class LocalDelegatedProperty(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
@@ -715,32 +673,32 @@ internal class LocalDelegatedProperty(
     val setter: Function?
 ) : Declaration
 
-internal class TypeAlias(
+class TypeAlias(
     val base: DeclarationBase,
     val nameIndex: Int,
     val typeIndex: Int,
     val typeParameters: List<TypeParameter>
 ) : Declaration
 
-internal class ErrorDeclaration(
+class ErrorDeclaration(
     val coordinate: Coordinate
 ) : Declaration
 
-internal class BlockBody(
+class BlockBody(
     val statements: List<Statement>
 ) : StatementBase
 
-internal class Branch(
+class Branch(
     val condition: Expression,
     val result: Expression
 ) : StatementBase
 
-internal class Catch(
+class Catch(
     val catchParameter: Variable,
     val result: Expression
 ) : StatementBase
 
-internal class SyntheticBody(
+class SyntheticBody(
     val kind: SyntheticBodyKind
 ) : StatementBase
 
@@ -750,11 +708,11 @@ enum class SyntheticBodyKind {
     ENUM_ENTRIES
 }
 
-internal interface TypeArgument
+interface TypeArgument
 
-internal object StarProjection : TypeArgument
+object StarProjection : TypeArgument
 
-internal class TypeProjection(
+class TypeProjection(
     val variance: Variance,
     val typeIndex: Int
 ) : TypeArgument
@@ -765,7 +723,7 @@ enum class Variance {
     OUT_VARIANCE
 }
 
-internal class Symbol(
+class Symbol(
     val kind: Kind,
     val signatureId: Int
 ) {
@@ -789,7 +747,7 @@ internal class Symbol(
     }
 }
 
-internal class Loop(
+class Loop(
     val loopId: Int,
     val condition: Expression,
     val labelIndex: Int?,
@@ -797,11 +755,11 @@ internal class Loop(
     val originalNameIndex: Int?
 )
 
-internal sealed interface Signature
+sealed interface Signature
 
-internal data object FileSignature : Signature
+data object FileSignature : Signature
 
-internal class CommonSignature(
+class CommonSignature(
     val packageFqNameIndexes: List<Int>,
     val declarationFqNameIndexes: List<Int>,
     val memberUniqueIdIndex: Long?,
@@ -809,13 +767,13 @@ internal class CommonSignature(
     val debugInfoIndex: Int?
 ) : Signature
 
-internal class FileLocalSignature(
+class FileLocalSignature(
     val containerIdIndex: Int,
     val localIdIndex: Long,
     val debugInfoIndex: Int?
 ) : Signature
 
-internal class AccessorSignature(
+class AccessorSignature(
     val propertySignatureIndex: Int,
     val nameIndex: Int,
     val accessorHashIdIndex: Long,
@@ -823,24 +781,24 @@ internal class AccessorSignature(
     val debugInfoIndex: Int?
 ) : Signature
 
-internal class ScopedLocalSignature(
+class ScopedLocalSignature(
     val signatureId: Int
 ) : Signature
 
-internal class CompositeSignature(
+class CompositeSignature(
     val containerIdIndex: Int,
     val innerSignatureIndex: Int
 ) : Signature
 
-internal class LocalSignature(
+class LocalSignature(
     val localFqNameIndexes: List<Int>,
     val localHash: Long?,
     val debugInfoIndex: Int?
 ) : Signature
 
-internal data object EmptySignature : Signature
+data object EmptySignature : Signature
 
-internal class IrProcessor {
+class IrProcessor {
     private val originalFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val composedFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val originalTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
@@ -876,6 +834,7 @@ internal class IrProcessor {
     private fun processComposedIrFile(filePath: String, data: List<String>) {
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
+        file.printJson()
         val table = buildTopLevelTableCommon(file)
         composedFilesByPath[filePath] = table
     }
@@ -884,6 +843,7 @@ internal class IrProcessor {
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
+            clazz.printJson()
             buildTopLevelTableCommon(clazz)
         }
         composedTopLevelClassesByPath[filePath] = tables
@@ -892,6 +852,7 @@ internal class IrProcessor {
     private fun processOriginalIrFile(filePath: String, data: List<String>) {
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
+        file.printJson()
         val table = buildTopLevelTableCommon(file)
         originalFilesByPath[filePath] = table
     }
@@ -1915,6 +1876,6 @@ internal class IrProcessor {
     }
 
     companion object {
-        private const val DEBUG = true
+        private const val DEBUG = false
     }
 }

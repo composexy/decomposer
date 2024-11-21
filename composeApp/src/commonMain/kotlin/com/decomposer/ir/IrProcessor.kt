@@ -529,6 +529,7 @@ class FunctionFlags(
     val isSuspend: Boolean,
     val isExpect: Boolean,
     val isFakeOverride: Boolean,
+    val isPrimary: Boolean
 ) : Flags
 
 class PropertyFlags(
@@ -601,7 +602,13 @@ class MultiFieldValueClassRepresentation(
 
 class Constructor(
     val base: FunctionBase
-) : Declaration
+) : Declaration {
+    val isPrimary: Boolean
+        get() {
+            val flags = base.base.flags as? FunctionFlags
+            return flags?.isPrimary == true
+        }
+}
 
 class FunctionBase(
     val base: DeclarationBase,
@@ -1703,7 +1710,8 @@ class IrProcessor {
             isExternal = flags.isExternal,
             isSuspend = flags.isSuspend,
             isExpect = flags.isExpect,
-            isFakeOverride = flags.isFakeOverride
+            isFakeOverride = flags.isFakeOverride,
+            isPrimary = flags.isPrimary
         )
     }
 

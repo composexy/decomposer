@@ -1,11 +1,14 @@
 package com.decomposer.ui
 
+import androidx.compose.runtime.key
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import com.decomposer.ir.AccessorSignature
 import com.decomposer.ir.AnonymousInit
 import com.decomposer.ir.Body
 import com.decomposer.ir.Class
+import com.decomposer.ir.ClassFlags
+import com.decomposer.ir.ClassKind
 import com.decomposer.ir.CommonSignature
 import com.decomposer.ir.CompositeSignature
 import com.decomposer.ir.Constructor
@@ -58,6 +61,15 @@ import kotlinx.serialization.json.Json
 import kotlin.math.max
 
 enum class Keyword(val visual: String) {
+    CLASS("class"),
+    INTERFACE("interface"),
+    ENUM("enum"),
+    ANNOTATION("annotation"),
+    OBJECT("object"),
+    DATA("data"),
+    INNER("inner"),
+    COMPANION("companion"),
+    VALUE("value"),
     INIT("init"),
     FUN("fun"),
     OVERRIDE("override"),
@@ -525,6 +537,122 @@ class IrVisualBuilder(
 
     private fun visualizeClass(declaration: Class) {
         visualizeAnnotations(declaration.base.annotations)
+        val primaryConstructor = declaration.declarations.firstOrNull {
+            it is Constructor && it.isPrimary
+        } as? Constructor
+        val declarationsNoPrimary = declaration.declarations.filter { it != primaryConstructor }
+        val flags = declaration.base.flags as? ClassFlags
+        flags?.let {
+            visualizeClassFlags(it)
+        }
+        val name = strings(declaration.nameIndex)
+        append(name)
+        if (declaration.typeParameters.isNotEmpty()) {
+            visualizeTypeParameters(declaration.typeParameters)
+        }
+        val constructorProperties = mutableListOf<Property>()
+        primaryConstructor?.let {
+            val valueParameters = it.base.valueParameters
+            if (valueParameters.isNotEmpty()) {
+                withParentheses {
+                    valueParameters.forEachIndexed { index, parameter ->
+                        val paramName = strings(parameter.nameIndex)
+                        val property = declaration.findPropertyWithName(paramName)
+                        if (property != null) {
+                            constructorProperties.add(property)
+                            visualizeProperty(property)
+                        }
+                        if (index != valueParameters.size - 1) {
+                            append(',')
+                        }
+                        newLine()
+                    }
+                }
+            }
+        }
+        space()
+        val superTypes = declaration.superTypeIndexes
+            .map { types(it) }
+            .filter { it.symbol.declarationName != "Any" }
+        if (superTypes.isNotEmpty()) {
+            append(": ")
+            superTypes.forEachIndexed { index, type ->
+                visualizeType(type)
+                if (index != superTypes.size - 1) append(", ")
+            }
+            space()
+        }
+        val remainingDeclarations = declarationsNoPrimary.toMutableList()
+        remainingDeclarations.removeAll(constructorProperties)
+        if (remainingDeclarations.isNotEmpty()) {
+            withBraces {
+                remainingDeclarations.forEach { declaration ->
+                    visualizeDeclaration(declaration)
+                }
+            }
+        } else {
+            newLine()
+        }
+    }
+
+    private fun visualizeClassFlags(flags: ClassFlags) {
+        visualizeVisibility(flags.visibility)
+        visualizeModality(flags.modality)
+        if (flags.isInner) {
+            keyword(Keyword.INNER)
+            space()
+        }
+        if (flags.isExpect) {
+            keyword(Keyword.EXPECT)
+            space()
+        }
+        if (flags.isExternal) {
+            keyword(Keyword.EXTERNAL)
+            space()
+        }
+        if (flags.isData) {
+            keyword(Keyword.DATA)
+            space()
+        }
+        if (flags.isValue) {
+            keyword(Keyword.VALUE)
+            space()
+        }
+        if (flags.isFun) {
+            keyword(Keyword.FUN)
+            space()
+        }
+        if (flags.isCompanion) {
+            keyword(Keyword.COMPANION)
+            space()
+        }
+        visualizeClassKind(flags.kind)
+    }
+
+    private fun visualizeClassKind(kind: ClassKind) {
+        when (kind) {
+            ClassKind.CLASS -> {
+                keyword(Keyword.CLASS)
+                space()
+            }
+            ClassKind.INTERFACE -> {
+                keyword(Keyword.INTERFACE)
+                space()
+            }
+            ClassKind.ENUM_CLASS -> {
+                keyword(Keyword.ENUM)
+                keywordSpaced(Keyword.CLASS)
+            }
+            ClassKind.ENUM_ENTRY -> Unit
+            ClassKind.ANNOTATION_CLASS -> {
+                keyword(Keyword.ANNOTATION)
+                keywordSpaced(Keyword.CLASS)
+            }
+            ClassKind.OBJECT -> {
+                keyword(Keyword.OBJECT)
+                space()
+            }
+        }
     }
 
     private fun visualizeValueParameters(
@@ -581,7 +709,7 @@ class IrVisualBuilder(
 
     private fun visualizeTypeParameters(
         declarations: List<TypeParameter>,
-        multiLine: Boolean = true
+        multiLine: Boolean = false
     ) {
         if (declarations.isNotEmpty()) {
             withAngleBrackets(multiLine) {
@@ -892,6 +1020,12 @@ class IrVisualBuilder(
             }
         }
         append('>')
+    }
+
+    private fun Class.findPropertyWithName(name: String): Property? {
+        return this.declarations.firstOrNull {
+            it is Property && strings(nameIndex) == name
+        } as? Property
     }
 
     private val Symbol.fqName: String

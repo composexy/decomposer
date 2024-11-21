@@ -75,7 +75,6 @@ import com.decomposer.runtime.ir.MemberAccessCommon
 import com.decomposer.runtime.ir.XStatementOrExpression
 import com.squareup.moshi.Moshi
 import com.squareup.wire.WireJsonAdapterFactory
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryCoordinates
@@ -576,7 +575,7 @@ class LocalVarFlags(
 
 class AnonymousInit(
     val base: DeclarationBase,
-    val bodyIndex: Int?
+    val bodyIndex: Int
 ) : Declaration
 
 class Class(
@@ -612,7 +611,7 @@ class FunctionBase(
     val dispatchReceiver: ValueParameter?,
     val extensionReceiver: ValueParameter?,
     val contextReceiverParametersCount: Int?,
-    val valueParameterIndexes: List<ValueParameter>,
+    val valueParameters: List<ValueParameter>,
     val bodyIndex: Int?
 )
 
@@ -1687,7 +1686,7 @@ class IrProcessor {
             dispatchReceiver = irFunctionBase.dispatch_receiver?.let { parseValueParameter(it) },
             extensionReceiver = irFunctionBase.extension_receiver?.let { parseValueParameter(it) },
             contextReceiverParametersCount = irFunctionBase.context_receiver_parameters_count,
-            valueParameterIndexes = irFunctionBase.value_parameter.map { parseValueParameter(it) },
+            valueParameters = irFunctionBase.value_parameter.map { parseValueParameter(it) },
             bodyIndex = irFunctionBase.body
         )
     }

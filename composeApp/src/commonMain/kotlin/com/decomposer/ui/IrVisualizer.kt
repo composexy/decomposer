@@ -1,7 +1,5 @@
 package com.decomposer.ui
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import com.decomposer.ir.AccessorSignature
@@ -20,10 +18,13 @@ import com.decomposer.ir.ErrorDeclaration
 import com.decomposer.ir.Expression
 import com.decomposer.ir.ExpressionBody
 import com.decomposer.ir.Field
+import com.decomposer.ir.FieldFlags
 import com.decomposer.ir.FileLocalSignature
 import com.decomposer.ir.FileSignature
 import com.decomposer.ir.Function
+import com.decomposer.ir.FunctionBase
 import com.decomposer.ir.FunctionExpression
+import com.decomposer.ir.FunctionFlags
 import com.decomposer.ir.KotlinFile
 import com.decomposer.ir.LocalDelegatedProperty
 import com.decomposer.ir.LocalSignature
@@ -36,12 +37,15 @@ import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.Signature
 import com.decomposer.ir.SimpleType
 import com.decomposer.ir.StarProjection
+import com.decomposer.ir.Statement
+import com.decomposer.ir.StatementBody
 import com.decomposer.ir.Symbol
 import com.decomposer.ir.TopLevelTable
 import com.decomposer.ir.TypeAlias
 import com.decomposer.ir.TypeAliasFlags
 import com.decomposer.ir.TypeArgument
 import com.decomposer.ir.TypeParameter
+import com.decomposer.ir.TypeParameterFlags
 import com.decomposer.ir.TypeProjection
 import com.decomposer.ir.ValueParameter
 import com.decomposer.ir.ValueParameterFlags
@@ -54,6 +58,9 @@ import kotlinx.serialization.json.Json
 import kotlin.math.max
 
 enum class Keyword(val visual: String) {
+    INIT("init"),
+    FUN("fun"),
+    OVERRIDE("override"),
     LATEINIT("lateinit"),
     CONST("const"),
     VAL("val"),
@@ -73,6 +80,16 @@ enum class Keyword(val visual: String) {
     EXPECT("expect"),
     GET("get"),
     SET("set"),
+    BY("by"),
+    STATIC("static"),
+    EXTERNAL("external"),
+    CONSTRUCTOR("constructor"),
+    OPERATOR("operator"),
+    INFIX("infix"),
+    INLINE("inline"),
+    TAILREC("tailrec"),
+    SUSPEND("suspend"),
+    REIFIED("reified"),
 }
 
 sealed interface AnnotationData
@@ -127,13 +144,12 @@ class IrVisualBuilder(
             declarations.toSortedMap(compareBy { it.range.startOffset })
         )
         sortedDeclarations.forEach {
-            withTable(it.value) { visualize(it.key) }
+            withTable(it.value) { visualizeDeclaration(it.key) }
         }
     }
 
-    private fun visualize(declaration: Declaration) {
+    private fun visualizeDeclaration(declaration: Declaration) {
         increaseIndent {
-            newLine()
             newLine()
             when (declaration) {
                 is Function -> visualizeFunction(declaration)
@@ -150,28 +166,15 @@ class IrVisualBuilder(
                 is ValueParameter -> visualizeValueParameter(declaration)
                 is Variable -> visualizeVariable(declaration)
             }
+            newLine()
         }
     }
 
     private fun visualizeVariable(declaration: Variable) {
         val flags = declaration.base.flags as? LocalVarFlags
         flags?.let {
-            if (it.isLateinit) {
-                keyword(Keyword.LATEINIT)
-                space()
-            }
-            if (it.isConst) {
-                keyword(Keyword.CONST)
-                space()
-            }
-            if (it.isVar) {
-                keyword(Keyword.VAR)
-            } else {
-                keyword(Keyword.VAL)
-            }
-            space()
+            visualizeLocalVarFlags(it)
         }
-
         val name = strings(declaration.nameIndex)
         append(name)
         val type = types(declaration.typeIndex)
@@ -183,6 +186,7 @@ class IrVisualBuilder(
             appendSpaced('=')
             visualizeExpression(it)
         }
+        newLine()
     }
 
     private fun visualizeType(type: SimpleType) {
@@ -194,15 +198,15 @@ class IrVisualBuilder(
 
     private fun visualizeTypeArguments(arguments: List<TypeArgument>) {
         if (arguments.isNotEmpty()) {
-            append('<')
-            arguments.forEachIndexed { index, argument ->
-                visualizeTypeArgument(argument)
-                if (index != arguments.size - 1) {
-                    append(',')
-                    space()
+            withAngleBrackets {
+                arguments.forEachIndexed { index, argument ->
+                    visualizeTypeArgument(argument)
+                    if (index != arguments.size - 1) {
+                        append(',')
+                        space()
+                    }
                 }
             }
-            append('>')
         }
     }
 
@@ -210,19 +214,23 @@ class IrVisualBuilder(
         when (argument) {
             StarProjection -> append('*')
             is TypeProjection -> {
-                when (argument.variance) {
-                    Variance.INVARIANT -> Unit
-                    Variance.IN_VARIANCE -> {
-                        keyword(Keyword.IN)
-                        space()
-                    }
-                    Variance.OUT_VARIANCE -> {
-                        keyword(Keyword.OUT)
-                        space()
-                    }
-                }
+                visualizeVariance(argument.variance)
                 val type = types(argument.typeIndex)
                 visualizeType(type)
+            }
+        }
+    }
+
+    private fun visualizeVariance(variance: Variance) {
+        when (variance) {
+            Variance.INVARIANT -> Unit
+            Variance.IN_VARIANCE -> {
+                keyword(Keyword.IN)
+                space()
+            }
+            Variance.OUT_VARIANCE -> {
+                keyword(Keyword.OUT)
+                space()
             }
         }
     }
@@ -287,30 +295,38 @@ class IrVisualBuilder(
         }
     }
 
+    private fun visualizePropertyFlags(flags: PropertyFlags) {
+        visualizeVisibility(flags.visibility)
+        visualizeModality(flags.modality)
+        if (flags.isExpect) {
+            keyword(Keyword.EXPECT)
+            space()
+        }
+        if (flags.isLateinit) {
+            keyword(Keyword.LATEINIT)
+            space()
+        }
+        if (flags.isConst) {
+            keyword(Keyword.CONST)
+            space()
+        }
+        if (flags.isExternal) {
+            keyword(Keyword.EXTERNAL)
+            space()
+        }
+        if (flags.isVar) {
+            keyword(Keyword.VAR)
+        } else {
+            keyword(Keyword.VAL)
+        }
+        space()
+    }
+
     private fun visualizeProperty(declaration: Property) {
         visualizeAnnotations(declaration.base.annotations)
         val flags = declaration.base.flags as? PropertyFlags
         flags?.let {
-            visualizeVisibility(it.visibility)
-            visualizeModality(it.modality)
-            if (it.isExpect) {
-                keyword(Keyword.EXPECT)
-                space()
-            }
-            if (it.isLateinit) {
-                keyword(Keyword.LATEINIT)
-                space()
-            }
-            if (it.isConst) {
-                keyword(Keyword.CONST)
-                space()
-            }
-            if (it.isVar) {
-                keyword(Keyword.VAR)
-            } else {
-                keyword(Keyword.VAL)
-            }
-            space()
+            visualizePropertyFlags(it)
         }
         val name = strings(declaration.nameIndex)
         append(name)
@@ -318,10 +334,6 @@ class IrVisualBuilder(
         val type = types(typeIndex!!)
         appendSpaced(':')
         visualizeType(type)
-        declaration.backingField?.let {
-            appendSpaced('=')
-            visualizeField(it)
-        }
         increaseIndent {
             declaration.getter?.let { getter ->
                 newLine()
@@ -349,44 +361,189 @@ class IrVisualBuilder(
     }
 
     private fun visualizeBody(body: Body) {
-
+        when (body) {
+            is ExpressionBody -> visualizeExpressionBody(body)
+            is StatementBody -> visualizeStatementBody(body)
+        }
     }
 
     private fun visualizeLocalDelegatedProperty(declaration: LocalDelegatedProperty) {
-        TODO("Not yet implemented")
+        visualizeAnnotations(declaration.base.annotations)
+        val flags = declaration.base.flags as? LocalVarFlags
+        flags?.let {
+            visualizeLocalVarFlags(it)
+        }
+        val name = strings(declaration.nameIndex)
+        append(name)
+        declaration.delegate?.let {
+            keywordSpaced(Keyword.BY)
+            val delegateName = strings(it.nameIndex)
+            append(delegateName)
+        }
+        newLine()
+    }
+
+    private fun visualizeLocalVarFlags(flags: LocalVarFlags) {
+        if (flags.isLateinit) {
+            keyword(Keyword.LATEINIT)
+            space()
+        }
+        if (flags.isConst) {
+            keyword(Keyword.CONST)
+            space()
+        }
+        if (flags.isVar) {
+            keyword(Keyword.VAR)
+        } else {
+            keyword(Keyword.VAL)
+        }
+        space()
     }
 
     private fun visualizeField(declaration: Field) {
-        TODO("Not yet implemented")
+        val flags = declaration.base.flags as? FieldFlags
+        flags?.let {
+            visualizeFieldFlags(it)
+        }
+        val name = strings(declaration.nameIndex)
+        append(name)
+        append(": ")
+        val type = types(declaration.typeIndex)
+        visualizeType(type)
+        declaration.initializerIndex?.let {
+            val expressionBody = bodies(it) as? ExpressionBody
+            expressionBody?.let {
+                appendSpaced('=')
+                visualizeExpressionBody(expressionBody)
+            }
+        }
     }
 
-    private fun visualizeErrorDeclaration(declaration: ErrorDeclaration) {
-        TODO("Not yet implemented")
+    private fun visualizeFieldFlags(flags: FieldFlags) {
+        visualizeVisibility(flags.visibility)
+        if (flags.isStatic) {
+            keyword(Keyword.STATIC)
+            space()
+        }
+        if (flags.isFinal) {
+            keyword(Keyword.VAL)
+        } else {
+            keyword(Keyword.VAR)
+        }
+        space()
     }
+
+    private fun visualizeErrorDeclaration(declaration: ErrorDeclaration) = Unit
 
     private fun visualizeEnumEntry(declaration: EnumEntry) {
-        TODO("Not yet implemented")
+        visualizeAnnotations(declaration.base.annotations)
+        val name = strings(declaration.nameIndex)
+        append(name)
+        declaration.initializerIndex?.let {
+            val expressionBody = bodies(it) as? ExpressionBody
+            expressionBody?.let {
+                visualizeExpressionBody(expressionBody)
+            }
+        }
+        declaration.correspondingClass?.let { clazz ->
+            withBraces {
+                clazz.declarations.forEach { declaration ->
+                    visualizeDeclaration(declaration)
+                }
+            }
+        }
     }
 
     private fun visualizeConstructor(declaration: Constructor) {
-        TODO("Not yet implemented")
+        visualizeFunctionBase(declaration.base)
+    }
+
+    private fun visualizeFunctionBase(functionBase: FunctionBase) {
+        visualizeAnnotations(functionBase.base.annotations)
+        val flags = functionBase.base.flags as? FunctionFlags
+        flags?.let {
+            visualizeFunctionFlags(it)
+        }
+        val isConstructor = functionBase.base.symbol.kind == Symbol.Kind.CONSTRUCTOR_SYMBOL
+        if (isConstructor) {
+            keyword(Keyword.CONSTRUCTOR)
+        } else {
+            keywordSpaced(Keyword.FUN)
+            visualizeTypeParameters(functionBase.typeParameters)
+            functionBase.extensionReceiver?.let {
+                val name = strings(it.nameIndex)
+                append(name)
+                append('.')
+            }
+            val name = strings(functionBase.nameIndex)
+            append(name)
+        }
+        visualizeValueParameters(functionBase.valueParameters)
+        val type = types(functionBase.typeIndex)
+        append(": ")
+        visualizeType(type)
+        functionBase.bodyIndex?.let {
+            val statementBody = bodies(it) as? StatementBody
+            statementBody?.let {
+                visualizeStatementBody(statementBody)
+            }
+        }
+    }
+
+    private fun visualizeFunctionFlags(flags: FunctionFlags) {
+        visualizeVisibility(flags.visibility)
+        visualizeModality(flags.modality)
+        if (flags.isOperator) {
+            keyword(Keyword.OPERATOR)
+            space()
+        }
+        if (flags.isInfix) {
+            keyword(Keyword.INFIX)
+            space()
+        }
+        if (flags.isInline) {
+            keyword(Keyword.INLINE)
+            space()
+        }
+        if (flags.isTailrec) {
+            keyword(Keyword.TAILREC)
+            space()
+        }
+        if (flags.isExternal) {
+            keyword(Keyword.EXTERNAL)
+            space()
+        }
+        if (flags.isSuspend) {
+            keyword(Keyword.SUSPEND)
+            space()
+        }
+        if (flags.isExpect) {
+            keyword(Keyword.EXPECT)
+            space()
+        }
     }
 
     private fun visualizeClass(declaration: Class) {
         visualizeAnnotations(declaration.base.annotations)
     }
 
+    private fun visualizeValueParameters(
+        declarations: List<ValueParameter>,
+        multiLine: Boolean = true
+    ) {
+        if (declarations.isNotEmpty()) {
+            withParentheses(multiLine) {
+                declarations.forEach {
+                    visualizeValueParameter(it)
+                }
+            }
+        }
+    }
+
     private fun visualizeValueParameter(declaration: ValueParameter) {
         val flags = declaration.base.flags as? ValueParameterFlags
         flags?.let {
-            if (it.isCrossInline) {
-                keyword(Keyword.CROSSINLINE)
-                space()
-            }
-            if (it.isNoInline) {
-                keyword(Keyword.NOINLINE)
-                space()
-            }
+            visualizeValueParameterFlags(it)
         }
 
         visualizeAnnotations(declaration.base.annotations, multiLine = false)
@@ -403,11 +560,43 @@ class IrVisualBuilder(
         }
     }
 
+    private fun visualizeValueParameterFlags(flags: ValueParameterFlags) {
+        if (flags.isCrossInline) {
+            keyword(Keyword.CROSSINLINE)
+            space()
+        }
+        if (flags.isNoInline) {
+            keyword(Keyword.NOINLINE)
+            space()
+        }
+    }
+
     private fun visualizeExpressionBody(expressionBody: ExpressionBody) {
         visualizeExpression(expressionBody.expression)
     }
 
+    private fun visualizeStatementBody(statementBody: StatementBody) {
+        visualizeStatement(statementBody.statement)
+    }
+
+    private fun visualizeTypeParameters(
+        declarations: List<TypeParameter>,
+        multiLine: Boolean = true
+    ) {
+        if (declarations.isNotEmpty()) {
+            withAngleBrackets(multiLine) {
+                declarations.forEach {
+                    visualizeTypeParameter(it)
+                }
+            }
+        }
+    }
+
     private fun visualizeTypeParameter(declaration: TypeParameter) {
+        val flags = declaration.base.flags as? TypeParameterFlags
+        flags?.let {
+            visualizeTypeParameterFlags(it)
+        }
         val name = strings(declaration.nameIndex)
         append(name)
         val superTypes = declaration.superTypeIndexes.map { types(it) }
@@ -420,6 +609,14 @@ class IrVisualBuilder(
                 }
             }
         }
+    }
+
+    private fun visualizeTypeParameterFlags(flags: TypeParameterFlags) {
+        if (flags.isReified) {
+            keyword(Keyword.REIFIED)
+            space()
+        }
+        visualizeVariance(flags.variance)
     }
 
     private fun visualizeAnnotations(
@@ -516,14 +713,29 @@ class IrVisualBuilder(
     }
 
     private fun visualizeAnonymousInit(declaration: AnonymousInit) {
-        TODO("Not yet implemented")
+        keyword(Keyword.INIT)
+        space()
+        withBraces {
+            val statementBody = bodies(declaration.bodyIndex) as? StatementBody
+            statementBody?.let {
+                visualizeStatementBody(statementBody)
+            }
+        }
     }
 
     private fun visualizeFunction(declaration: Function) {
-        TODO("Not yet implemented")
+        if (declaration.overriden.isNotEmpty()) {
+            keyword(Keyword.OVERRIDE)
+            space()
+        }
+        visualizeFunctionBase(declaration.base)
     }
 
     private fun visualizeExpression(expression: Expression) {
+
+    }
+
+    private fun visualizeStatement(statement: Statement) {
 
     }
 
@@ -588,6 +800,8 @@ class IrVisualBuilder(
 
     private fun keyword(keyword: Keyword) = keyword(keyword.visual)
 
+    private fun keywordSpaced(keyword: Keyword) = withKeyword { appendSpaced(keyword.visual) }
+
     private fun keyword(text: String) = withKeyword { append(text) }
 
     private fun punctuation(text: String) = withPunctuation { append(text) }
@@ -634,6 +848,50 @@ class IrVisualBuilder(
         append(' ')
         append(string)
         append(' ')
+    }
+
+    private fun withBraces(multiLine: Boolean = true, block: () -> Unit) {
+        append('{')
+        if (!multiLine) {
+            space()
+            block()
+            space()
+        } else {
+            increaseIndent {
+                newLine()
+                block()
+                newLine()
+            }
+        }
+        append('}')
+    }
+
+    private fun withParentheses(multiLine: Boolean = true, block: () -> Unit) {
+        append('(')
+        if (!multiLine) {
+            block()
+        } else {
+            increaseIndent {
+                newLine()
+                block()
+                newLine()
+            }
+        }
+        append(')')
+    }
+
+    private fun withAngleBrackets(multiLine: Boolean = false, block: () -> Unit) {
+        append('<')
+        if (!multiLine) {
+            block()
+        } else {
+            increaseIndent {
+                newLine()
+                block()
+                newLine()
+            }
+        }
+        append('>')
     }
 
     private val Symbol.fqName: String

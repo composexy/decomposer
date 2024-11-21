@@ -1,60 +1,105 @@
 package com.decomposer.ui
 
-import androidx.compose.runtime.key
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import com.decomposer.ir.AccessorSignature
 import com.decomposer.ir.AnonymousInit
+import com.decomposer.ir.Block
+import com.decomposer.ir.BlockBody
 import com.decomposer.ir.Body
+import com.decomposer.ir.BooleanConst
+import com.decomposer.ir.Branch
+import com.decomposer.ir.Break
+import com.decomposer.ir.ByteConst
+import com.decomposer.ir.Call
+import com.decomposer.ir.Catch
+import com.decomposer.ir.CharConst
 import com.decomposer.ir.Class
 import com.decomposer.ir.ClassFlags
 import com.decomposer.ir.ClassKind
+import com.decomposer.ir.ClassReference
 import com.decomposer.ir.CommonSignature
+import com.decomposer.ir.Composite
 import com.decomposer.ir.CompositeSignature
+import com.decomposer.ir.Const
 import com.decomposer.ir.Constructor
 import com.decomposer.ir.ConstructorCall
+import com.decomposer.ir.Continue
 import com.decomposer.ir.Coordinate
 import com.decomposer.ir.Declaration
+import com.decomposer.ir.DelegatingConstructorCall
+import com.decomposer.ir.DoWhile
+import com.decomposer.ir.DoubleConst
+import com.decomposer.ir.DynamicMemberExpression
+import com.decomposer.ir.DynamicOperatorExpression
 import com.decomposer.ir.EmptySignature
+import com.decomposer.ir.EnumConstructorCall
 import com.decomposer.ir.EnumEntry
+import com.decomposer.ir.ErrorCallExpression
 import com.decomposer.ir.ErrorDeclaration
+import com.decomposer.ir.ErrorExpression
 import com.decomposer.ir.Expression
 import com.decomposer.ir.ExpressionBody
 import com.decomposer.ir.Field
 import com.decomposer.ir.FieldFlags
 import com.decomposer.ir.FileLocalSignature
 import com.decomposer.ir.FileSignature
+import com.decomposer.ir.FloatConst
 import com.decomposer.ir.Function
 import com.decomposer.ir.FunctionBase
 import com.decomposer.ir.FunctionExpression
 import com.decomposer.ir.FunctionFlags
+import com.decomposer.ir.FunctionReference
+import com.decomposer.ir.GetClass
+import com.decomposer.ir.GetEnumValue
+import com.decomposer.ir.GetField
+import com.decomposer.ir.GetObject
+import com.decomposer.ir.GetValue
+import com.decomposer.ir.InstanceInitializerCall
+import com.decomposer.ir.IntConst
 import com.decomposer.ir.KotlinFile
 import com.decomposer.ir.LocalDelegatedProperty
+import com.decomposer.ir.LocalDelegatedPropertyReference
 import com.decomposer.ir.LocalSignature
 import com.decomposer.ir.LocalVarFlags
+import com.decomposer.ir.LongConst
 import com.decomposer.ir.Modality
-import com.decomposer.ir.Operation
+import com.decomposer.ir.NullConst
 import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
+import com.decomposer.ir.PropertyReference
+import com.decomposer.ir.Return
 import com.decomposer.ir.ScopedLocalSignature
+import com.decomposer.ir.SetField
+import com.decomposer.ir.SetValue
+import com.decomposer.ir.ShortConst
 import com.decomposer.ir.Signature
 import com.decomposer.ir.SimpleType
 import com.decomposer.ir.StarProjection
 import com.decomposer.ir.Statement
 import com.decomposer.ir.StatementBody
+import com.decomposer.ir.StringConcat
+import com.decomposer.ir.StringConst
 import com.decomposer.ir.Symbol
+import com.decomposer.ir.SyntheticBody
+import com.decomposer.ir.Throw
 import com.decomposer.ir.TopLevelTable
+import com.decomposer.ir.Try
 import com.decomposer.ir.TypeAlias
 import com.decomposer.ir.TypeAliasFlags
 import com.decomposer.ir.TypeArgument
+import com.decomposer.ir.TypeOp
 import com.decomposer.ir.TypeParameter
 import com.decomposer.ir.TypeParameterFlags
 import com.decomposer.ir.TypeProjection
 import com.decomposer.ir.ValueParameter
 import com.decomposer.ir.ValueParameterFlags
+import com.decomposer.ir.Vararg
 import com.decomposer.ir.Variable
 import com.decomposer.ir.Variance
 import com.decomposer.ir.Visibility
+import com.decomposer.ir.When
+import com.decomposer.ir.While
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -373,9 +418,11 @@ class IrVisualBuilder(
     }
 
     private fun visualizeBody(body: Body) {
-        when (body) {
-            is ExpressionBody -> visualizeExpressionBody(body)
-            is StatementBody -> visualizeStatementBody(body)
+        withBraces {
+            when (body) {
+                is ExpressionBody -> visualizeExpressionBody(body)
+                is StatementBody -> visualizeStatementBody(body)
+            }
         }
     }
 
@@ -804,7 +851,7 @@ class IrVisualBuilder(
                         normalArguments.forEachIndexed { index, expression ->
                             newLine()
                             if (expression != null) {
-                                visualizeOperation(expression.operation)
+                                visualizeExpression(expression)
                                 if (index != normalArguments.size - 1) {
                                     append(',')
                                 }
@@ -814,7 +861,7 @@ class IrVisualBuilder(
                 } else {
                     normalArguments.forEachIndexed { index, expression ->
                         if (expression != null) {
-                            visualizeOperation(expression.operation)
+                            visualizeExpression(expression)
                             if (index != normalArguments.size - 1) {
                                 append(',')
                                 space()
@@ -832,12 +879,27 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeOperation(operation: Operation) {
-
+    private fun visualizeFunctionExpression(expression: FunctionExpression) {
+        visualizeLambda(expression.function.base)
     }
 
-    private fun visualizeFunctionExpression(expression: FunctionExpression) {
-
+    private fun visualizeLambda(function: FunctionBase) {
+        append('{')
+        if (function.valueParameters.isNotEmpty()) {
+            space()
+            function.valueParameters.forEachIndexed { index, parameter ->
+                visualizeValueParameter(parameter)
+                if (index != function.valueParameters.size - 1) append(", ")
+            }
+            append(" ->")
+        }
+        newLine()
+        function.bodyIndex?.let {
+            val body = bodies(it) as? StatementBody
+            if (body != null) {
+                visualizeBody(body)
+            }
+        }
     }
 
     private fun visualizeAnonymousInit(declaration: AnonymousInit) {
@@ -859,12 +921,217 @@ class IrVisualBuilder(
         visualizeFunctionBase(declaration.base)
     }
 
-    private fun visualizeExpression(expression: Expression) {
+    private fun visualizeBlock(block: Block) {
 
     }
 
-    private fun visualizeStatement(statement: Statement) {
+    private fun visualizeExpression(expression: Expression) {
+        val operation = expression.operation
+        when (operation) {
+            is Block -> visualizeBlock(operation)
+            is Break -> visualizeBreak(operation)
+            is Call -> visualizeCall(operation)
+            is ClassReference -> visualizeClassReference(operation)
+            is Composite -> visualizeComposite(operation)
+            is Const -> visualizeConst(operation)
+            is ConstructorCall -> visualizeConstructorCall(operation)
+            is Continue -> visualizeContinue(operation)
+            is DelegatingConstructorCall -> visualizeDelegatingConstructorCall(operation)
+            is DoWhile -> visualizeDoWhile(operation)
+            is DynamicMemberExpression -> visualizeDynamicMemberExpression(operation)
+            is DynamicOperatorExpression -> visualizeOperatorExpression(operation)
+            is EnumConstructorCall -> visualizeEnumConstructorCall(operation)
+            is ErrorCallExpression -> visualizeErrorCallExpression(operation)
+            is ErrorExpression -> visualizeErrorExpression(operation)
+            is FunctionExpression -> visualizeFunctionExpression(operation)
+            is FunctionReference -> visualizeFunctionReference(operation)
+            is GetClass -> visualizeGetClass(operation)
+            is GetEnumValue -> visualizeGetEnumValue(operation)
+            is GetField -> visualizeGetField(operation)
+            is GetObject -> visualizeGetObject(operation)
+            is GetValue -> visualizeGetValue(operation)
+            is InstanceInitializerCall -> visualizeInstanceInitializerCall(operation)
+            is LocalDelegatedPropertyReference -> visualizeLocalDelegatedPropertyReference(operation)
+            is PropertyReference -> visualizePropertyReference(operation)
+            is Return -> visualizeReturn(operation)
+            is SetField -> visualizeSetField(operation)
+            is SetValue -> visualizeSetValue(operation)
+            is StringConcat -> visualizeStringConcat(operation)
+            is Throw -> visualizeThrow(operation)
+            is Try -> visualizeTry(operation)
+            is TypeOp -> visualizeTypeOp(operation)
+            is Vararg -> visualizeVarargs(operation)
+            is When -> visualizeWhen(operation)
+            is While -> visualizeWhile(operation)
+        }
+    }
 
+    private fun visualizePropertyReference(operation: PropertyReference) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeLocalDelegatedPropertyReference(
+        operation: LocalDelegatedPropertyReference
+    ) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeInstanceInitializerCall(operation: InstanceInitializerCall) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeGetValue(operation: GetValue) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeGetObject(operation: GetObject) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeGetField(operation: GetField) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeGetEnumValue(operation: GetEnumValue) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeReturn(operation: Return) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeSetField(operation: SetField) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeSetValue(operation: SetValue) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeStringConcat(operation: StringConcat) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeThrow(operation: Throw) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeTry(operation: Try) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeTypeOp(operation: TypeOp) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeVarargs(operation: Vararg) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeWhen(operation: When) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeWhile(operation: While) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeGetClass(operation: GetClass) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeFunctionReference(operation: FunctionReference) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeErrorExpression(operation: ErrorExpression) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeErrorCallExpression(operation: ErrorCallExpression) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeEnumConstructorCall(operation: EnumConstructorCall) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeOperatorExpression(operation: DynamicOperatorExpression) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeDynamicMemberExpression(operation: DynamicMemberExpression) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeDoWhile(operation: DoWhile) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeDelegatingConstructorCall(operation: DelegatingConstructorCall) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeContinue(operation: Continue) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeConst(operation: Const) {
+        when (operation) {
+            is BooleanConst -> TODO()
+            is ByteConst -> TODO()
+            is CharConst -> TODO()
+            is DoubleConst -> TODO()
+            is FloatConst -> TODO()
+            is IntConst -> TODO()
+            is LongConst -> TODO()
+            NullConst -> TODO()
+            is ShortConst -> TODO()
+            is StringConst -> TODO()
+        }
+    }
+
+    private fun visualizeComposite(operation: Composite) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeClassReference(operation: ClassReference) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeCall(operation: Call) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeBreak(operation: Break) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeStatement(statement: Statement) {
+        when (val statementBase = statement.statement) {
+            is Declaration -> visualizeDeclaration(statementBase)
+            is BlockBody -> visualizeBlockBody(statementBase)
+            is Branch -> visualizeBranch(statementBase)
+            is Catch -> visualizeCatch(statementBase)
+            is Expression -> visualizeExpression(statementBase)
+            is SyntheticBody -> visualizeSyntheticBody(statementBase)
+        }
+    }
+
+    private fun visualizeSyntheticBody(statement: SyntheticBody) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeCatch(statement: Catch) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeBranch(statement: Branch) {
+        TODO("Not yet implemented")
+    }
+
+    private fun visualizeBlockBody(statement: BlockBody) {
+        TODO("Not yet implemented")
     }
 
     private fun newLine(indent: Boolean = true) {

@@ -2,7 +2,6 @@ package com.decomposer.ui
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import com.decomposer.ir.AccessorSignature
 import com.decomposer.ir.AnonymousInit
 import com.decomposer.ir.Block
 import com.decomposer.ir.BlockBody
@@ -20,7 +19,6 @@ import com.decomposer.ir.ClassKind
 import com.decomposer.ir.ClassReference
 import com.decomposer.ir.CommonSignature
 import com.decomposer.ir.Composite
-import com.decomposer.ir.CompositeSignature
 import com.decomposer.ir.Const
 import com.decomposer.ir.Constructor
 import com.decomposer.ir.ConstructorCall
@@ -32,7 +30,6 @@ import com.decomposer.ir.DoWhile
 import com.decomposer.ir.DoubleConst
 import com.decomposer.ir.DynamicMemberExpression
 import com.decomposer.ir.DynamicOperatorExpression
-import com.decomposer.ir.EmptySignature
 import com.decomposer.ir.EnumConstructorCall
 import com.decomposer.ir.EnumEntry
 import com.decomposer.ir.ErrorCallExpression
@@ -42,8 +39,6 @@ import com.decomposer.ir.Expression
 import com.decomposer.ir.ExpressionBody
 import com.decomposer.ir.Field
 import com.decomposer.ir.FieldFlags
-import com.decomposer.ir.FileLocalSignature
-import com.decomposer.ir.FileSignature
 import com.decomposer.ir.FloatConst
 import com.decomposer.ir.Function
 import com.decomposer.ir.FunctionBase
@@ -60,7 +55,6 @@ import com.decomposer.ir.IntConst
 import com.decomposer.ir.KotlinFile
 import com.decomposer.ir.LocalDelegatedProperty
 import com.decomposer.ir.LocalDelegatedPropertyReference
-import com.decomposer.ir.LocalSignature
 import com.decomposer.ir.LocalVarFlags
 import com.decomposer.ir.LongConst
 import com.decomposer.ir.Modality
@@ -69,7 +63,6 @@ import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
 import com.decomposer.ir.Return
-import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.SetField
 import com.decomposer.ir.SetValue
 import com.decomposer.ir.ShortConst
@@ -109,6 +102,12 @@ import kotlinx.serialization.json.Json
 import kotlin.math.max
 
 enum class Keyword(val visual: String) {
+    THIS("this"),
+    DO("do"),
+    WHILE("while"),
+    IF("if"),
+    WHEN("when"),
+    ELSE("else"),
     SAFE_AS("as?"),
     IS("is"),
     NOT_IS("!is"),
@@ -958,7 +957,7 @@ class IrVisualBuilder(
             is DelegatingConstructorCall -> visualizeDelegatingConstructorCall(operation)
             is DoWhile -> visualizeDoWhile(operation)
             is DynamicMemberExpression -> visualizeDynamicMemberExpression(operation)
-            is DynamicOperatorExpression -> visualizeOperatorExpression(operation)
+            is DynamicOperatorExpression -> visualizeDynamicOperatorExpression(operation)
             is EnumConstructorCall -> visualizeEnumConstructorCall(operation)
             is ErrorCallExpression -> visualizeErrorCallExpression(operation)
             is ErrorExpression -> visualizeErrorExpression(operation)
@@ -1134,11 +1133,98 @@ class IrVisualBuilder(
     }
 
     private fun visualizeWhen(operation: When) {
-
+        val origin = operation.originNameIndex?.let {
+            statementOrigin(it)
+        }
+        when (origin) {
+            StatementOrigin.OROR -> {
+                val branches = operation.branches.map { it.statement as Branch }
+                visualizeExpression(branches[0].condition)
+                punctuationSpaced("||")
+                visualizeExpression(branches[1].result)
+            }
+            StatementOrigin.ANDAND -> {
+                val branches = operation.branches.map { it.statement as Branch }
+                visualizeExpression(branches[0].condition)
+                punctuationSpaced("&&")
+                visualizeExpression(branches[0].result)
+            }
+            StatementOrigin.IF -> {
+                val branches = operation.branches.map { it.statement as Branch }
+                branches.forEachIndexed { index, branch ->
+                    val isElse = index == branches.size - 1
+                            && (branch.condition.operation as? BooleanConst)?.value == true
+                    val isIf = index == 0
+                    when {
+                        isIf -> {
+                            keyword(Keyword.IF)
+                            space()
+                            withParentheses(false) {
+                                visualizeExpression(branch.condition)
+                            }
+                            space()
+                            withBraces {
+                                visualizeExpression(branch.result)
+                            }
+                        }
+                        isElse -> {
+                            keywordSpaced(Keyword.ELSE)
+                            withBraces {
+                                visualizeExpression(branch.result)
+                            }
+                        }
+                        else -> {
+                            keywordSpaced(Keyword.ELSE)
+                            keyword(Keyword.IF)
+                            space()
+                            withParentheses(false) {
+                                visualizeExpression(branch.condition)
+                            }
+                            space()
+                            withBraces {
+                                visualizeExpression(branch.result)
+                            }
+                        }
+                    }
+                }
+            }
+            else -> {
+                val branches = operation.branches.map { it.statement as Branch }
+                keyword(Keyword.WHEN)
+                withBraces {
+                    branches.forEach {
+                        val isElse = (it.condition.operation as? BooleanConst)?.value == true
+                        if (isElse) {
+                            keyword(Keyword.ELSE)
+                        } else {
+                            visualizeExpression(it.condition)
+                        }
+                        punctuationSpaced("->")
+                        withBraces {
+                            visualizeExpression(it.result)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun visualizeWhile(operation: While) {
-        TODO("Not yet implemented")
+        operation.loop.labelIndex?.let {
+            symbol(strings(it))
+            punctuation('@')
+        }
+        keyword(Keyword.WHILE)
+        space()
+        withParentheses(false) {
+            visualizeExpression(operation.loop.condition)
+        }
+        space()
+        withBraces {
+            operation.loop.body?.let {
+                visualizeExpression(it)
+            }
+        }
     }
 
     private fun visualizeGetClass(operation: GetClass) {
@@ -1163,58 +1249,145 @@ class IrVisualBuilder(
     private fun visualizeErrorCallExpression(operation: ErrorCallExpression) = Unit
 
     private fun visualizeEnumConstructorCall(operation: EnumConstructorCall) {
-        TODO("Not yet implemented")
+        val valueArguments = operation.memberAccess.valueArguments
+
+        if (valueArguments.isNotEmpty()) {
+            withParentheses(false) {
+                valueArguments.forEach {
+                    it?.let {
+                        visualizeExpression(it)
+                    }
+                }
+            }
+        }
     }
 
-    private fun visualizeOperatorExpression(operation: DynamicOperatorExpression) {
-        TODO("Not yet implemented")
-    }
-
-    private fun visualizeDynamicMemberExpression(operation: DynamicMemberExpression) {
-        TODO("Not yet implemented")
-    }
+    private fun visualizeDynamicOperatorExpression(operation: DynamicOperatorExpression) = Unit
+    private fun visualizeDynamicMemberExpression(operation: DynamicMemberExpression) = Unit
 
     private fun visualizeDoWhile(operation: DoWhile) {
-        TODO("Not yet implemented")
+        keyword(Keyword.DO)
+        space()
+        withBraces {
+            operation.loop.body?.let {
+                visualizeExpression(it)
+            }
+        }
+        keywordSpaced(Keyword.WHILE)
+        withParentheses {
+            visualizeExpression(operation.loop.condition)
+        }
     }
 
     private fun visualizeDelegatingConstructorCall(operation: DelegatingConstructorCall) {
-        TODO("Not yet implemented")
+        keyword(Keyword.THIS)
+        val arguments = operation.memberAccess.valueArguments
+        withParentheses(false) {
+            arguments.forEach {
+                it?.let {
+                    visualizeExpression(it)
+                }
+            }
+        }
     }
 
     private fun visualizeContinue(operation: Continue) {
-
+        keyword(Keyword.CONTINUE)
+        operation.labelIndex?.let {
+            punctuation('@')
+            symbol(strings(it))
+        }
     }
 
     private fun visualizeConst(operation: Const) {
         when (operation) {
-            is BooleanConst -> TODO()
-            is ByteConst -> TODO()
-            is CharConst -> TODO()
-            is DoubleConst -> TODO()
-            is FloatConst -> TODO()
-            is IntConst -> TODO()
-            is LongConst -> TODO()
-            NullConst -> TODO()
-            is ShortConst -> TODO()
-            is StringConst -> TODO()
+            is BooleanConst -> {
+                value(operation.value.toString())
+            }
+            is ByteConst -> {
+                value(operation.value.toString())
+            }
+            is CharConst -> {
+                punctuation('\'')
+                value(operation.value.toString())
+                punctuation('\'')
+            }
+            is DoubleConst -> {
+                value(operation.value.toString())
+            }
+            is FloatConst -> {
+                value("${operation.value}f")
+            }
+            is IntConst -> {
+                value(operation.value.toString())
+            }
+            is LongConst -> {
+                value("${operation.value}L")
+            }
+            NullConst -> {
+                value("null")
+            }
+            is ShortConst -> {
+                value(operation.value.toString())
+            }
+            is StringConst -> {
+                punctuation('"')
+                value(strings(operation.valueIndex))
+                punctuation('"')
+            }
         }
     }
 
     private fun visualizeComposite(operation: Composite) {
-        TODO("Not yet implemented")
+        operation.statements.forEach {
+            visualizeStatement(it)
+            newLine()
+        }
     }
 
     private fun visualizeClassReference(operation: ClassReference) {
-        TODO("Not yet implemented")
+        val type = types(operation.classTypeIndex)
+        visualizeType(type)
+        punctuation("::")
+        keyword(Keyword.CLASS)
     }
 
     private fun visualizeCall(operation: Call) {
-        TODO("Not yet implemented")
+        val dispatchReceiver = operation.memberAccess.dispatchReceiver
+        val extensionReceiver = operation.memberAccess.extensionReceiver
+        dispatchReceiver ?: extensionReceiver?.let {
+            visualizeExpression(it)
+            punctuation('.')
+        }
+        symbol(operation.symbol.declarationName)
+        val types = operation.memberAccess.typeArgumentIndexes.map {
+            types(it)
+        }
+        if (types.isNotEmpty()) {
+            withAngleBrackets {
+                types.forEach {
+                    visualizeType(it)
+                }
+            }
+        }
+        val valueArguments = operation.memberAccess.valueArguments
+        if (valueArguments.isNotEmpty()) {
+            withParentheses(false) {
+                valueArguments.forEach {
+                    it?.let {
+                        visualizeExpression(it)
+                    }
+                }
+            }
+        }
     }
 
     private fun visualizeBreak(operation: Break) {
-        TODO("Not yet implemented")
+        keyword(Keyword.BREAK)
+        operation.labelIndex?.let {
+            punctuation('@')
+            symbol(strings(it))
+        }
     }
 
     private fun visualizeStatement(statement: Statement) {
@@ -1233,20 +1406,31 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeSyntheticBody(statement: SyntheticBody) {
-        TODO("Not yet implemented")
+    private fun visualizeSyntheticBody(statement: SyntheticBody) = Unit
+    private fun visualizeBranch(statement: Branch) = Unit
+
+    private fun visualizeBlockBody(statement: BlockBody) {
+        statement.statements.forEach {
+            visualizeStatement(it)
+            newLine()
+        }
     }
 
     private fun visualizeCatch(statement: Catch) {
-        TODO("Not yet implemented")
-    }
-
-    private fun visualizeBranch(statement: Branch) {
-        TODO("Not yet implemented")
-    }
-
-    private fun visualizeBlockBody(statement: BlockBody) {
-        TODO("Not yet implemented")
+        keywordSpaced(Keyword.CATCH)
+        val variable = statement.catchParameter
+        val name = strings(variable.nameIndex)
+        val type = types(variable.typeIndex)
+        withParentheses(false) {
+            symbol(name)
+            punctuation(':')
+            space()
+            visualizeType(type)
+        }
+        space()
+        withBraces {
+            visualizeExpression(statement.result)
+        }
     }
 
     private fun newLine(indent: Boolean = true) {
@@ -1278,6 +1462,11 @@ class IrVisualBuilder(
         currentTable = table
         block()
         currentTable = previous
+    }
+
+    private fun statementOrigin(index: Int): StatementOrigin {
+        val name = strings(index)
+        return StatementOrigin.valueOf(name)
     }
 
     private fun strings(index: Int): String {
@@ -1437,7 +1626,6 @@ class IrVisualBuilder(
     private val Symbol.fqName: String
         get() {
             return when (val signature = signatures(this.signatureId)) {
-                is AccessorSignature -> TODO()
                 is CommonSignature -> buildString {
                     signature.packageFqNameIndexes.forEach {
                         append(strings(it))
@@ -1445,12 +1633,7 @@ class IrVisualBuilder(
                     }
                     append(strings(signature.declarationFqNameIndexes[0]))
                 }
-                is CompositeSignature -> TODO()
-                EmptySignature -> TODO()
-                is FileLocalSignature -> TODO()
-                FileSignature -> TODO()
-                is LocalSignature -> TODO()
-                is ScopedLocalSignature -> TODO()
+                else -> ""
             }
         }
 
@@ -1487,32 +1670,100 @@ class IrVisualBuilder(
         }
     }
 
-    fun SimpleType.isAny(): Boolean = isNotNullClassType("kotlin.Any")
-    fun SimpleType.isNullableAny(): Boolean = isNullableClassType("kotlin.Any")
-    fun SimpleType.isString(): Boolean = isNotNullClassType("kotlin.String")
-    fun SimpleType.isNullableString(): Boolean = isNullableClassType("kotlin.String")
-    fun SimpleType.isArray(): Boolean = isNotNullClassType("kotlin.Array")
-    fun SimpleType.isNullableArray(): Boolean = isNullableClassType("kotlin.Array")
-    fun SimpleType.isNothing(): Boolean = isNotNullClassType("kotlin.Nothing")
-    fun SimpleType.isNullableNothing(): Boolean = isNullableClassType("kotlin.Nothing")
-    fun SimpleType.isUnit() = isNotNullClassType("kotlin.Unit")
-    fun SimpleType.isBoolean(): Boolean = isNotNullClassType("kotlin.Boolean")
-    fun SimpleType.isChar(): Boolean = isNotNullClassType("kotlin.Char")
-    fun SimpleType.isByte(): Boolean = isNotNullClassType("kotlin.Byte")
-    fun SimpleType.isShort(): Boolean = isNotNullClassType("kotlin.Short")
-    fun SimpleType.isInt(): Boolean = isNotNullClassType("kotlin.Int")
-    fun SimpleType.isLong(): Boolean = isNotNullClassType("kotlin.Long")
-    fun SimpleType.isUByte(): Boolean = isNotNullClassType("kotlin.UByte")
-    fun SimpleType.isUShort(): Boolean = isNotNullClassType("kotlin.UShort")
-    fun SimpleType.isUInt(): Boolean = isNotNullClassType("kotlin.UInt")
-    fun SimpleType.isULong(): Boolean = isNotNullClassType("kotlin.ULong")
-    fun SimpleType.isFloat(): Boolean = isNotNullClassType("kotlin.Float")
-    fun SimpleType.isDouble(): Boolean = isNotNullClassType("kotlin.Double")
-    fun SimpleType.isNumber(): Boolean = isNotNullClassType("kotlin.Number")
-    fun SimpleType.isComparable(): Boolean = isNotNullClassType("kotlin.Comparable")
-    fun SimpleType.isCharSequence(): Boolean = isNotNullClassType("kotlin.CharSequence")
-    fun SimpleType.isIterable(): Boolean = isNotNullClassType("kotlin.collections.Iterable")
-    fun SimpleType.isCollection(): Boolean = isNotNullClassType("kotlin.collections.Collection")
+    enum class StatementOrigin(val value: String?) {
+        SAFE_CALL(null),
+        UMINUS("-"),
+        UPLUS("+"),
+        EXCL("!"),
+        EXCLEXCL("!!"),
+        ELVIS("?:"),
+        LT("<"),
+        GT(">"),
+        LTEQ("<="),
+        GTEQ(">="),
+        EQEQ("=="),
+        EQEQEQ("==="),
+        EXCLEQ("!="),
+        EXCLEQEQ("!=="),
+        IN("in"),
+        NOT_IN("!in"),
+        ANDAND("&&"),
+        OROR("||"),
+        PLUS("+"),
+        MINUS("-"),
+        MUL("*"),
+        DIV("/"),
+        PERC("%"),
+        RANGE(".."),
+        RANGE_UNTIL("until"),
+        INVOKE(null),
+        VARIABLE_AS_FUNCTION(null),
+        GET_ARRAY_ELEMENT(null),
+        PREFIX_INCR("++"),
+        PREFIX_DECR("--"),
+        POSTFIX_INCR("++"),
+        POSTFIX_DECR("--"),
+        EQ("="),
+        PLUSEQ("+="),
+        MINUSEQ("-="),
+        MULTEQ("*="),
+        DIVEQ("/="),
+        PERCEQ("%="),
+        ARGUMENTS_REORDERING_FOR_CALL(null),
+        DESTRUCTURING_DECLARATION(null),
+        GET_PROPERTY(null),
+        GET_LOCAL_PROPERTY(null),
+        IF(null),
+        WHEN(null),
+        WHEN_COMMA(null),
+        WHILE_LOOP(null),
+        DO_WHILE_LOOP(null),
+        FOR_LOOP(null),
+        FOR_LOOP_ITERATOR(null),
+        FOR_LOOP_INNER_WHILE(null),
+        FOR_LOOP_HAS_NEXT(null),
+        FOR_LOOP_NEXT(null),
+        LAMBDA(null),
+        DEFAULT_VALUE(null),
+        ANONYMOUS_FUNCTION(null),
+        OBJECT_LITERAL(null),
+        ADAPTED_FUNCTION_REFERENCE(null),
+        SUSPEND_CONVERSION(null),
+        FUN_INTERFACE_CONSTRUCTOR_REFERENCE(null),
+        INITIALIZE_PROPERTY_FROM_PARAMETER(null),
+        INITIALIZE_FIELD(null),
+        PROPERTY_REFERENCE_FOR_DELEGATE(null),
+        BRIDGE_DELEGATION(null),
+        SYNTHETIC_NOT_AUTOBOXED_CHECK(null),
+        PARTIAL_LINKAGE_RUNTIME_ERROR(null),
+    }
+
+    private fun SimpleType.isAny(): Boolean = isNotNullClassType("kotlin.Any")
+    private fun SimpleType.isNullableAny(): Boolean = isNullableClassType("kotlin.Any")
+    private fun SimpleType.isString(): Boolean = isNotNullClassType("kotlin.String")
+    private fun SimpleType.isNullableString(): Boolean = isNullableClassType("kotlin.String")
+    private fun SimpleType.isArray(): Boolean = isNotNullClassType("kotlin.Array")
+    private fun SimpleType.isNullableArray(): Boolean = isNullableClassType("kotlin.Array")
+    private fun SimpleType.isNothing(): Boolean = isNotNullClassType("kotlin.Nothing")
+    private fun SimpleType.isNullableNothing(): Boolean = isNullableClassType("kotlin.Nothing")
+    private fun SimpleType.isUnit() = isNotNullClassType("kotlin.Unit")
+    private fun SimpleType.isBoolean(): Boolean = isNotNullClassType("kotlin.Boolean")
+    private fun SimpleType.isChar(): Boolean = isNotNullClassType("kotlin.Char")
+    private fun SimpleType.isByte(): Boolean = isNotNullClassType("kotlin.Byte")
+    private fun SimpleType.isShort(): Boolean = isNotNullClassType("kotlin.Short")
+    private fun SimpleType.isInt(): Boolean = isNotNullClassType("kotlin.Int")
+    private fun SimpleType.isLong(): Boolean = isNotNullClassType("kotlin.Long")
+    private fun SimpleType.isUByte(): Boolean = isNotNullClassType("kotlin.UByte")
+    private fun SimpleType.isUShort(): Boolean = isNotNullClassType("kotlin.UShort")
+    private fun SimpleType.isUInt(): Boolean = isNotNullClassType("kotlin.UInt")
+    private fun SimpleType.isULong(): Boolean = isNotNullClassType("kotlin.ULong")
+    private fun SimpleType.isFloat(): Boolean = isNotNullClassType("kotlin.Float")
+    private fun SimpleType.isDouble(): Boolean = isNotNullClassType("kotlin.Double")
+    private fun SimpleType.isNumber(): Boolean = isNotNullClassType("kotlin.Number")
+    private fun SimpleType.isComparable(): Boolean = isNotNullClassType("kotlin.Comparable")
+    private fun SimpleType.isCharSequence(): Boolean = isNotNullClassType("kotlin.CharSequence")
+    private fun SimpleType.isIterable(): Boolean = isNotNullClassType("kotlin.collections.Iterable")
+    private fun SimpleType.isCollection(): Boolean = isNotNullClassType("kotlin.collections.Collection")
 
     private fun SimpleType.isMarkedNullable(): Boolean {
         return this.nullability == SimpleType.Nullability.MARKED_NULLABLE
@@ -1528,13 +1779,9 @@ class IrVisualBuilder(
 
     companion object {
         private val LINE_SEPARATOR: String = System.lineSeparator()
-        private val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
-        private val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
-        private val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
-        private val TAG_DESCRIPTION = "DESCRPTION"
-
-        object Names {
-            private const val KOTLIN = "kotlin"
-        }
+        private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
+        private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
+        private const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
+        private const val TAG_DESCRIPTION = "DESCRPTION"
     }
 }

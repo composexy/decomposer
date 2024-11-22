@@ -197,7 +197,7 @@ sealed interface Operation
 
 class Block(
     val statements: List<Statement>,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class Break(
@@ -209,7 +209,7 @@ class Call(
     val symbol: Symbol,
     val memberAccess: MemberAccess,
     val superSymbol: Symbol?,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class ClassReference(
@@ -219,7 +219,7 @@ class ClassReference(
 
 class Composite(
     val statements: List<Statement>,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 sealed interface Const : Operation
@@ -280,7 +280,7 @@ class GetEnumValue(
 
 class GetField(
     val fieldAccess: FieldAccess,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class FieldAccess(
@@ -295,7 +295,7 @@ class GetObject(
 
 class GetValue(
     val symbol: Symbol,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class InstanceInitializerCall(
@@ -306,7 +306,7 @@ class PropertyReference(
     val fieldSymbol: Symbol?,
     val getterSymbol: Symbol?,
     val setterSymbol: Symbol?,
-    val originalNameIndex: Int?,
+    val originNameIndex: Int?,
     val memberAccess: MemberAccess,
     val symbol: Symbol
 ) : Operation
@@ -319,13 +319,13 @@ class Return(
 class SetField(
     val fieldAccess: FieldAccess,
     val value: Expression,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class SetValue(
     val symbol: Symbol,
     val value: Expression,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class StringConcat(
@@ -376,7 +376,7 @@ class SpreadElement(
 
 class When(
     val branches: List<Statement>,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class While(
@@ -432,7 +432,7 @@ class LocalDelegatedPropertyReference(
     val getterSymbol: Symbol?,
     val setterSymbol: Symbol?,
     val symbol: Symbol,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 ) : Operation
 
 class ConstructorCall(
@@ -468,7 +468,7 @@ sealed interface Declaration : StatementBase
 
 class DeclarationBase(
     val symbol: Symbol,
-    val originalNameIndex: Int,
+    val originNameIndex: Int,
     val coordinate: Coordinate,
     val flags: Flags?,
     val annotations: List<ConstructorCall>
@@ -716,7 +716,7 @@ enum class SyntheticBodyKind {
 
 sealed interface TypeArgument
 
-object StarProjection : TypeArgument
+data object StarProjection : TypeArgument
 
 class TypeProjection(
     val variance: Variance,
@@ -758,7 +758,7 @@ class Loop(
     val condition: Expression,
     val labelIndex: Int?,
     val body: Expression?,
-    val originalNameIndex: Int?
+    val originNameIndex: Int?
 )
 
 sealed interface Signature
@@ -805,9 +805,9 @@ class LocalSignature(
 data object EmptySignature : Signature
 
 class IrProcessor {
-    private val originalFilesByPath = mutableMapOf<String, TopLevelTable>()
+    private val originFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val composedFilesByPath = mutableMapOf<String, TopLevelTable>()
-    private val originalTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
+    private val originTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
     private val composedTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
 
     fun composedFile(filePath: String): KotlinFile {
@@ -821,16 +821,16 @@ class IrProcessor {
     fun originalFile(filePath: String): KotlinFile {
         return KotlinFile(
             filePath = filePath,
-            topLevelDeclarations = originalFilesByPath[filePath],
-            topLevelClasses = originalTopLevelClassesByPath[filePath] ?: emptyList()
+            topLevelDeclarations = originFilesByPath[filePath],
+            topLevelClasses = originTopLevelClassesByPath[filePath] ?: emptyList()
         )
     }
 
     suspend fun processVirtualFileIr(ir: VirtualFileIr) = withContext(Dispatchers.Default) {
         if (ir.originalIrFile.isNotEmpty()) {
-            processOriginalIrFile(ir.filePath, ir.originalIrFile)
+            processoriginIrFile(ir.filePath, ir.originalIrFile)
         }
-        processOriginalIrClasses(ir.filePath, ir.originalTopLevelIrClasses)
+        processoriginIrClasses(ir.filePath, ir.originalTopLevelIrClasses)
         if (ir.composedIrFile.isNotEmpty()) {
             processComposedIrFile(ir.filePath, ir.composedIrFile)
         }
@@ -855,21 +855,21 @@ class IrProcessor {
         composedTopLevelClassesByPath[filePath] = tables
     }
 
-    private fun processOriginalIrFile(filePath: String, data: List<String>) {
+    private fun processoriginIrFile(filePath: String, data: List<String>) {
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
         file.printJson()
         val table = buildTopLevelTableCommon(file)
-        originalFilesByPath[filePath] = table
+        originFilesByPath[filePath] = table
     }
 
-    private fun processOriginalIrClasses(filePath: String, data: Set<List<String>>) {
+    private fun processoriginIrClasses(filePath: String, data: Set<List<String>>) {
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
             buildTopLevelTableCommon(clazz)
         }
-        originalTopLevelClassesByPath[filePath] = tables
+        originTopLevelClassesByPath[filePath] = tables
     }
 
     private fun buildTopLevelTableCommon(classOrFile: ClassOrFile): TopLevelTable {
@@ -1116,7 +1116,7 @@ class IrProcessor {
             getterSymbol = expression.getter?.let { parseSymbol(it) },
             setterSymbol = expression.setter?.let { parseSymbol(it) },
             symbol = parseSymbol(expression.symbol),
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1178,7 +1178,7 @@ class IrProcessor {
     private fun parseWhen(expression: IrWhen): When {
         return When(
             branches = expression.branch.map { parseStatement(it) },
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1249,7 +1249,7 @@ class IrProcessor {
         return SetValue(
             symbol = parseSymbol(expression.symbol),
             value = parseExpression(expression.value_),
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1257,7 +1257,7 @@ class IrProcessor {
         return SetField(
             fieldAccess = parseFieldAccess(expression.field_access),
             value = parseExpression(expression.value_),
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1279,7 +1279,7 @@ class IrProcessor {
     private fun parseGetValue(expression: IrGetValue): GetValue {
         return GetValue(
             symbol = parseSymbol(expression.symbol),
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1294,7 +1294,7 @@ class IrProcessor {
             fieldSymbol = expression.field_?.let { parseSymbol(it) },
             getterSymbol = expression.getter?.let { parseSymbol(it) },
             setterSymbol = expression.setter?.let { parseSymbol(it) },
-            originalNameIndex = expression.origin_name,
+            originNameIndex = expression.origin_name,
             memberAccess = parseMemberAccess(expression.member_access),
             symbol = parseSymbol(expression.symbol)
         )
@@ -1303,7 +1303,7 @@ class IrProcessor {
     private fun parseGetField(expression: IrGetField): GetField {
         return GetField(
             fieldAccess = parseFieldAccess(expression.field_access),
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1353,7 +1353,7 @@ class IrProcessor {
             condition = parseExpression(loop.condition),
             labelIndex = loop.label,
             body = loop.body?.let { parseExpression(it) },
-            originalNameIndex = loop.origin_name
+            originNameIndex = loop.origin_name
         )
     }
 
@@ -1392,7 +1392,7 @@ class IrProcessor {
     private fun parseComposite(expression: IrComposite): Composite {
         return Composite(
             statements = expression.statement.map { parseStatement(it) },
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1408,7 +1408,7 @@ class IrProcessor {
             symbol = parseSymbol(expression.symbol),
             memberAccess = parseMemberAccess(expression.member_access),
             superSymbol = expression.super_?.let { parseSymbol(it) },
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1422,7 +1422,7 @@ class IrProcessor {
     private fun parseBlock(expression: IrBlock): Block {
         return Block(
             statements = expression.statement.map { parseStatement(it) },
-            originalNameIndex = expression.origin_name
+            originNameIndex = expression.origin_name
         )
     }
 
@@ -1474,7 +1474,7 @@ class IrProcessor {
     private fun parseDeclarationBase(base: IrDeclarationBase, flags: Flags?): DeclarationBase {
         return DeclarationBase(
             symbol = parseSymbol(base.symbol),
-            originalNameIndex = base.origin_name,
+            originNameIndex = base.origin_name,
             coordinate = parseCoordinates(base.coordinates),
             flags = flags,
             annotations = base.annotation_.map { parseConstructorCall(it) }

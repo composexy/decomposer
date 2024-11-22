@@ -1,5 +1,9 @@
 package com.decomposer.sample
 
+class Person(val name: String, val age: Int) {
+    constructor(name: String) : this(name, 0)
+}
+
 data class Name(
     val firstName: String,
     val lastName: String

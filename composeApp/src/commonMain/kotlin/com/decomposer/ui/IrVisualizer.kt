@@ -1782,6 +1782,6 @@ class IrVisualBuilder(
         private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
         private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
         private const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
-        private const val TAG_DESCRIPTION = "DESCRPTION"
+        private const val TAG_DESCRIPTION = "DESCRIPTION"
     }
 }

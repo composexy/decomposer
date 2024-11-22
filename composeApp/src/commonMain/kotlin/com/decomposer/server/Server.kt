@@ -8,6 +8,7 @@ import com.decomposer.runtime.connection.model.DeviceType
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
+import com.decomposer.ui.IrVisualBuilder
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
@@ -106,8 +107,10 @@ internal class Session {
             irProcessor.processVirtualFileIr(virtualFileIr)
             val composedFile = irProcessor.composedFile(it)
             val originalFile = irProcessor.originalFile(it)
-            println(composedFile)
-            println(originalFile)
+            val originalVisualizer = IrVisualBuilder(originalFile)
+            println(originalVisualizer.visualize().annotatedString.text)
+            val composedVisualizer = IrVisualBuilder(composedFile)
+            println(composedVisualizer.visualize().annotatedString.text)
         }
     }
 }

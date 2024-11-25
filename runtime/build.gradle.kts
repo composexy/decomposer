@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.mavenPublish)
     alias(libs.plugins.wire)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
     kotlin(libs.plugins.kotlinx.serialization.get().pluginId) version libs.versions.kotlin
 }
 
@@ -42,6 +44,7 @@ kotlin {
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.websocket)
                 implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(compose.runtime)
             }
         }
         val commonTest by getting {
@@ -52,6 +55,8 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(libs.dexlib2)
+                implementation(compose.ui)
+                implementation(libs.kotlin.reflect)
             }
         }
         val androidUnitTest by getting {

@@ -1,14 +1,14 @@
 package com.decomposer.runtime.connection
 
 import com.decomposer.runtime.Command
-import com.decomposer.runtime.CommandHandler
 import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.Logger
+import com.decomposer.runtime.compose.CompositionExtractor
+import com.decomposer.runtime.connection.model.CompositionTree
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.runtime.ir.ProjectScanner
-import io.ktor.client.plugins.websocket.sendSerialized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -28,7 +28,8 @@ import kotlin.time.Duration.Companion.seconds
 
 internal abstract class AbstractOkHttpClient(
     private val serverPort: Int,
-    private val projectScanner: ProjectScanner
+    private val projectScanner: ProjectScanner,
+    private val compositionExtractor: CompositionExtractor
 ) : Logger, Client {
 
     private lateinit var webSocket: WebSocket
@@ -104,6 +105,7 @@ internal abstract class AbstractOkHttpClient(
                         processVirtualFileIr(webSocket, filePaths)
                     }
                     CommandKeys.PROJECT_SNAPSHOT -> processProjectSnapshot(webSocket)
+                    CommandKeys.COMPOSITION_DATA -> processCompositionData(webSocket)
                 }
             }
 
@@ -124,6 +126,15 @@ internal abstract class AbstractOkHttpClient(
             }
         }
         return okHttpClient.newWebSocket(websocketRequest, websocketListener)
+    }
+
+    private fun processCompositionData(webSocket: WebSocket) {
+        coroutineScope.launch {
+            val compositionTree = compositionExtractor.extractCompositionTree()
+            val serialized = Json.encodeToString(CompositionTree.serializer(), compositionTree)
+            log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
+            webSocket.send(serialized)
+        }
     }
 
     private fun processProjectSnapshot(webSocket: WebSocket) {

@@ -10,8 +10,9 @@ data class Command(
 )
 
 object CommandKeys {
-    val PROJECT_SNAPSHOT = "PROJECT_SNAPSHOT"
-    val VIRTUAL_FILE_IR = "VIRTUAL_FILE_IR"
+    const val PROJECT_SNAPSHOT = "PROJECT_SNAPSHOT"
+    const val VIRTUAL_FILE_IR = "VIRTUAL_FILE_IR"
+    const val COMPOSITION_DATA = "COMPOSITION_DATA"
 }
 
 internal interface CommandHandler {

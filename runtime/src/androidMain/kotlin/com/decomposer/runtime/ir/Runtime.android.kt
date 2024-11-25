@@ -5,7 +5,11 @@ import android.content.Context
 
 class AndroidRuntime(context: Context) {
     private val projectScanner = AndroidProjectScanner(context)
-    private val client = AndroidOkHttpClient(projectScanner = projectScanner)
+    private val compositionExtractor = AndroidCompositionExtractor(context)
+    private val client = AndroidOkHttpClient(
+        projectScanner = projectScanner,
+        compositionExtractor = compositionExtractor
+    )
 
     fun init() {
         projectScanner.scanProject()

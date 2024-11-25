@@ -4,7 +4,7 @@ import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.Command
 import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.connection.ConnectionContract
-import com.decomposer.runtime.connection.model.CompositionTree
+import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.DeviceType
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.SessionData
@@ -114,6 +114,6 @@ internal class Session {
             println(composedVisualizer.visualize().annotatedString.text)
         }
         sendSerialized(Command(CommandKeys.COMPOSITION_DATA))
-        val compositionTree = receiveDeserialized<CompositionTree>()
+        val compositionRoot = receiveDeserialized<CompositionRoots>()
     }
 }

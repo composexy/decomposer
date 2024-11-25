@@ -44,6 +44,7 @@ kotlin {
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.websocket)
                 implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(libs.kotlin.reflect)
                 implementation(compose.runtime)
             }
         }
@@ -56,7 +57,6 @@ kotlin {
             dependencies {
                 implementation(libs.dexlib2)
                 implementation(compose.ui)
-                implementation(libs.kotlin.reflect)
             }
         }
         val androidUnitTest by getting {

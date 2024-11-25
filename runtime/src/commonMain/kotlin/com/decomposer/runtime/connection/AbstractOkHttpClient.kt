@@ -4,7 +4,7 @@ import com.decomposer.runtime.Command
 import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.compose.CompositionExtractor
-import com.decomposer.runtime.connection.model.CompositionTree
+import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
@@ -130,8 +130,8 @@ internal abstract class AbstractOkHttpClient(
 
     private fun processCompositionData(webSocket: WebSocket) {
         coroutineScope.launch {
-            val compositionTree = compositionExtractor.extractCompositionTree()
-            val serialized = Json.encodeToString(CompositionTree.serializer(), compositionTree)
+            val compositionRoots = compositionExtractor.extractCompositionRoots()
+            val serialized = Json.encodeToString(CompositionRoots.serializer(), compositionRoots)
             log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }

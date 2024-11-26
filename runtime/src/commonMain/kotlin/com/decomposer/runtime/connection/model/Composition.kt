@@ -15,7 +15,8 @@ class Root(
 
 @Serializable
 class Context(
-    val compoundHashKey: Int
+    val compoundHashKey: Int,
+    override val hashCode: String
 ) : Data
 
 @Serializable
@@ -38,50 +39,67 @@ class LayoutNode
 @Serializable
 sealed interface GroupKey
 
+@Serializable
 class IntKey(val value: Int) : GroupKey
 
+@Serializable
 class ObjectKey(
     val type: String,
     val value: String
 ) : GroupKey
 
 @Serializable
-sealed interface Data
+sealed interface Data {
+    val hashCode: String
+}
 
+@Serializable
 class Plain(
-    val value: String
+    val value: String,
+    override val hashCode: String
 ) : Data
 
-abstract class State<T>(
-    val value: T,
-    val readerKind: Int,
-) : Data
+@Serializable
+sealed interface State : Data {
+    val readerKind: Int
+}
 
 class DoubleState(
-    value: Double,
-    readerKind: Int
-) : State<Double>(value, readerKind)
+    val value: Double,
+    override val readerKind: Int,
+    override val hashCode: String
+) : State
 
+@Serializable
 class IntState(
-    value: Int,
-    readerKind: Int
-) : State<Int>(value, readerKind)
+    val value: Int,
+    override val readerKind: Int,
+    override val hashCode: String
+) : State
 
+@Serializable
 class LongState(
-    value: Long,
-    readerKind: Int
-) : State<Long>(value, readerKind)
+    val value: Long,
+    override val readerKind: Int,
+    override val hashCode: String
+) : State
 
+@Serializable
 class FloatState(
-    value: Float,
-    readerKind: Int
-) : State<Float>(value, readerKind)
+    val value: Float,
+    override val readerKind: Int,
+    override val hashCode: String
+) : State
 
+@Serializable
 class PlainState(
-    value: String,
-    readerKind: Int
-) : State<String>(value, readerKind)
+    val value: String,
+    override val readerKind: Int,
+    override val hashCode: String
+) : State
 
+@Serializable
 class RecomposeScope(
-    val states: List<State<*>>
+    val states: List<State>,
+    override val hashCode: String
 ) : Data

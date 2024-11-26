@@ -119,6 +119,6 @@ internal class AndroidCompositionExtractor(
         const val WINDOW_MANAGER_GET_INSTANCE = "getInstance"
         const val WINDOW_MANAGER_VIEWS = "mViews"
         const val TAG = "AndroidCompositionExtractor"
-        const val DEBUG = true
+        const val DEBUG = false
     }
 }

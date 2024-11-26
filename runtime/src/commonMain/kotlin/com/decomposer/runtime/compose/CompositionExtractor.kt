@@ -36,7 +36,7 @@ internal abstract class CompositionExtractor(
                 mapCompositionContext(it)
             },
             groups = compositionData.compositionGroups.map {
-                mapCompositionGroup(it)
+                mapCompositionGroup(it, compositionData)
             }
         )
     }
@@ -56,45 +56,45 @@ internal abstract class CompositionExtractor(
         }
     }
 
-    private fun mapCompositionGroup(group: CompositionGroup): Group {
+    private fun mapCompositionGroup(group: CompositionGroup, data: CompositionData): Group {
         return Group(
             attributes = Attributes(
                 key = mapKey(group.key),
                 sourceInformation = group.sourceInfo
             ),
             data = group.data.map {
-                mapData(it, group)
+                mapData(it, data)
             },
             children = group.compositionGroups.map {
-                mapCompositionGroup(it)
+                mapCompositionGroup(it, data)
             }
         )
     }
 
-    private fun mapData(any: Any?, group: CompositionGroup): Data {
+    private fun mapData(any: Any?, data: CompositionData): Data {
         return when {
             any == null -> EmptyData()
             any::class.qualifiedName == COMPOSITION_CONTEXT_IMPL ->
                 mapCompositionContext(any as CompositionContext)!!
             any is State<*> -> mapState(any)
             any::class.qualifiedName == LAYOUT_NODE -> mapLayoutNode(any)
-            any::class.qualifiedName == RECOMPOSE_SCOPE_IMPL -> mapRecomposeScope(any, group)
+            any::class.qualifiedName == RECOMPOSE_SCOPE_IMPL -> mapRecomposeScope(any, data)
             else -> mapGeneric(any)
         }
     }
 
-    private fun mapRecomposeScope(recomposeScope: Any, group: CompositionGroup): RecomposeScope {
+    private fun mapRecomposeScope(recomposeScope: Any, data: CompositionData): RecomposeScope {
         return RecomposeScope(
             toString = recomposeScope.toString(),
-            composeStates = findObservedStates(recomposeScope, group)
+            composeStates = /* findObservedStates(recomposeScope, data) */ emptyList()
         )
     }
 
     private fun findObservedStates(
         recomposeScope: Any,
-        group: CompositionGroup
+        data: CompositionData
     ): List<ComposeState> {
-        val compositionDataImplClazz = group::class
+        val compositionDataImplClazz = data::class
         val compositionProperty = compositionDataImplClazz.declaredMembers
             .find { it.name == COMPOSITION_DATA_IMPL_COMPOSITION } as? KProperty1<Any, *>
         if (compositionProperty == null) {

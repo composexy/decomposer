@@ -6,17 +6,17 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.view.inspector.WindowInspector
+import androidx.compose.runtime.Composition
 import androidx.compose.runtime.MonotonicFrameClock
-import androidx.compose.runtime.tooling.CompositionData
-import androidx.compose.runtime.tooling.CompositionGroup
 import androidx.compose.ui.R
 import androidx.compose.ui.platform.AndroidUiDispatcher
-import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.compose.CompositionExtractor
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Root
 import java.lang.reflect.Field
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.declaredMembers
 
 @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
 @Suppress("UNCHECKED_CAST")
@@ -28,7 +28,7 @@ internal class AndroidCompositionExtractor(
     private val frameClock = uiDispatcher[MonotonicFrameClock]
     private var windowManager: Any
     private var viewsField: Field
-    private val compositionRoots = mutableListOf<CompositionData>()
+    private val compositions = mutableListOf<Composition>()
 
     init {
         val windowManagerClazz = Class.forName(WINDOW_MANAGER_GLOBAL)
@@ -37,7 +37,6 @@ internal class AndroidCompositionExtractor(
         viewsField = windowManagerClazz.getDeclaredField(WINDOW_MANAGER_VIEWS).also {
             it.isAccessible = true
         }
-        enableDebugInspector()
     }
 
     override suspend fun extractCompositionRoots(): CompositionRoots {
@@ -49,12 +48,13 @@ internal class AndroidCompositionExtractor(
     }
 
     private fun extractCompositionData(rootViews: List<View>): List<Root> {
-        compositionRoots.clear()
-        rootViews.forEach {
-            compositionRoots.addAll(it.compositionRoots)
+        compositions.clear()
+        rootViews.forEach { rootView ->
+            rootView.composition?.let {
+                compositions.add(it)
+            }
         }
-        return compositionRoots.map {
-            dumpCompositionData(it)
+        return compositions.map {
             map(it)
         }
     }
@@ -67,42 +67,21 @@ internal class AndroidCompositionExtractor(
         }
     }
 
-    private fun enableDebugInspector() {
-        isDebugInspectorInfoEnabled = true
-    }
-
-    override fun dumpCompositionData(data: CompositionData) {
-        if (!DEBUG) return
-        data.compositionGroups.forEachIndexed { index, group ->
-            dumpGroup(index, group)
-        }
-    }
-
-    private fun dumpGroup(index: Int, group: CompositionGroup) {
-        val groupInfo = buildString {
-            append("Group $index: ${group.key}, ")
-            append("node ${group.node}, ")
-            append("sourceInfo ${group.sourceInfo}, ")
-            append("identity ${group.identity}, ")
-            append("slotSize: ${group.slotsSize}, ")
-            append("groupSize: ${group.groupSize}\n")
-        }
-        log(Logger.Level.DEBUG, TAG, groupInfo)
-        group.data.forEachIndexed { i, d ->
-            log(Logger.Level.DEBUG, TAG, "Data $i: $d\n")
-        }
-        group.compositionGroups.forEachIndexed { i, g ->
-            dumpGroup(i, g)
-        }
-    }
-
-    private val View.compositionRoots: Set<CompositionData>
+    private val View.composition: Composition?
         get() {
             val children = mutableListOf(this)
             while (children.isNotEmpty()) {
                 val next = children.last()
-                if (next.getTag(R.id.inspection_slot_table_set) != null) {
-                    return next.getTag(R.id.inspection_slot_table_set) as Set<CompositionData>
+                if (next.getTag(R.id.wrapped_composition_tag) != null) {
+                    val wrappedComposition = next.getTag(R.id.wrapped_composition_tag)
+                    val clazz = wrappedComposition::class
+                    val property = clazz.declaredMembers
+                        .find { it.name == WRAPPED_COMPOSITION_ORIGINAL } as? KProperty1<Any, *>
+                    if (property == null) {
+                        log(Logger.Level.WARNING, TAG, "Cannot find original property!")
+                        return null
+                    }
+                    return property.get(wrappedComposition) as Composition
                 }
                 children.remove(next)
                 if (next is ViewGroup) {
@@ -111,14 +90,14 @@ internal class AndroidCompositionExtractor(
                     }
                 }
             }
-            return emptySet()
+            return null
         }
 
     companion object {
-        const val WINDOW_MANAGER_GLOBAL = "android.view.WindowManagerGlobal"
-        const val WINDOW_MANAGER_GET_INSTANCE = "getInstance"
-        const val WINDOW_MANAGER_VIEWS = "mViews"
-        const val TAG = "AndroidCompositionExtractor"
-        const val DEBUG = false
+        private const val WINDOW_MANAGER_GLOBAL = "android.view.WindowManagerGlobal"
+        private const val WRAPPED_COMPOSITION_ORIGINAL = "original"
+        private const val WINDOW_MANAGER_GET_INSTANCE = "getInstance"
+        private const val WINDOW_MANAGER_VIEWS = "mViews"
+        private const val TAG = "AndroidCompositionExtractor"
     }
 }

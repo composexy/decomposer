@@ -30,7 +30,12 @@ internal abstract class CompositionExtractor(
     private val logger: Logger
 ) {
 
-    fun map(compositionData: CompositionData): Root {
+    fun map(composition: Composition): Root {
+        val reflection = CompositionReflection(composition, logger)
+        return map(reflection.compositionData, reflection)
+    }
+
+    fun map(compositionData: CompositionData, reflection: CompositionReflection): Root {
         return Root(
             context = compositionData.parent?.let {
                 mapCompositionContext(it)
@@ -162,7 +167,6 @@ internal abstract class CompositionExtractor(
     }
 
     abstract suspend fun extractCompositionRoots(): CompositionRoots
-    abstract fun dumpCompositionData(data: CompositionData)
 
     private val CompositionData.parent: CompositionContext?
         get() {
@@ -205,6 +209,31 @@ internal abstract class CompositionExtractor(
             return property.get(this) as Int
         }
 
+    fun dumpCompositionData(data: CompositionData) {
+        if (!DEBUG) return
+        data.compositionGroups.forEachIndexed { index, group ->
+            dumpGroup(index, group)
+        }
+    }
+
+    private fun dumpGroup(index: Int, group: CompositionGroup) {
+        val groupInfo = buildString {
+            append("Group $index: ${group.key}, ")
+            append("node ${group.node}, ")
+            append("sourceInfo ${group.sourceInfo}, ")
+            append("identity ${group.identity}, ")
+            append("slotSize: ${group.slotsSize}, ")
+            append("groupSize: ${group.groupSize}\n")
+        }
+        logger.log(Logger.Level.DEBUG, TAG, groupInfo)
+        group.data.forEachIndexed { i, d ->
+            logger.log(Logger.Level.DEBUG, TAG, "Data $i: $d\n")
+        }
+        group.compositionGroups.forEachIndexed { i, g ->
+            dumpGroup(i, g)
+        }
+    }
+
     companion object {
         private const val RECOMPOSE_SCOPE_IMPL = "androidx.compose.runtime.RecomposeScopeImpl"
         private const val LAYOUT_NODE = "androidx.compose.ui.node.LayoutNode"
@@ -218,5 +247,6 @@ internal abstract class CompositionExtractor(
         private const val COMPOUND_HASH_KEY = "compoundHashKey"
         private const val SCOPE_MAP_AS_MAP = "asMap"
         private const val TAG = "CompositionExtractor"
+        private const val DEBUG = false
     }
 }

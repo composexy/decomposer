@@ -13,17 +13,20 @@ class Root(
     val groups: List<Group>
 )
 
+class EmptyData : Data {
+    override val toString = "Empty"
+}
+
 @Serializable
 class Context(
     val compoundHashKey: Int,
-    override val hashCode: String
+    override val toString: String
 ) : Data
 
 @Serializable
 class Group(
     val attributes: Attributes,
     val data: List<Data>,
-    val layoutNode: LayoutNode?,
     val children: List<Group>
 )
 
@@ -34,7 +37,7 @@ class Attributes(
 )
 
 @Serializable
-class LayoutNode
+class LayoutNode(override val toString: String) : Data
 
 @Serializable
 sealed interface GroupKey
@@ -43,63 +46,24 @@ sealed interface GroupKey
 class IntKey(val value: Int) : GroupKey
 
 @Serializable
-class ObjectKey(
-    val type: String,
-    val value: String
-) : GroupKey
+class ObjectKey(val value: String) : GroupKey
 
 @Serializable
 sealed interface Data {
-    val hashCode: String
+    val toString: String
 }
 
 @Serializable
-class Plain(
+class Generic(override val toString: String) : Data
+
+@Serializable
+class ComposeState(
     val value: String,
-    override val hashCode: String
+    override val toString: String
 ) : Data
 
 @Serializable
-sealed interface State : Data {
-    val readerKind: Int
-}
-
-class DoubleState(
-    val value: Double,
-    override val readerKind: Int,
-    override val hashCode: String
-) : State
-
-@Serializable
-class IntState(
-    val value: Int,
-    override val readerKind: Int,
-    override val hashCode: String
-) : State
-
-@Serializable
-class LongState(
-    val value: Long,
-    override val readerKind: Int,
-    override val hashCode: String
-) : State
-
-@Serializable
-class FloatState(
-    val value: Float,
-    override val readerKind: Int,
-    override val hashCode: String
-) : State
-
-@Serializable
-class PlainState(
-    val value: String,
-    override val readerKind: Int,
-    override val hashCode: String
-) : State
-
-@Serializable
 class RecomposeScope(
-    val states: List<State>,
-    override val hashCode: String
+    val composeStates: List<ComposeState>,
+    override val toString: String
 ) : Data

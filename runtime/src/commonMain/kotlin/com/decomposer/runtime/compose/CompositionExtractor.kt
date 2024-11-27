@@ -5,8 +5,10 @@ import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.State
 import androidx.compose.runtime.tooling.CompositionData
 import androidx.compose.runtime.tooling.CompositionGroup
+import androidx.compose.ui.layout.SubcomposeLayoutState
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.connection.model.Attributes
+import com.decomposer.runtime.connection.model.ComposableLambdaImpl
 import com.decomposer.runtime.connection.model.ComposeState
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Context
@@ -19,7 +21,10 @@ import com.decomposer.runtime.connection.model.IntKey
 import com.decomposer.runtime.connection.model.LayoutNode
 import com.decomposer.runtime.connection.model.ObjectKey
 import com.decomposer.runtime.connection.model.RecomposeScope
-import com.decomposer.runtime.connection.model.Root
+import com.decomposer.runtime.connection.model.CompositionRoot
+import com.decomposer.runtime.connection.model.Coordinator
+import com.decomposer.runtime.connection.model.ModifierNode
+import com.decomposer.runtime.connection.model.SubcomposeState
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMembers
 
@@ -28,28 +33,30 @@ internal abstract class CompositionExtractor(
     private val logger: Logger
 ) {
 
-    fun map(composition: Composition): Root {
+    fun map(composition: Composition): Pair<CompositionRoot, Set<ComposeState>> {
+        val states = mutableSetOf<ComposeState>()
         val reflection = CompositionReflection(composition, logger)
         val compositionData = reflection.compositionData
         val observations = reflection.observations
         val context = reflection.parent
         if (compositionData == null || context == null) {
             logger.log(Logger.Level.WARNING, TAG, "Invalid composition: $composition")
-            return EMPTY_ROOT
+            return Pair(EMPTY_ROOT, emptySet())
         }
         dumpCompositionData(compositionData)
-        return map(compositionData, observations, context)
+        return Pair(map(compositionData, observations, context, states), states)
     }
 
     fun map(
         compositionData: CompositionData,
         observations: Map<Any, Set<Any>>,
-        context: CompositionContext
-    ): Root {
-        return Root(
+        context: CompositionContext,
+        outStates: MutableSet<ComposeState>
+    ): CompositionRoot {
+        return CompositionRoot(
             context = mapCompositionContext(context),
             groups = compositionData.compositionGroups.map {
-                mapCompositionGroup(it, observations)
+                mapCompositionGroup(it, observations, outStates)
             }
         )
     }
@@ -57,7 +64,12 @@ internal abstract class CompositionExtractor(
     private fun mapCompositionContext(compositionContext: CompositionContext): Context? {
         return when (compositionContext::class.qualifiedName) {
             COMPOSITION_CONTEXT_IMPL ->
-                Context(compositionContext.compoundHashKey, compositionContext.toString())
+                Context(
+                    compoundHashKey = compositionContext.compoundHashKey,
+                    toString = compositionContext.toString(),
+                    typeName = compositionContext::class.qualifiedName,
+                    hashCode = compositionContext.hashCode()
+                )
             RECOMPOSER -> null
             else -> {
                 logger.log(
@@ -71,7 +83,8 @@ internal abstract class CompositionExtractor(
 
     private fun mapCompositionGroup(
         group: CompositionGroup,
-        observations: Map<Any, Set<Any>>
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
     ): Group {
         return Group(
             attributes = Attributes(
@@ -79,50 +92,101 @@ internal abstract class CompositionExtractor(
                 sourceInformation = group.sourceInfo
             ),
             data = group.data.map {
-                mapData(it, observations)
+                mapData(it, observations, outStates)
             },
             children = group.compositionGroups.map {
-                mapCompositionGroup(it, observations)
+                mapCompositionGroup(it, observations, outStates)
             }
         )
     }
 
-    private fun mapData(any: Any?, observations: Map<Any, Set<Any>>): Data {
+    private fun mapData(
+        any: Any?,
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): Data {
         return when {
-            any == null -> EmptyData()
-            any::class.qualifiedName == COMPOSITION_CONTEXT_IMPL ->
-                mapCompositionContext(any as CompositionContext)!!
-            any is State<*> -> mapState(any)
+            any == null -> EmptyData
+            any is CompositionContext -> mapCompositionContext(any)!!
+            any is State<*> -> mapState(any, outStates).also { state ->
+                if (!outStates.any { it.hashCode == state.hashCode }) {
+                    outStates.add(state)
+                }
+            }
             any::class.qualifiedName == LAYOUT_NODE -> mapLayoutNode(any)
-            any::class.qualifiedName == RECOMPOSE_SCOPE_IMPL -> mapRecomposeScope(any, observations)
+            any::class.qualifiedName == RECOMPOSE_SCOPE_IMPL ->
+                mapRecomposeScope(any, observations, outStates)
+            any::class.qualifiedName == SUBCOMPOSE_LAYOUT_STATE ->
+                mapSubcomposeLayoutState(any as SubcomposeLayoutState, outStates)
+            any::class.qualifiedName == COMPOSABLE_LAMBDA_IMPL -> mapComposableLambda(any)
             else -> mapGeneric(any)
         }
     }
 
-    private fun mapRecomposeScope(
-        recomposeScope: Any,
-        observations: Map<Any, Set<Any>>
-    ): RecomposeScope {
-        return RecomposeScope(
-            toString = recomposeScope.toString(),
-            composeStates = findObservedStates(recomposeScope, observations)
+    private fun mapComposableLambda(any: Any): ComposableLambdaImpl {
+        val reflection = ComposableLambdaImplReflection(any, logger)
+        return ComposableLambdaImpl(
+            key = reflection.key,
+            tracked = reflection.tracked,
+            scopeHash = reflection.scopeHash,
+            scopeHashes = reflection.scopeHashes,
+            toString = any.toString(),
+            typeName = any::class.qualifiedName,
+            hashCode = any.hashCode()
         )
     }
 
-    private fun findObservedStates(
+    private fun mapSubcomposeLayoutState(
+        subcomposeLayoutState: SubcomposeLayoutState,
+        outStates: MutableSet<ComposeState>
+    ): SubcomposeState {
+        val reflection = SubcomposeLayoutStateReflection(subcomposeLayoutState, logger)
+        val subcompositions = mutableListOf<CompositionRoot>()
+        reflection.subcompositions.forEach {
+            val data = map(it)
+            subcompositions.add(data.first)
+            outStates.addAll(data.second)
+        }
+        return SubcomposeState(
+            compositions = subcompositions,
+            toString = subcomposeLayoutState.toString(),
+            typeName = subcomposeLayoutState::class.qualifiedName,
+            hashCode = subcomposeLayoutState.hashCode()
+        )
+    }
+
+    private fun mapRecomposeScope(
         recomposeScope: Any,
-        observations: Map<Any, Set<Any>>
-    ): List<ComposeState> {
-        val readStates = mutableListOf<ComposeState>()
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): RecomposeScope {
+        return RecomposeScope(
+            composeStates = findObservedStateHashes(recomposeScope, observations, outStates),
+            toString = recomposeScope.toString(),
+            typeName = recomposeScope::class.qualifiedName,
+            hashCode = recomposeScope.hashCode()
+        )
+    }
+
+    private fun findObservedStateHashes(
+        recomposeScope: Any,
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): List<Int> {
+        val readStates = mutableListOf<Int>()
         observations.forEach { entry ->
             val state = entry.key
             if (state !is State<*>) {
                 logger.log(Logger.Level.WARNING, TAG, "Unexpected state type: $state")
                 return@forEach
             }
+            val hashCode = state.hashCode()
+            if (!outStates.any { it.hashCode == hashCode }) {
+                outStates.add(mapState(state, outStates))
+            }
             val scopes = entry.value
             if (scopes.contains(recomposeScope)) {
-                readStates.add(ComposeState(state.value.toString(), state.toString()))
+                readStates.add(hashCode)
             }
         }
         return readStates
@@ -137,15 +201,60 @@ internal abstract class CompositionExtractor(
     }
 
     private fun mapLayoutNode(any: Any): LayoutNode {
-        return LayoutNode(any.toString())
+        val reflection = LayoutNodeReflection(any, logger)
+        return LayoutNode(
+            lookaheadRootHash = reflection.lookaheadRootHash,
+            childrenHashes = reflection.childrenHashes,
+            parentHash = reflection.parentHash,
+            nodes = reflection.nodes.map {
+                ModifierNode(
+                    toString = it.toString(),
+                    typeName = it::class.qualifiedName,
+                    hashCode = it.hashCode()
+                )
+            },
+            coordinators = reflection.coordinators.map {
+                val coordinator = it.first
+                val tailNode = it.second
+                Coordinator(
+                    tailNodeHash = tailNode.hashCode(),
+                    toString = coordinator.toString(),
+                    typeName = coordinator::class.qualifiedName,
+                    hashCode = coordinator.hashCode()
+                )
+            },
+            toString = any.toString(),
+            typeName = any::class.qualifiedName!!,
+            hashCode = any.hashCode()
+        )
     }
 
-    private fun mapState(state: State<*>): ComposeState {
-        return ComposeState(state.value.toString(), state.toString())
+    private fun mapState(state: State<*>, outStates: MutableSet<ComposeState>): ComposeState {
+        val reflection = StateReflection(state, logger)
+        return ComposeState(
+            value = state.value.toString(),
+            dependencyHashes = reflection.dependencies.map { dependency ->
+                val hashCode = dependency.hashCode()
+                if (dependency is State<*> && !outStates.any { it.hashCode == hashCode }) {
+                    outStates.add(mapState(dependency, outStates))
+                }
+                hashCode
+            },
+            readInComposition = reflection.readInComposition,
+            readInSnapshotFlow = reflection.readInSnapshotFlow,
+            readInSnapshotStateObserver = reflection.readInSnapshotObserver,
+            toString = state.toString(),
+            typeName = state::class.qualifiedName,
+            hashCode = state.hashCode()
+        )
     }
 
     private fun mapGeneric(any: Any): Generic {
-        return Generic(any.toString())
+        return Generic(
+            toString = any.toString(),
+            typeName = any::class.qualifiedName,
+            hashCode = any.hashCode()
+        )
     }
 
     abstract suspend fun extractCompositionRoots(): CompositionRoots
@@ -162,7 +271,7 @@ internal abstract class CompositionExtractor(
             return property.get(this) as Int
         }
 
-    fun dumpCompositionData(data: CompositionData) {
+    private fun dumpCompositionData(data: CompositionData) {
         if (!DEBUG) return
         data.compositionGroups.forEachIndexed { index, group ->
             dumpGroup(index, group)
@@ -188,13 +297,15 @@ internal abstract class CompositionExtractor(
     }
 
     companion object {
-        private val EMPTY_ROOT = Root(null, emptyList())
+        private val EMPTY_ROOT = CompositionRoot(null, emptyList())
+        private const val COMPOSABLE_LAMBDA_IMPL = "androidx.compose.runtime.internal.ComposableLambdaImpl"
+        private const val SUBCOMPOSE_LAYOUT_STATE = "androidx.compose.ui.layout.SubcomposeLayoutState"
         private const val RECOMPOSE_SCOPE_IMPL = "androidx.compose.runtime.RecomposeScopeImpl"
         private const val LAYOUT_NODE = "androidx.compose.ui.node.LayoutNode"
         private const val RECOMPOSER = "androidx.compose.runtime.Recomposer"
         private const val COMPOSITION_CONTEXT_IMPL = "androidx.compose.runtime.ComposerImpl.CompositionContextImpl"
         private const val COMPOUND_HASH_KEY = "compoundHashKey"
         private const val TAG = "CompositionExtractor"
-        private const val DEBUG = false
+        private const val DEBUG = true
     }
 }

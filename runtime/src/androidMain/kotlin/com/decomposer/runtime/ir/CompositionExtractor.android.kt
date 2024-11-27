@@ -10,10 +10,12 @@ import androidx.compose.runtime.Composition
 import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.ui.R
 import androidx.compose.ui.platform.AndroidUiDispatcher
+import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.compose.CompositionExtractor
+import com.decomposer.runtime.connection.model.ComposeState
 import com.decomposer.runtime.connection.model.CompositionRoots
-import com.decomposer.runtime.connection.model.Root
+import com.decomposer.runtime.connection.model.CompositionRoot
 import java.lang.reflect.Field
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMembers
@@ -31,6 +33,7 @@ internal class AndroidCompositionExtractor(
     private val compositions = mutableListOf<Composition>()
 
     init {
+        enableInspection()
         val windowManagerClazz = Class.forName(WINDOW_MANAGER_GLOBAL)
         val getInstanceMethod = windowManagerClazz.getMethod(WINDOW_MANAGER_GET_INSTANCE)
         windowManager = getInstanceMethod.invoke(null)!!
@@ -43,20 +46,25 @@ internal class AndroidCompositionExtractor(
         val clock = frameClock ?: throw IllegalArgumentException("Cannot find frame clock!")
         return clock.withFrameNanos {
             val rootViews = getAllRootViews()
-            CompositionRoots(extractCompositionData(rootViews))
+            extractCompositionData(rootViews)
         }
     }
 
-    private fun extractCompositionData(rootViews: List<View>): List<Root> {
+    private fun extractCompositionData(rootViews: List<View>): CompositionRoots {
         compositions.clear()
         rootViews.forEach { rootView ->
             rootView.composition?.let {
                 compositions.add(it)
             }
         }
-        return compositions.map {
-            map(it)
+        val roots = mutableListOf<CompositionRoot>()
+        val states = mutableSetOf<ComposeState>()
+        compositions.forEach {
+            val data = map(it)
+            roots.add(data.first)
+            states.addAll(data.second)
         }
+        return CompositionRoots(roots, states)
     }
 
     private fun getAllRootViews(): List<View> {
@@ -65,6 +73,10 @@ internal class AndroidCompositionExtractor(
         } else {
             viewsField.get(windowManager) as List<View>
         }
+    }
+
+    private fun enableInspection() {
+        isDebugInspectorInfoEnabled = true
     }
 
     private val View.composition: Composition?

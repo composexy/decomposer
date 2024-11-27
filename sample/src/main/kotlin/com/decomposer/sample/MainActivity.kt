@@ -11,12 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        /*
         setContent {
             Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                 Column {
@@ -30,13 +34,26 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }*/
+        ComposeView(this).also {
+            setContentView(it)
+        }.setContent {
+            val state1 = remember {
+                mutableStateOf("Hi!")
+            }
+            Text(modifier = Modifier, text = "${state1.value} ${textState.value}")
         }
     }
 }
 
+val textState = mutableStateOf("World")
+
 @Composable
 fun Footer(modifier: Modifier, message: String) {
+    val footerState = remember {
+        mutableStateOf("Hi!")
+    }
     Box {
-        Text(modifier = modifier, text = message)
+        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
     }
 }

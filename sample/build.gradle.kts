@@ -31,9 +31,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    packaging {
-        resources.excludes.add("kotlin/**.kotlin_builtins")
-    }
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -49,6 +46,7 @@ kotlin {
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

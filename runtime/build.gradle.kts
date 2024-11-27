@@ -44,8 +44,10 @@ kotlin {
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.websocket)
                 implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(libs.androidx.collection.jvm)
                 implementation(libs.kotlin.reflect)
                 implementation(compose.runtime)
+                implementation(compose.ui)
             }
         }
         val commonTest by getting {
@@ -56,7 +58,6 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(libs.dexlib2)
-                implementation(compose.ui)
             }
         }
         val androidUnitTest by getting {

@@ -11,6 +11,8 @@ import androidx.compose.runtime.tooling.CompositionData
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.SubcomposeLayoutState
 import com.decomposer.runtime.Logger
+import com.decomposer.runtime.compose.LayoutNodeReflection.Companion
+import com.decomposer.runtime.compose.RememberObserverHolderReflection.Companion.REMEMBER_OBSERVER_HOLDER_WRAPPED
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -456,6 +458,48 @@ class LayoutNodeReflection(private val layoutNode: Any, private val logger: Logg
         private const val NODE_COORDINATOR_WRAPPED = "wrapped"
         private const val NODE_COORDINATOR_TAIL = "tail"
         private const val TAG = "LayoutNodeReflection"
+    }
+}
+
+class RememberObserverHolderReflection(private val holder: Any, private val logger: Logger) {
+
+    val wrapped: Any?
+        get() {
+            val holderClazz = holder::class
+            val wrappedProperty = holderClazz.declaredMembers
+                .find { it.name == REMEMBER_OBSERVER_HOLDER_WRAPPED } as? KProperty1<Any, *>
+            if (wrappedProperty == null) {
+                logger.log(Logger.Level.WARNING, TAG, "Cannot find wrapped property!")
+                return null
+            }
+            wrappedProperty.isAccessible = true
+            return wrappedProperty.get(holder)
+        }
+
+    companion object {
+        private const val REMEMBER_OBSERVER_HOLDER_WRAPPED = "wrapped"
+        private const val TAG = "RememberObserverHolderReflection"
+    }
+}
+
+class CompositionContextHolderReflection(private val holder: Any, private val logger: Logger) {
+
+    val ref: CompositionContext?
+        get() {
+            val holderClazz = holder::class
+            val refProperty = holderClazz.declaredMembers
+                .find { it.name == COMPOSITION_CONTEXT_HOLDER_REF } as? KProperty1<Any, *>
+            if (refProperty == null) {
+                logger.log(Logger.Level.WARNING, TAG, "Cannot find ref property!")
+                return null
+            }
+            refProperty.isAccessible = true
+            return refProperty.get(holder) as? CompositionContext
+        }
+
+    companion object {
+        private const val COMPOSITION_CONTEXT_HOLDER_REF = "ref"
+        private const val TAG = "CompositionContextHolderReflection"
     }
 }
 

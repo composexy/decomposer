@@ -94,6 +94,16 @@ class SubcomposeState(
 ) : Data
 
 @Serializable
+class RememberObserverHolder(
+    val wrapped: Data
+) : Data by wrapped
+
+@Serializable
+class CompositionContextHolder(
+    val ref: Context
+) : Data by ref
+
+@Serializable
 class ComposableLambdaImpl(
     val key: Int,
     val tracked: Boolean,

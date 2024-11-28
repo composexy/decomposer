@@ -10,6 +10,7 @@ import com.decomposer.runtime.Logger
 import com.decomposer.runtime.connection.model.Attributes
 import com.decomposer.runtime.connection.model.ComposableLambdaImpl
 import com.decomposer.runtime.connection.model.ComposeState
+import com.decomposer.runtime.connection.model.CompositionContextHolder
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Context
 import com.decomposer.runtime.connection.model.Data
@@ -24,6 +25,7 @@ import com.decomposer.runtime.connection.model.RecomposeScope
 import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.connection.model.Coordinator
 import com.decomposer.runtime.connection.model.ModifierNode
+import com.decomposer.runtime.connection.model.RememberObserverHolder
 import com.decomposer.runtime.connection.model.SubcomposeState
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMembers
@@ -119,7 +121,31 @@ internal abstract class CompositionExtractor(
             any::class.qualifiedName == SUBCOMPOSE_LAYOUT_STATE ->
                 mapSubcomposeLayoutState(any as SubcomposeLayoutState, outStates)
             any::class.qualifiedName == COMPOSABLE_LAMBDA_IMPL -> mapComposableLambda(any)
+            any::class.qualifiedName == REMEMBER_OBSERVER_HOLDER -> {
+                mapRememberObserverHolder(any) ?: EmptyData
+            }
+            any::class.qualifiedName == COMPOSITION_CONTEXT_HOLDER -> {
+                mapCompositionContextHolder(any) ?: EmptyData
+            }
             else -> mapGeneric(any)
+        }
+    }
+
+    private fun mapRememberObserverHolder(any: Any): RememberObserverHolder? {
+        val reflection = RememberObserverHolderReflection(any, logger)
+        return reflection.wrapped?.let { wrapped ->
+            RememberObserverHolder(
+                wrapped = mapGeneric(wrapped)
+            )
+        }
+    }
+
+    private fun mapCompositionContextHolder(any: Any): CompositionContextHolder? {
+        val reflection = CompositionContextHolderReflection(any, logger)
+        return reflection.ref?.let {
+            CompositionContextHolder(
+                ref = mapCompositionContext(it)!!
+            )
         }
     }
 
@@ -298,6 +324,8 @@ internal abstract class CompositionExtractor(
 
     companion object {
         private val EMPTY_ROOT = CompositionRoot(null, emptyList())
+        private const val COMPOSITION_CONTEXT_HOLDER = "androidx.compose.runtime.CompositionContextHolder"
+        private const val REMEMBER_OBSERVER_HOLDER = "androidx.compose.runtime.RememberObserverHolder"
         private const val COMPOSABLE_LAMBDA_IMPL = "androidx.compose.runtime.internal.ComposableLambdaImpl"
         private const val SUBCOMPOSE_LAYOUT_STATE = "androidx.compose.ui.layout.SubcomposeLayoutState"
         private const val RECOMPOSE_SCOPE_IMPL = "androidx.compose.runtime.RecomposeScopeImpl"

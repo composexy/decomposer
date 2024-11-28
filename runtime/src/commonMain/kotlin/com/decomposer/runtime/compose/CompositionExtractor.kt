@@ -15,7 +15,7 @@ import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Context
 import com.decomposer.runtime.connection.model.Data
 import com.decomposer.runtime.connection.model.EmptyData
-import com.decomposer.runtime.connection.model.Generic
+import com.decomposer.runtime.connection.model.Default
 import com.decomposer.runtime.connection.model.Group
 import com.decomposer.runtime.connection.model.GroupKey
 import com.decomposer.runtime.connection.model.IntKey
@@ -110,7 +110,7 @@ internal abstract class CompositionExtractor(
         return when {
             any == null -> EmptyData
             any is CompositionContext -> mapCompositionContext(any)!!
-            any is State<*> -> mapState(any, outStates).also { state ->
+            any is State<*> -> mapState(any, observations, outStates).also { state ->
                 if (!outStates.any { it.hashCode == state.hashCode }) {
                     outStates.add(state)
                 }
@@ -209,7 +209,7 @@ internal abstract class CompositionExtractor(
             }
             val hashCode = state.hashCode()
             if (!outStates.any { it.hashCode == hashCode }) {
-                outStates.add(mapState(state, outStates))
+                outStates.add(mapState(state, observations, outStates))
             }
             val scopes = entry.value
             if (scopes.contains(recomposeScope)) {
@@ -256,14 +256,18 @@ internal abstract class CompositionExtractor(
         )
     }
 
-    private fun mapState(state: State<*>, outStates: MutableSet<ComposeState>): ComposeState {
+    private fun mapState(
+        state: State<*>,
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): ComposeState {
         val reflection = StateReflection(state, logger)
         return ComposeState(
-            value = state.value.toString(),
+            value = mapData(state.value, observations, outStates),
             dependencyHashes = reflection.dependencies.map { dependency ->
                 val hashCode = dependency.hashCode()
                 if (dependency is State<*> && !outStates.any { it.hashCode == hashCode }) {
-                    outStates.add(mapState(dependency, outStates))
+                    outStates.add(mapState(dependency, observations, outStates))
                 }
                 hashCode
             },
@@ -276,8 +280,8 @@ internal abstract class CompositionExtractor(
         )
     }
 
-    private fun mapGeneric(any: Any): Generic {
-        return Generic(
+    private fun mapGeneric(any: Any): Default {
+        return Default(
             toString = any.toString(),
             typeName = any::class.qualifiedName,
             hashCode = any.hashCode()

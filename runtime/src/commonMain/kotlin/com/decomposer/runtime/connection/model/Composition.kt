@@ -59,7 +59,7 @@ class Context(
 ) : Data
 
 @Serializable
-class Generic(
+class Default(
     override val toString: String,
     override val typeName: String?,
     override val hashCode: Int
@@ -67,7 +67,7 @@ class Generic(
 
 @Serializable
 class ComposeState(
-    val value: String,
+    val value: Data,
     val dependencyHashes: List<Int>,
     val readInComposition: Boolean?,
     val readInSnapshotFlow: Boolean?,

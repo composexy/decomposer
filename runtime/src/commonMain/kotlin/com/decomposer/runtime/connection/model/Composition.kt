@@ -106,6 +106,7 @@ class CompositionContextHolder(
 @Serializable
 class ComposableLambdaImpl(
     val key: Int,
+    val block: Data?,
     val tracked: Boolean,
     val scopeHash: Int?,
     val scopeHashes: List<Int>,

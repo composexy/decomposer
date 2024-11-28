@@ -271,6 +271,19 @@ class ComposableLambdaImplReflection(private val lambda: Any, private val logger
             return keyProperty.get(lambda) as Int
         }
 
+    val block: Any?
+        get() {
+            val lambdaClazz = lambda::class
+            val blockProperty = lambdaClazz.declaredMembers
+                .find { it.name == COMPOSABLE_LAMBDA_BLOCK } as? KProperty1<Any, *>
+            if (blockProperty == null) {
+                logger.log(Logger.Level.WARNING, TAG, "Cannot find block property!")
+                return null
+            }
+            blockProperty.isAccessible = true
+            return blockProperty.get(lambda)
+        }
+
     val tracked: Boolean
         get() {
             val lambdaClazz = lambda::class
@@ -314,6 +327,7 @@ class ComposableLambdaImplReflection(private val lambda: Any, private val logger
 
     companion object {
         private const val COMPOSABLE_LAMBDA_KEY = "key"
+        private const val COMPOSABLE_LAMBDA_BLOCK = "_block"
         private const val COMPOSABLE_LAMBDA_TRACKED = "tracked"
         private const val COMPOSABLE_LAMBDA_SCOPE = "scope"
         private const val COMPOSABLE_LAMBDA_SCOPES = "scopes"

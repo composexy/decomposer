@@ -153,6 +153,7 @@ internal abstract class CompositionExtractor(
         val reflection = ComposableLambdaImplReflection(any, logger)
         return ComposableLambdaImpl(
             key = reflection.key,
+            block = reflection.block?.let { mapGeneric(it) },
             tracked = reflection.tracked,
             scopeHash = reflection.scopeHash,
             scopeHashes = reflection.scopeHashes,

@@ -1,0 +1,92 @@
+package com.decomposer.ui
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.Button
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.decomposer.server.AdbConnectResult
+import decomposer.composeapp.generated.resources.Res
+import decomposer.composeapp.generated.resources.ic_launcher
+import org.jetbrains.compose.resources.painterResource
+
+@Composable
+fun DeviceDiscovery(
+    modifier: Modifier,
+    adbState: AdbConnectResult,
+    onConnect: () -> Unit
+) {
+    Column(
+        modifier = modifier.wrapContentHeight(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            modifier = Modifier.heightIn(320.dp, 480.dp).widthIn(320.dp, 480.dp),
+            painter = painterResource(Res.drawable.ic_launcher),
+            contentDescription = "Launcher logo",
+            contentScale = ContentScale.Fit
+        )
+        when (adbState) {
+            is AdbConnectResult.Failure -> {
+                Spacer(modifier = Modifier.height(60.dp))
+                Text(
+                    text = """
+                        Connection failed:
+                        ${adbState.errorMessage}
+                    """.trimIndent(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(60.dp))
+                Button(
+                    onClick = {
+                        onConnect()
+                    }
+                ) {
+                    Text(
+                        text = "Retry"
+                    )
+                }
+            }
+            AdbConnectResult.Idle -> {
+                Spacer(modifier = Modifier.height(60.dp))
+                Text(
+                    text = """
+                        Please connect one and only one android device to this PC and connect.
+                        The server runs on port 9801.
+                        If you cannot make this port available, set DECOMPOSER_SERVER_PORT to override
+                        the port number.
+                    """.trimIndent(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(60.dp))
+                Button(
+                    onClick = {
+                        onConnect()
+                    }
+                ) {
+                    Text(
+                        text = "Connect"
+                    )
+                }
+            }
+            AdbConnectResult.Success -> {
+                Spacer(modifier = Modifier.height(60.dp))
+                Text(
+                    text = buildString {
+                        append("Connected!")
+                    }
+                )
+            }
+        }
+    }
+}

@@ -1,9 +1,16 @@
 package com.decomposer
 
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import com.decomposer.runtime.connection.ConnectionContract
 import com.decomposer.server.DefaultServer
+import com.decomposer.ui.DecomposerTheme
+import com.decomposer.ui.MainApp
+import decomposer.composeapp.generated.resources.Res
+import decomposer.composeapp.generated.resources.ic_launcher
+import org.jetbrains.compose.resources.painterResource
 
 internal lateinit var server: DefaultServer
 internal fun startServer() {
@@ -23,14 +30,15 @@ private fun attemptAdbReverse(port: Int) {
     println("ADB reverse command exit code: $exitCode")
 }
 
-fun main() {
-    startServer()
-    application {
-        Window(
-            onCloseRequest = ::exitApplication,
-            title = "decomposer",
-        ) {
-            App()
+fun main() = application {
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = "Decomposer",
+        state = WindowState(width = 2560.dp, height = 1536.dp),
+        icon = painterResource(Res.drawable.ic_launcher)
+    ) {
+        DecomposerTheme {
+            MainApp()
         }
     }
 }

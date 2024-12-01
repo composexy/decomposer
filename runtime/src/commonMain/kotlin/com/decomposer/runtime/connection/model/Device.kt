@@ -9,5 +9,5 @@ class DeviceDescriptor(
 
 @Serializable
 enum class DeviceType {
-    ANDROID, DESKTOP
+    ANDROID
 }

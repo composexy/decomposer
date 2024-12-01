@@ -1,6 +1,8 @@
 package com.decomposer.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.Colors
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
@@ -69,8 +71,12 @@ data class Theme(
     }
 }
 
-val LocalTheme = staticCompositionLocalOf { Theme.dark }
-
-val AppTheme
-    @Composable
-    get() = LocalTheme.current
+@Composable
+fun DecomposerTheme(content: @Composable () -> Unit) {
+    val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
+    MaterialTheme(
+        colors = theme.materialColors
+    ) {
+        content()
+    }
+}

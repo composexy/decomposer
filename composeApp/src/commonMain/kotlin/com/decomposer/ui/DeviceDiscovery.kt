@@ -13,8 +13,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.decomposer.server.AdbConnectResult
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.ic_launcher
@@ -39,12 +41,11 @@ fun DeviceDiscovery(
         when (adbState) {
             is AdbConnectResult.Failure -> {
                 Spacer(modifier = Modifier.height(60.dp))
-                Text(
+                DefaultText(
                     text = """
                         Connection failed:
                         ${adbState.errorMessage}
                     """.trimIndent(),
-                    textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(60.dp))
                 Button(
@@ -52,21 +53,20 @@ fun DeviceDiscovery(
                         onConnect()
                     }
                 ) {
-                    Text(
+                    DefaultText(
                         text = "Retry"
                     )
                 }
             }
             AdbConnectResult.Idle -> {
                 Spacer(modifier = Modifier.height(60.dp))
-                Text(
+                DefaultText(
                     text = """
-                        Please connect one and only one android device to this PC and connect.
+                        Please connect one and only one android device to this PC then click "Connect".
                         The server runs on port 9801.
                         If you cannot make this port available, set DECOMPOSER_SERVER_PORT to override
                         the port number.
-                    """.trimIndent(),
-                    textAlign = TextAlign.Center
+                    """.trimIndent()
                 )
                 Spacer(modifier = Modifier.height(60.dp))
                 Button(
@@ -74,14 +74,14 @@ fun DeviceDiscovery(
                         onConnect()
                     }
                 ) {
-                    Text(
+                    DefaultText(
                         text = "Connect"
                     )
                 }
             }
             AdbConnectResult.Success -> {
                 Spacer(modifier = Modifier.height(60.dp))
-                Text(
+                DefaultText(
                     text = buildString {
                         append("Connected!")
                     }
@@ -89,4 +89,18 @@ fun DeviceDiscovery(
             }
         }
     }
+}
+
+@Composable
+private fun DefaultText(
+    text: String
+) {
+    Text(
+        text = text,
+        textAlign = TextAlign.Center,
+        fontFamily = Fonts.jetbrainsMono(),
+        fontSize = 26.sp,
+        fontWeight = FontWeight.Light,
+        lineHeight = 36.sp
+    )
 }

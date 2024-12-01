@@ -90,6 +90,7 @@ class DefaultServer(private val serverPort: Int) {
                 }
             }
         }.start(wait = false)
+        _sessionStateFlow.value = SessionState.Started(port = serverPort)
     }
 
     fun stop() {
@@ -212,7 +213,7 @@ sealed interface SessionState {
 
     data object Idle : SessionState
 
-    class Started(port: Int): SessionState
+    class Started(val port: Int): SessionState
 
     class Disconnected(val sessionId: String) : SessionState
 

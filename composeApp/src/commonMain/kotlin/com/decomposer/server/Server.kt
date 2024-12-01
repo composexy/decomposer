@@ -27,6 +27,7 @@ import io.ktor.server.websocket.receiveDeserialized
 import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.timeout
 import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.close
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -82,6 +83,9 @@ class DefaultServer(private val serverPort: Int) {
                     } catch (ex: Throwable) {
                         println("Encountered session error ${ex.stackTraceToString()}")
                         _sessionStateFlow.emit(SessionState.Disconnected(sessionId!!))
+                    } finally {
+                        println("Session $sessionId ended.")
+                        _sessionStateFlow.emit(SessionState.Idle)
                     }
                 }
             }
@@ -93,11 +97,11 @@ class DefaultServer(private val serverPort: Int) {
     }
 
     private suspend fun RoutingContext.processSessionCreation() {
-        if (_sessionStateFlow.value is SessionState.Connected) {
-            call.respond(
-                status = HttpStatusCode.BadRequest,
-                message = "Concurrent sessions currently not supported!"
-            )
+        val sessionState = _sessionStateFlow.value
+        if (sessionState is SessionState.Connected) {
+            println("Cleaning existing session ${sessionState.session.sessionId}")
+            sessionState.session.close()
+            _sessionStateFlow.value = SessionState.Disconnected(sessionState.session.sessionId)
         }
         val deviceType = call.request.headers[ConnectionContract.HEADER_DEVICE_TYPE]
         when (deviceType) {
@@ -127,8 +131,11 @@ class Session(val sessionId: String) {
     private var projectSnapshot: ProjectSnapshot? = null
     private val virtualFileIrByFilePath = mutableMapOf<String, VirtualFileIr>()
     private val requests = MutableSharedFlow<Request<*>>()
+    private var websocketSession: DefaultWebSocketServerSession? = null
 
     internal suspend fun DefaultWebSocketServerSession.handleSession() {
+        websocketSession = this
+        println("Start handling session $sessionId")
         requests.collect {
             when (it) {
                 is ProjectSnapshotRequest -> {
@@ -178,24 +185,28 @@ class Session(val sessionId: String) {
         requests.emit(request)
         return request.receive.receive()
     }
+
+    suspend fun close() {
+        websocketSession?.close()
+    }
+
+    private sealed class Request<T>(
+        val command: Command,
+        val receive: Channel<T> = Channel(1)
+    )
+
+    private class ProjectSnapshotRequest : Request<ProjectSnapshot>(
+        command = Command(CommandKeys.PROJECT_SNAPSHOT)
+    )
+
+    private class VirtualFileIrRequest(filePath: String) : Request<VirtualFileIr>(
+        command = Command(CommandKeys.VIRTUAL_FILE_IR, listOf(filePath))
+    )
+
+    private class CompositionDataRequest : Request<CompositionRoots>(
+        command = Command(CommandKeys.COMPOSITION_DATA)
+    )
 }
-
-private sealed class Request<T>(
-    val command: Command,
-    val receive: Channel<T> = Channel(1)
-)
-
-private class ProjectSnapshotRequest : Request<ProjectSnapshot>(
-    command = Command(CommandKeys.PROJECT_SNAPSHOT)
-)
-
-private class VirtualFileIrRequest(filePath: String) : Request<VirtualFileIr>(
-    command = Command(CommandKeys.VIRTUAL_FILE_IR, listOf(filePath))
-)
-
-private class CompositionDataRequest : Request<CompositionRoots>(
-    command = Command(CommandKeys.COMPOSITION_DATA)
-)
 
 sealed interface SessionState {
 

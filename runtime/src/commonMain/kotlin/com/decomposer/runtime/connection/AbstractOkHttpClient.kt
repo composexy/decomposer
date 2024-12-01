@@ -45,7 +45,8 @@ internal abstract class AbstractOkHttpClient(
 
         okHttpClient.newCall(newSessionRequest).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                log(Logger.Level.ERROR, loggerTag, e.stackTraceToString())
+                log(Logger.Level.WARNING, loggerTag, e.stackTraceToString())
+                restart()
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -119,10 +120,12 @@ internal abstract class AbstractOkHttpClient(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 log(Logger.Level.DEBUG, loggerTag, "Websocket onClosed $code $reason")
+                restart()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                log(Logger.Level.ERROR, loggerTag, "Websocket onFailure: ${t.stackTraceToString()}")
+                log(Logger.Level.WARNING, loggerTag, "Websocket onFailure: ${t.stackTraceToString()}")
+                restart()
             }
         }
         return okHttpClient.newWebSocket(websocketRequest, websocketListener)

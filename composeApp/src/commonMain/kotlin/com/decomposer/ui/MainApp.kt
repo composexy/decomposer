@@ -10,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.decomposer.runtime.connection.ConnectionContract
 import com.decomposer.server.AdbConnectResult
-import com.decomposer.server.SessionState
 
 @Composable
 fun MainApp() {
@@ -29,12 +28,11 @@ fun MainApp() {
     LaunchedEffect(adbConnectState) {
         if (adbConnectState != AdbConnectResult.Success) {
             connectionState.adbConnect()
-        } else {
-            connectionState.serverConnect()
         }
     }
 
     DisposableEffect(connectionState) {
+        connectionState.serverConnect()
         onDispose {
             connectionState.serverDisconnect()
         }

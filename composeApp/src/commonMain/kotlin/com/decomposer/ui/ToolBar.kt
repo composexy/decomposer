@@ -60,7 +60,8 @@ fun ToolBarCheckBox(
     ) {
         Checkbox(
             checked = checked,
-            onCheckedChange = null
+            onCheckedChange = null,
+            modifier = Modifier.padding(4.dp)
         )
         DefaultPanelText(
             text = text,

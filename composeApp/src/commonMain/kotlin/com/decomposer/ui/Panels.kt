@@ -83,8 +83,11 @@ fun Panels(
                 ) {
                     if (panelsState.fileTreeVisible) {
                         FileTreePanel(
-                            modifier = Modifier.weight(0.24f),
-                            session = sessionState.session
+                            modifier = Modifier.weight(0.16f),
+                            session = sessionState.session,
+                            onClickFileEntry = {
+                                panelsState.selectedIrFilePath = it
+                            }
                         )
                     }
                     if (panelsState.irViewerVisible) {
@@ -92,8 +95,9 @@ fun Panels(
                             VerticalSplitter()
                         }
                         IrPanel(
-                            modifier = Modifier.weight(0.38f),
-                            session = sessionState.session
+                            modifier = Modifier.weight(0.42f),
+                            session = sessionState.session,
+                            filePath = panelsState.selectedIrFilePath
                         )
                     }
                     if (panelsState.compositionViewerVisible) {
@@ -101,7 +105,7 @@ fun Panels(
                             VerticalSplitter()
                         }
                         CompositionPanel(
-                            modifier = Modifier.weight(0.38f),
+                            modifier = Modifier.weight(0.42f),
                             session = sessionState.session
                         )
                     }
@@ -160,4 +164,5 @@ class PanelsState {
     var fileTreeVisible by mutableStateOf(true)
     var irViewerVisible by mutableStateOf(true)
     var compositionViewerVisible by mutableStateOf(false)
+    var selectedIrFilePath: String? by mutableStateOf(null)
 }

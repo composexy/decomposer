@@ -828,9 +828,9 @@ class IrProcessor {
 
     suspend fun processVirtualFileIr(ir: VirtualFileIr) = withContext(Dispatchers.Default) {
         if (ir.originalIrFile.isNotEmpty()) {
-            processoriginIrFile(ir.filePath, ir.originalIrFile)
+            processOriginIrFile(ir.filePath, ir.originalIrFile)
         }
-        processoriginIrClasses(ir.filePath, ir.originalTopLevelIrClasses)
+        processOriginIrClasses(ir.filePath, ir.originalTopLevelIrClasses)
         if (ir.composedIrFile.isNotEmpty()) {
             processComposedIrFile(ir.filePath, ir.composedIrFile)
         }
@@ -838,6 +838,7 @@ class IrProcessor {
     }
 
     private fun processComposedIrFile(filePath: String, data: List<String>) {
+        if (composedFilesByPath[filePath] != null) return
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
         file.printJson()
@@ -846,6 +847,7 @@ class IrProcessor {
     }
 
     private fun processComposedIrClasses(filePath: String, data: Set<List<String>>) {
+        if (composedTopLevelClassesByPath[filePath] != null) return
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
@@ -855,7 +857,8 @@ class IrProcessor {
         composedTopLevelClassesByPath[filePath] = tables
     }
 
-    private fun processoriginIrFile(filePath: String, data: List<String>) {
+    private fun processOriginIrFile(filePath: String, data: List<String>) {
+        if (originFilesByPath[filePath] != null) return
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
         file.printJson()
@@ -863,7 +866,8 @@ class IrProcessor {
         originFilesByPath[filePath] = table
     }
 
-    private fun processoriginIrClasses(filePath: String, data: Set<List<String>>) {
+    private fun processOriginIrClasses(filePath: String, data: Set<List<String>>) {
+        if (originTopLevelClassesByPath[filePath] != null) return
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)

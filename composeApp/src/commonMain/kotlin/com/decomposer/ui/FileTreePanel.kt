@@ -21,18 +21,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,7 +51,8 @@ import java.nio.file.Paths
 @Composable
 fun FileTreePanel(
     modifier: Modifier = Modifier,
-    session: Session
+    session: Session,
+    onClickFileEntry: (String) -> Unit
 ) {
     var fileTree: FilterableTree by remember {
         mutableStateOf(FilterableTree.EMPTY_TREE)
@@ -99,7 +94,7 @@ fun FileTreePanel(
 
     LaunchedEffect(session.sessionId) {
         val projectSnapshot = session.getProjectSnapshot()
-        fileTree = projectSnapshot.asFileTree
+        fileTree = projectSnapshot.buildFileTree(onClickFileEntry)
     }
 }
 
@@ -108,7 +103,12 @@ class FileTreeNode(
     override val children: List<TreeNode>,
     override val level: Int,
     override val tags: List<Any> = emptyList(),
+    val prefix: String,
+    val onClickFileEntry: (String) -> Unit
 ) : BaseTreeNode() {
+
+    private val isFile = !expandable
+    private val isFolder = expandable
 
     @Composable
     override fun TreeNodeRow() {
@@ -132,7 +132,17 @@ class FileTreeNode(
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
                     .clipToBounds()
-                    .hoverable(interactionSource),
+                    .run {
+                        if (isFile) {
+                            this.hoverable(interactionSource)
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable {
+                                    onClickFileEntry(Paths.get(prefix, name).toString())
+                                }
+                        } else {
+                            this
+                        }
+                    },
                 softWrap = true,
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,
@@ -150,21 +160,23 @@ class FileTreeNode(
             modifier = modifier
                 .wrapContentSize()
                 .padding(4.dp)
-                .clickable {
-                    if (expandable) {
-                        expanded = !expanded
+                .run {
+                    if (isFolder) {
+                        this.clickable { expanded = !expanded }
+                    } else {
+                        this
                     }
                 }
         ) {
             when {
-                expandable && expanded -> {
+                isFolder && expanded -> {
                     Image(
                         painter = painterResource(Res.drawable.folder_open),
                         contentDescription = "Unfold $name",
                         modifier = Modifier.size(32.dp),
                     )
                 }
-                expandable && !expanded -> {
+                isFolder && !expanded -> {
                     Image(
                         painter = painterResource(Res.drawable.folder_close),
                         contentDescription = "Unfold $name",
@@ -184,42 +196,65 @@ class FileTreeNode(
 }
 
 @Suppress("UNCHECKED_CAST")
-internal val ProjectSnapshot.asFileTree: FilterableTree
-    get() {
-        val paths = this.fileTree
-        if (paths.isEmpty()) {
-            return FilterableTree.EMPTY_TREE
-        }
-
-        val normalizedPaths = paths.map { Paths.get(it).normalize() }
-        val commonPrefix = findCommonPrefix(normalizedPaths)
-
-        val trimmedPaths = normalizedPaths.map { commonPrefix.relativize(it) }
-
-        val rootMap = mutableMapOf<String, Any>()
-        trimmedPaths.forEach { trimmedPath ->
-            val parts = trimmedPath.iterator().asSequence().map { it.toString() }.toList()
-            var currentMap = rootMap
-            for (part in parts) {
-                currentMap = currentMap.computeIfAbsent(part) {
-                    mutableMapOf<String, Any>()
-                } as MutableMap<String, Any>
-            }
-        }
-
-        fun createNode(name: String, map: Map<String, Any>, level: Int): FileTreeNode {
-            val children = map.map { (childName, childMap) ->
-                createNode(childName, childMap as Map<String, Any>, level + 1)
-            }
-            return FileTreeNode(name = name, children = children, level = level)
-        }
-
-        val rootChildren = rootMap.map { (name, map) ->
-            createNode(name, map as Map<String, Any>, level = 1)
-        }
-        val root = FileTreeNode(name = commonPrefix.toString(), children = rootChildren, level = 0)
-        return FilterableTree(root)
+internal fun ProjectSnapshot.buildFileTree(
+    onClickFileEntry: (String) -> Unit
+): FilterableTree {
+    val paths = this.fileTree
+    if (paths.isEmpty()) {
+        return FilterableTree.EMPTY_TREE
     }
+
+    val normalizedPaths = paths.map { Paths.get(it).normalize() }
+    val commonPrefix = findCommonPrefix(normalizedPaths)
+
+    val trimmedPaths = normalizedPaths.map { commonPrefix.relativize(it) }
+
+    val rootMap = mutableMapOf<String, Any>()
+    trimmedPaths.forEach { trimmedPath ->
+        val parts = trimmedPath.iterator().asSequence().map { it.toString() }.toList()
+        var currentMap = rootMap
+        for (part in parts) {
+            currentMap = currentMap.computeIfAbsent(part) {
+                mutableMapOf<String, Any>()
+            } as MutableMap<String, Any>
+        }
+    }
+
+    fun createNode(
+        prefix: String,
+        name: String,
+        map: Map<String, Any>,
+        level: Int
+    ): FileTreeNode {
+        val children = map.map { (childName, childMap) ->
+            createNode(
+                prefix = Paths.get(prefix, name).toString(),
+                name = childName,
+                map = childMap as Map<String, Any>,
+                level = level + 1
+            )
+        }
+        return FileTreeNode(
+            name = name,
+            children = children,
+            level = level,
+            prefix = prefix,
+            onClickFileEntry = onClickFileEntry
+        )
+    }
+
+    val rootChildren = rootMap.map { (name, map) ->
+        createNode(commonPrefix.toString(), name, map as Map<String, Any>, level = 1)
+    }
+    val root = FileTreeNode(
+        name = commonPrefix.toString(),
+        children = rootChildren,
+        level = 0,
+        prefix = "",
+        onClickFileEntry = onClickFileEntry
+    )
+    return FilterableTree(root)
+}
 
 private fun findCommonPrefix(paths: List<Path>): Path {
     if (paths.isEmpty()) return Paths.get("")

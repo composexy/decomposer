@@ -42,7 +42,7 @@ data class Theme(
                 codeGuide = Color(0xFF4E5254)
             ),
             code = CodeStyle(
-                simple = SpanStyle(Color(0xFFA9B7C6)),
+                simple = SpanStyle(Color(0xFFC9D7E6)),
                 value = SpanStyle(Color(0xFF6897BB)),
                 keyword = SpanStyle(Color(0xFFCC7832)),
                 punctuation = SpanStyle(Color(0xFFA1C17E)),

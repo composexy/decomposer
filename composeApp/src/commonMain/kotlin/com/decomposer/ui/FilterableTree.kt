@@ -2,6 +2,7 @@ package com.decomposer.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -51,29 +52,31 @@ class FilterableTree(
         }
     }
 
+    val flattenNodes = root.flattenedChildren
+
     class FilteredNode(
         private val wrapped: TreeNode,
         override val children: List<TreeNode>
-    ): TreeNode {
+    ): BaseTreeNode() {
         override val name = wrapped.name
         override var expanded by mutableStateOf(wrapped.expanded)
         override val tags = wrapped.tags
 
         @Composable
-        override fun treeItem() {
-            wrapped.treeItem()
+        override fun node() {
+            wrapped.node()
         }
     }
 
     companion object {
-        object EmptyNode : TreeNode {
+        object EmptyNode : BaseTreeNode() {
             override val name = "Empty"
             override val children = emptyList<EmptyNode>()
-            override val expanded = false
+            override var expanded = false
             override val tags = emptyList<Any>()
 
             @Composable
-            override fun treeItem() {
+            override fun node() {
                 DefaultPanelText(text = name)
             }
         }
@@ -86,18 +89,39 @@ class FilterableTree(
 interface TreeNode {
     val name: String
     val children: List<TreeNode>
+    val flattenedChildren: List<TreeNode>
     val expanded: Boolean
     val tags: List<Any>
-
     val expandable: Boolean
+    fun hasTag(clazz: KClass<*>): Boolean
+
+    @Composable
+    fun node()
+}
+
+abstract class BaseTreeNode : TreeNode {
+    override val expandable: Boolean
         get() {
             return children.isNotEmpty()
         }
 
-    fun hasTag(clazz: KClass<*>): Boolean {
+    override fun hasTag(clazz: KClass<*>): Boolean {
         return tags.any { it::class == clazz }
     }
 
-    @Composable
-    fun treeItem()
+    override val flattenedChildren: List<TreeNode> by derivedStateOf {
+        val result = mutableListOf<TreeNode>()
+        result.add(this)
+        if (expanded) {
+            val sortedChildren = this.children.sortedWith(
+                compareBy({ it.expandable }, { it.name })
+            )
+            sortedChildren.forEach {
+                result.addAll(it.flattenedChildren)
+            }
+        }
+        result
+    }
+
+    override var expanded: Boolean by mutableStateOf(false)
 }

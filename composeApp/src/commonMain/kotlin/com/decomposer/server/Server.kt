@@ -33,6 +33,7 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.Json
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -94,7 +95,11 @@ class DefaultServer(private val serverPort: Int) {
     }
 
     fun stop() {
-        embeddedServer?.stop()
+        embeddedServer?.stop(
+            shutdownGracePeriod = 0,
+            shutdownTimeout = 0,
+            timeUnit = TimeUnit.MILLISECONDS
+        )
     }
 
     private suspend fun RoutingContext.processSessionCreation() {

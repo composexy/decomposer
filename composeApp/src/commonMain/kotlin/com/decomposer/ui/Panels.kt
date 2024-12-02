@@ -81,7 +81,8 @@ fun Panels(
                 ) {
                     if (panelsState.fileTreeVisible) {
                         FileTreePanel(
-                            modifier = Modifier.weight(0.24f)
+                            modifier = Modifier.weight(0.24f),
+                            session = sessionState.session
                         )
                     }
                     if (panelsState.irViewerVisible) {
@@ -89,7 +90,8 @@ fun Panels(
                             Splitter()
                         }
                         IrPanel(
-                            modifier = Modifier.weight(0.38f)
+                            modifier = Modifier.weight(0.38f),
+                            session = sessionState.session
                         )
                     }
                     if (panelsState.compositionViewerVisible) {
@@ -97,7 +99,8 @@ fun Panels(
                             Splitter()
                         }
                         CompositionPanel(
-                            modifier = Modifier.weight(0.38f)
+                            modifier = Modifier.weight(0.38f),
+                            session = sessionState.session
                         )
                     }
                 }

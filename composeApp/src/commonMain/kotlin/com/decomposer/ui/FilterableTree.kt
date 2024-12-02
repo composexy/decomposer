@@ -19,14 +19,19 @@ class FilterableTree(
             return cachedTree
         }
 
-        fun filterNode(node: TreeNode): List<TreeNode> {
-            val filteredChildren = node.children.flatMap { filterNode(it) }
+        fun filterNode(node: TreeNode, level: Int): List<TreeNode> {
+            val filteredChildren = if (node.hasTag(clazz) || node === root) {
+                node.children.flatMap { filterNode(it, level + 1) }
+            } else {
+                node.children.flatMap { filterNode(it, level) }
+            }
 
             if (node.hasTag(clazz)) {
                 return listOf(
                     FilteredNode(
                         wrapped = node,
-                        children = filteredChildren
+                        children = filteredChildren,
+                        level = level
                     )
                 )
             }
@@ -34,37 +39,43 @@ class FilterableTree(
             return filteredChildren
         }
 
-        val filteredNodes = filterNode(root)
+        val filteredNodes = filterNode(root, 0)
 
-        val newRoot = when {
-            filteredNodes.isEmpty() -> return EMPTY_TREE
-            filteredNodes.size == 1 -> filteredNodes.first()
-            else -> {
-                FilteredNode(
-                    wrapped = root,
-                    children = filteredNodes
-                )
+        return when {
+            filteredNodes.isEmpty() -> EMPTY_TREE
+            filteredNodes.first().level == 0 -> {
+                FilterableTree(filteredNodes.first()).also {
+                    filterCache[clazz] = it
+                }
             }
-        }
-
-        return FilterableTree(newRoot).also {
-            filterCache[clazz] = it
+            else -> {
+                val newRoot = FilteredNode(
+                    wrapped = root,
+                    children = filteredNodes,
+                    level = 0
+                )
+                FilterableTree(newRoot).also {
+                    filterCache[clazz] = it
+                }
+            }
         }
     }
 
-    val flattenNodes = root.flattenedChildren
+    val flattenNodes: List<TreeNode>
+        get() = root.flattenedChildren
 
     class FilteredNode(
         private val wrapped: TreeNode,
-        override val children: List<TreeNode>
+        override val children: List<TreeNode>,
+        override val level: Int
     ): BaseTreeNode() {
         override val name = wrapped.name
         override var expanded by mutableStateOf(wrapped.expanded)
         override val tags = wrapped.tags
 
         @Composable
-        override fun node() {
-            wrapped.node()
+        override fun TreeNodeRow() {
+            wrapped.TreeNodeRow()
         }
     }
 
@@ -74,9 +85,10 @@ class FilterableTree(
             override val children = emptyList<EmptyNode>()
             override var expanded = false
             override val tags = emptyList<Any>()
+            override val level = 0
 
             @Composable
-            override fun node() {
+            override fun TreeNodeRow() {
                 DefaultPanelText(text = name)
             }
         }
@@ -93,10 +105,11 @@ interface TreeNode {
     val expanded: Boolean
     val tags: List<Any>
     val expandable: Boolean
+    val level: Int
     fun hasTag(clazz: KClass<*>): Boolean
 
     @Composable
-    fun node()
+    fun TreeNodeRow()
 }
 
 abstract class BaseTreeNode : TreeNode {

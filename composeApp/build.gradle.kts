@@ -31,6 +31,9 @@ kotlin {
             implementation(libs.kotlinx.serializationJson)
             implementation(projects.runtime)
         }
+        commonTest.dependencies {
+            implementation(libs.junit)
+        }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)

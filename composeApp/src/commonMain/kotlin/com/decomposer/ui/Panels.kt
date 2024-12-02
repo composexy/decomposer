@@ -1,10 +1,15 @@
 package com.decomposer.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,8 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.server.SessionState
 
@@ -67,11 +74,48 @@ fun Panels(
             ) {
                 ToolBar(
                     modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                    toolBarState = panelsState.toolBarState
+                    panelsState = panelsState
                 )
+                Row(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (panelsState.fileTreeVisible) {
+                        FileTreePanel(
+                            modifier = Modifier.weight(0.24f)
+                        )
+                    }
+                    if (panelsState.irViewerVisible) {
+                        if (panelsState.fileTreeVisible) {
+                            Splitter()
+                        }
+                        IrPanel(
+                            modifier = Modifier.weight(0.38f)
+                        )
+                    }
+                    if (panelsState.compositionViewerVisible) {
+                        if (panelsState.irViewerVisible) {
+                            Splitter()
+                        }
+                        CompositionPanel(
+                            modifier = Modifier.weight(0.38f)
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+fun Splitter(
+    color: Color = MaterialTheme.colors.background
+) {
+    Box(
+        Modifier
+            .width(1.dp)
+            .fillMaxHeight()
+            .background(color)
+    )
 }
 
 @Composable
@@ -96,10 +140,6 @@ fun DefaultPanelText(
 }
 
 class PanelsState {
-    val toolBarState: ToolBarState = ToolBarState()
-}
-
-class ToolBarState {
     var fileTreeVisible by mutableStateOf(true)
     var irViewerVisible by mutableStateOf(true)
     var compositionViewerVisible by mutableStateOf(false)

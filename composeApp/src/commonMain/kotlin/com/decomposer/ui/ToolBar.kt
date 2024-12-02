@@ -14,28 +14,28 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ToolBar(
     modifier: Modifier,
-    toolBarState: ToolBarState
+    panelsState: PanelsState
 ) {
     Row(modifier = modifier) {
         ToolBarCheckBox(
-            checked = toolBarState.fileTreeVisible,
+            checked = panelsState.fileTreeVisible,
             text = "Show file tree",
             onCheckedChanged = {
-                toolBarState.fileTreeVisible = it
+                panelsState.fileTreeVisible = it
             }
         )
         ToolBarCheckBox(
-            checked = toolBarState.irViewerVisible,
+            checked = panelsState.irViewerVisible,
             text = "Show ir tree",
             onCheckedChanged = {
-                toolBarState.irViewerVisible = it
+                panelsState.irViewerVisible = it
             }
         )
         ToolBarCheckBox(
-            checked = toolBarState.compositionViewerVisible,
+            checked = panelsState.compositionViewerVisible,
             text = "Show composition",
             onCheckedChanged = {
-                toolBarState.compositionViewerVisible = it
+                panelsState.compositionViewerVisible = it
             }
         )
     }

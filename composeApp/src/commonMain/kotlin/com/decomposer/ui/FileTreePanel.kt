@@ -4,10 +4,12 @@ import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentColor
@@ -60,27 +63,37 @@ fun FileTreePanel(
         mutableStateOf(FilterableTree.EMPTY_TREE)
     }
 
-    Box(modifier = modifier) {
-        val scrollState = rememberLazyListState()
+    Box(
+        modifier = modifier
+    ) {
+        val verticalScrollState = rememberLazyListState()
+        val horizontalScrollState = rememberScrollState()
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = scrollState
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .horizontalScroll(horizontalScrollState)
         ) {
-            val nodes = fileTree.flattenNodes
-            items(nodes.size) {
-                nodes[it].TreeNodeRow()
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = verticalScrollState,
+                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+            ) {
+                val nodes = fileTree.flattenNodes
+                items(nodes.size) {
+                    nodes[it].TreeNodeRow()
+                }
             }
         }
 
         VerticalScrollbar(
             modifier = Modifier.align(Alignment.CenterEnd),
-            adapter = rememberScrollbarAdapter(scrollState)
+            adapter = rememberScrollbarAdapter(verticalScrollState)
         )
 
         HorizontalScrollbar(
             modifier = Modifier.align(Alignment.BottomCenter),
-            adapter = rememberScrollbarAdapter(scrollState)
+            adapter = rememberScrollbarAdapter(horizontalScrollState)
         )
     }
 

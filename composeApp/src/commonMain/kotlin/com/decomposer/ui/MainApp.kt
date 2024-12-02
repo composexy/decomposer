@@ -23,7 +23,6 @@ fun MainApp() {
     val connectionState = rememberConnectionState(serverPort)
     val adbConnectState by connectionState.adbConnectState.collectAsState()
     val sessionState by connectionState.sessionState.collectAsState()
-
     val coroutineScope = rememberCoroutineScope()
 
     Surface(modifier = Modifier.fillMaxSize()) {

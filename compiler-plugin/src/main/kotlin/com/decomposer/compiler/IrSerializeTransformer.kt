@@ -80,14 +80,28 @@ class IrSerializeTransformer(
         declaration: IrFile,
         block: IrFile.() -> R
     ): R {
-        val toRemove = declaration.annotations.filter {
+        val removeOnFile = declaration.annotations.filter {
             it.type == postComposeIrClass.defaultType || it.type == preComposeIrClass.defaultType
         }
+        val removeOnClasses = mutableMapOf<IrClass, List<IrConstructorCall>>()
         return try {
-            declaration.annotations -= toRemove
+            declaration.annotations -= removeOnFile
+            declaration.declarations.filterIsInstance<IrClass>().forEach { irClass ->
+                val removeOnClass = irClass.annotations.filter {
+                    it.type == postComposeIrClass.defaultType ||
+                            it.type == preComposeIrClass.defaultType
+                }
+                removeOnClasses[irClass] = removeOnClass
+                irClass.annotations -= removeOnClass
+            }
             block(declaration)
         } finally {
-            declaration.annotations += toRemove
+            declaration.annotations += removeOnFile
+            declaration.declarations.filterIsInstance<IrClass>().forEach { irClass ->
+                removeOnClasses[irClass]?.let {
+                    irClass.annotations += it
+                }
+            }
         }
     }
 }

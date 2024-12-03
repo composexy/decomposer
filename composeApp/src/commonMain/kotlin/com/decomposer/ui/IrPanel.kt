@@ -106,7 +106,7 @@ fun IrPanel(
         }
     }
 
-    LaunchedEffect(filePath, compose) {
+    LaunchedEffect(filePath, compose, session.sessionId) {
         if (filePath != null) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             irProcessor.processVirtualFileIr(virtualFileIr)

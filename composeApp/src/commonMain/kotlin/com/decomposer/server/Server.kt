@@ -30,8 +30,10 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.close
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
@@ -134,28 +136,36 @@ class DefaultServer(private val serverPort: Int) {
 class Session(val sessionId: String) {
     private var projectSnapshot: ProjectSnapshot? = null
     private val virtualFileIrByFilePath = mutableMapOf<String, VirtualFileIr>()
-    private val requests = MutableSharedFlow<Request<*>>()
+    private val projectSnapshotRequests = MutableStateFlow<ProjectSnapshotRequest?>(null)
+    private val virtualFileIrRequests = MutableStateFlow<VirtualFileIrRequest?>(null)
+    private val compositionDataRequests = MutableStateFlow<CompositionDataRequest?>(null)
     private var websocketSession: DefaultWebSocketServerSession? = null
 
     internal suspend fun DefaultWebSocketServerSession.handleSession() {
         websocketSession = this
         println("Start handling session $sessionId")
-        requests.collect {
-            when (it) {
-                is ProjectSnapshotRequest -> {
+        coroutineScope {
+            launch {
+                projectSnapshotRequests.filterNotNull().collect {
                     sendSerialized(it.command)
                     val received = receiveDeserialized<ProjectSnapshot>()
                     projectSnapshot = received
                     it.receive.send(received)
                 }
-                is VirtualFileIrRequest -> {
+            }
+
+            launch {
+                virtualFileIrRequests.filterNotNull().collect {
                     sendSerialized(it.command)
                     val virtualFileIr = receiveDeserialized<VirtualFileIr>()
                     val filePath = it.command.parameters[0]
                     virtualFileIrByFilePath[filePath] = virtualFileIr
                     it.receive.send(virtualFileIr)
                 }
-                is CompositionDataRequest -> {
+            }
+
+            launch {
+                compositionDataRequests.filterNotNull().collect {
                     sendSerialized(it.command)
                     val compositionData = receiveDeserialized<CompositionRoots>()
                     it.receive.send(compositionData)
@@ -170,7 +180,7 @@ class Session(val sessionId: String) {
             return cached
         }
         val request = ProjectSnapshotRequest()
-        requests.emit(request)
+        projectSnapshotRequests.emit(request)
         return request.receive.receive()
     }
 
@@ -180,13 +190,13 @@ class Session(val sessionId: String) {
             return cached
         }
         val request = VirtualFileIrRequest(filePath)
-        requests.emit(request)
+        virtualFileIrRequests.emit(request)
         return request.receive.receive()
     }
 
     suspend fun getCompositionData(): CompositionRoots {
         val request = CompositionDataRequest()
-        requests.emit(request)
+        compositionDataRequests.emit(request)
         return request.receive.receive()
     }
 

@@ -24,18 +24,20 @@ class IrSerializeTransformer(
 ) : BaseDecomposerTransformer(messageCollector, context) {
 
     private val irSerializer = JvmIrSerializerImpl(configuration)
+    private val postComposeIrClass = getTopLevelClass(CLASS_ID_POST_COMPOSE_IR)
+    private val preComposeIrClass = getTopLevelClass(CLASS_ID_PRE_COMPOSE_IR)
     private val composeIrClass = if (composed) {
-        getTopLevelClass(CLASS_ID_POST_COMPOSE_IR)
+        postComposeIrClass
     } else {
-        getTopLevelClass(CLASS_ID_PRE_COMPOSE_IR)
+        preComposeIrClass
     }
 
     override fun visitFileNew(declaration: IrFile): IrFile {
         return withSerializeIrOption(configuration) {
             val fileIr = irSerializer.serializeIrFile(declaration)
-            val fileIrDump = irStringArray(
-                BitEncoding.encodeBytes(declaration.dump().encodeToByteArray())
-            )
+            val fileIrDump = withoutDecomposerAnnotations(declaration) {
+                irStringArray(BitEncoding.encodeBytes(dump().encodeToByteArray()))
+            }
             var dumpAnnotated = false
 
             if (fileIr != null) {
@@ -73,4 +75,19 @@ class IrSerializeTransformer(
             typeArgumentsCount = 0,
             constructorTypeArgumentsCount = 0
         )
+
+    private fun <R> withoutDecomposerAnnotations(
+        declaration: IrFile,
+        block: IrFile.() -> R
+    ): R {
+        val toRemove = declaration.annotations.filter {
+            it.type == postComposeIrClass.defaultType || it.type == preComposeIrClass.defaultType
+        }
+        return try {
+            declaration.annotations -= toRemove
+            block(declaration)
+        } finally {
+            declaration.annotations += toRemove
+        }
+    }
 }

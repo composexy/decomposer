@@ -206,7 +206,6 @@ internal fun ProjectSnapshot.buildFileTree(
 
     val normalizedPaths = paths.map { Paths.get(it).normalize() }
     val commonPrefix = findCommonPrefix(normalizedPaths)
-
     val trimmedPaths = normalizedPaths.map { commonPrefix.relativize(it) }
 
     val rootMap = mutableMapOf<String, Any>()

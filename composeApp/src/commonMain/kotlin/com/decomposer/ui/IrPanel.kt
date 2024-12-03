@@ -55,15 +55,24 @@ fun IrPanel(
         mutableStateOf(true)
     }
 
-    var irContent by remember {
+    var kotlinLike by remember {
+        mutableStateOf(true)
+    }
+
+    var kotlinLikeIr by remember {
         mutableStateOf<AnnotatedString?>(null)
+    }
+
+    var standardIr by remember {
+        mutableStateOf<String?>(null)
     }
 
     Box(
         modifier = modifier
     ) {
-        val ir = irContent
-        if (ir == null) {
+        val kotlinLikeIrDump = kotlinLikeIr
+        val standardIrDump = standardIr
+        if (kotlinLikeIrDump == null || standardIrDump == null) {
             DefaultPanelText(
                 text = """
                     Select a file to view ir!
@@ -78,13 +87,21 @@ fun IrPanel(
                     modifier = Modifier.fillMaxWidth().wrapContentHeight()
                 ) {
                     ComposeToggle(
+                        text = "Compose",
                         checked = compose,
                         onCheckedChanged = {
                             compose = !compose
                         }
                     )
+                    ComposeToggle(
+                        text = "Kotlin like",
+                        checked = kotlinLike,
+                        onCheckedChanged = {
+                            kotlinLike = !kotlinLike
+                        }
+                    )
                 }
-                CodeContent(ir)
+                CodeContent(kotlinLikeIrDump, standardIrDump, kotlinLike)
             }
         }
     }
@@ -99,14 +116,17 @@ fun IrPanel(
                 irProcessor.originalFile(filePath)
             }
             val visualData = IrVisualBuilder(kotlinFile).visualize()
-            irContent = visualData.annotatedString
+            kotlinLikeIr = visualData.annotatedString
+            standardIr = kotlinFile.standardIrDump
         }
     }
 }
 
 @Composable
 fun CodeContent(
-    ir: AnnotatedString
+    kotlinLikeIr: AnnotatedString,
+    standardIr: String,
+    kotlinLike: Boolean
 ) {
     Box(
         modifier = Modifier.fillMaxSize()
@@ -120,18 +140,37 @@ fun CodeContent(
                 .verticalScroll(verticalScrollState)
                 .horizontalScroll(horizontalScrollState),
         ) {
-            LineNumbers(ir.lines().size)
+            LineNumbers(
+                length = if (kotlinLike) {
+                    kotlinLikeIr.lines().size
+                } else {
+                    standardIr.lines().size
+                }
+            )
             SelectionContainer {
-                Text(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp),
-                    text = ir,
-                    fontFamily = Fonts.jetbrainsMono(),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Light,
-                    lineHeight = 36.sp
-                )
+                if (kotlinLike) {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp),
+                        text = kotlinLikeIr,
+                        fontFamily = Fonts.jetbrainsMono(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Light,
+                        lineHeight = 36.sp
+                    )
+                } else {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp),
+                        text = standardIr,
+                        fontFamily = Fonts.jetbrainsMono(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Light,
+                        lineHeight = 36.sp
+                    )
+                }
             }
         }
 
@@ -173,6 +212,7 @@ fun LineNumbers(
 
 @Composable
 fun ComposeToggle(
+    text: String,
     checked: Boolean,
     onCheckedChanged: (Boolean) -> Unit
 ) {
@@ -195,8 +235,6 @@ fun ComposeToggle(
             onCheckedChange = null,
             modifier = Modifier.padding(4.dp)
         )
-        DefaultPanelText(
-            text = "Compose",
-        )
+        DefaultPanelText(text = text)
     }
 }

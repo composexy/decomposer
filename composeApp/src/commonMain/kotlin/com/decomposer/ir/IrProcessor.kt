@@ -140,7 +140,8 @@ class DebugInfoTable(
 class KotlinFile(
     val filePath: String,
     val topLevelDeclarations : TopLevelTable?,
-    val topLevelClasses : List<TopLevelTable>
+    val topLevelClasses : List<TopLevelTable>,
+    val standardIrDump:  String
 )
 
 class SimpleType(
@@ -809,12 +810,15 @@ class IrProcessor {
     private val composedFilesByPath = mutableMapOf<String, TopLevelTable>()
     private val originTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
     private val composedTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
+    private val originalStandardIrByPath = mutableMapOf<String, String>()
+    private val composedStandardIrByPath = mutableMapOf<String, String>()
 
     fun composedFile(filePath: String): KotlinFile {
         return KotlinFile(
             filePath = filePath,
             topLevelDeclarations = composedFilesByPath[filePath],
-            topLevelClasses = composedTopLevelClassesByPath[filePath] ?: emptyList()
+            topLevelClasses = composedTopLevelClassesByPath[filePath] ?: emptyList(),
+            standardIrDump = composedStandardIrByPath[filePath] ?: ""
         )
     }
 
@@ -822,7 +826,8 @@ class IrProcessor {
         return KotlinFile(
             filePath = filePath,
             topLevelDeclarations = originFilesByPath[filePath],
-            topLevelClasses = originTopLevelClassesByPath[filePath] ?: emptyList()
+            topLevelClasses = originTopLevelClassesByPath[filePath] ?: emptyList(),
+            standardIrDump = originalStandardIrByPath[filePath] ?: ""
         )
     }
 
@@ -835,6 +840,22 @@ class IrProcessor {
             processComposedIrFile(ir.filePath, ir.composedIrFile)
         }
         processComposedIrClasses(ir.filePath, ir.composedTopLevelIrClasses)
+        processOriginalStandardIr(ir.filePath, ir.originalStandardDump)
+        processComposedStandardIr(ir.filePath, ir.composedStandardDump)
+    }
+
+    private fun processOriginalStandardIr(filePath: String, data: List<String>) {
+        if (originalStandardIrByPath[filePath] != null) return
+        val irDumpByteArray = BitEncoding.decodeBytes(data.toTypedArray())
+        val dump = String(irDumpByteArray)
+        originalStandardIrByPath[filePath] = dump
+    }
+
+    private fun processComposedStandardIr(filePath: String, data: List<String>) {
+        if (composedStandardIrByPath[filePath] != null) return
+        val irDumpByteArray = BitEncoding.decodeBytes(data.toTypedArray())
+        val dump = String(irDumpByteArray)
+        composedStandardIrByPath[filePath] = dump
     }
 
     private fun processComposedIrFile(filePath: String, data: List<String>) {

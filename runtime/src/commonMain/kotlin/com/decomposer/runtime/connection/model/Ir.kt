@@ -12,6 +12,8 @@ class VirtualFileIr(
     val filePath: String,
     val composedIrFile: List<String>,
     val composedTopLevelIrClasses: Set<List<String>>,
+    val composedStandardDump: List<String>,
     val originalIrFile: List<String>,
-    val originalTopLevelIrClasses: Set<List<String>>
+    val originalTopLevelIrClasses: Set<List<String>>,
+    val originalStandardDump: List<String> = emptyList()
 )

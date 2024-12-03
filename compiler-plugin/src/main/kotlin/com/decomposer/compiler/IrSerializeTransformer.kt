@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
 
 @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -32,22 +33,31 @@ class IrSerializeTransformer(
     override fun visitFileNew(declaration: IrFile): IrFile {
         return withSerializeIrOption(configuration) {
             val fileIr = irSerializer.serializeIrFile(declaration)
+            val fileIrDump = irStringArray(
+                BitEncoding.encodeBytes(declaration.dump().encodeToByteArray())
+            )
+            var dumpAnnotated = false
 
             if (fileIr != null) {
                 declaration.annotations += irComposeIrCall().apply {
                     putValueArgument(0, irConst(declaration.fileEntry.name))
                     putValueArgument(1, irConst(true))
-                    putValueArgument(2, irStringArray(BitEncoding.encodeBytes(fileIr)))
+                    putValueArgument(2, fileIrDump)
+                    putValueArgument(3, irStringArray(BitEncoding.encodeBytes(fileIr)))
                 }
+                dumpAnnotated = true
             }
 
             for (irClass in declaration.declarations.filterIsInstance<IrClass>()) {
                 val topLevelClassIr = irSerializer.serializeTopLevelIrClass(irClass) ?: continue
+                val irDump = if (dumpAnnotated) irStringArray(emptyArray()) else fileIrDump
                 irClass.annotations += irComposeIrCall().apply {
                     putValueArgument(0, irConst(declaration.fileEntry.name))
                     putValueArgument(1, irConst(false))
-                    putValueArgument(2, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
+                    putValueArgument(2, irDump)
+                    putValueArgument(3, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
                 }
+                dumpAnnotated = true
             }
 
             declaration

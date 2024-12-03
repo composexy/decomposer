@@ -80,13 +80,11 @@ class DefaultServer(private val serverPort: Int) {
                         }
                     } catch (ex: ClosedReceiveChannelException) {
                         println("Session $sessionId is closed!")
-                        _sessionStateFlow.emit(SessionState.Disconnected(sessionId!!))
                     } catch (ex: Throwable) {
                         println("Encountered session error ${ex.stackTraceToString()}")
-                        _sessionStateFlow.emit(SessionState.Disconnected(sessionId!!))
                     } finally {
                         println("Session $sessionId ended.")
-                        _sessionStateFlow.emit(SessionState.Idle)
+                        _sessionStateFlow.emit(SessionState.Disconnected(sessionId!!))
                     }
                 }
             }

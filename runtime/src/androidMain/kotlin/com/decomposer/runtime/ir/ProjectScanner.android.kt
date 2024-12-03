@@ -20,15 +20,16 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
 internal class AndroidProjectScanner(private val context: Context): ProjectScanner {
-
     private val uncommitedFilePaths = mutableSetOf<String>()
     private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()
     private val uncommitedOriginalIrFiles = mutableMapOf<String, List<String>>()
     private val uncommitedComposedIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
     private val uncommitedOriginalIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
+    private val uncommitedComposedIrDump = mutableMapOf<String, List<String>>()
+    private val uncommitedOriginalIrDump = mutableMapOf<String, List<String>>()
 
     private var projectStructure: Set<String>? = null
-    private var projectFiles: Map<String, ProjectFile>? = null
+    private var projectFiles: Map<String, VirtualFileIr>? = null
 
     private val projectStructureWaiters = mutableListOf<Continuation<Set<String>>>()
     private val irWaitersByPath = mutableMapOf<String, Continuation<VirtualFileIr>>()
@@ -43,20 +44,13 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         }
     }
 
-    override suspend fun fetchIr(filePath: String): VirtualFileIr = suspendCoroutine { continuation ->
+    override suspend fun fetchIr(
+        filePath: String
+    ): VirtualFileIr = suspendCoroutine { continuation ->
         val projectFiles = projectFiles
         if (projectFiles != null) {
-            val projectFile = projectFiles[filePath]
-            val virtualFileIr = VirtualFileIr(
-                filePath = filePath,
-                composedIrFile = projectFile?.composedIrFile,
-                composedTopLevelIrClasses = projectFile?.composedTopLevelIrClasses ?: emptySet(),
-                originalIrFile = projectFile?.originalIrFile,
-                originalTopLevelIrClasses = projectFile?.originalTopLevelIrClasses ?: emptySet()
-            )
-            continuation.resumeWith(
-                Result.success(virtualFileIr)
-            )
+            val virtualFileIr = projectFiles[filePath] ?: VirtualFileIr(filePath)
+            continuation.resumeWith(Result.success(virtualFileIr))
         } else {
             irWaitersByPath[filePath] = continuation
         }
@@ -66,8 +60,10 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         uncommitedFilePaths.clear()
         uncommitedComposedIrFiles.clear()
         uncommitedComposedIrTopLevelClasses.clear()
+        uncommitedComposedIrDump.clear()
         uncommitedOriginalIrFiles.clear()
         uncommitedOriginalIrTopLevelClasses.clear()
+        uncommitedOriginalIrDump.clear()
     }
 
     internal fun scanProject() {
@@ -116,14 +112,16 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         projectStructure = mutableSetOf<String>().also {
             it.addAll(uncommitedFilePaths)
         }
-        projectFiles = mutableMapOf<String, ProjectFile>().also {
+        projectFiles = mutableMapOf<String, VirtualFileIr>().also {
             it.putAll(uncommitedFilePaths.associateWith { filePath ->
-                ProjectFile(
-                    projectFilePath = filePath,
+                VirtualFileIr(
+                    filePath = filePath,
                     composedIrFile = uncommitedComposedIrFiles[filePath],
                     composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath] ?: emptySet(),
+                    composedStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
                     originalIrFile = uncommitedOriginalIrFiles[filePath],
-                    originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet()
+                    originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet(),
+                    originalStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
                 )
             })
         }
@@ -137,24 +135,27 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
             }
             val composed = type == POST_COMPOSE_IR_SIGNATURE
             var filePath: String? = null
+            var dump: List<String> = emptyList()
             var ir: List<String>? = null
             var isFileFacade: Boolean? = null
             annotation.elements.forEach {
                 when (it.name) {
                     "filePath" -> filePath = extractFilePath(it.value)
                     "isFileFacade" -> isFileFacade = extractIsFileFacade(it.value)
-                    "data" -> ir = extractIr(it.value)
+                    "standardDump" -> dump = extractStringArray(it.value) ?: emptyList()
+                    "data" -> ir = extractStringArray(it.value)
                     else -> Log.w(TAG, "Unexpected field ${it.name} on ${annotation.type}")
                 }
             }
             if (ir != null && filePath != null && isFileFacade != null) {
-                processAnnotation(ir!!, filePath!!, isFileFacade!!, composed)
+                processAnnotation(ir!!, dump, filePath!!, isFileFacade!!, composed)
             }
         }
     }
 
     private fun processAnnotation(
         ir: List<String>,
+        dump: List<String>,
         filePath: String,
         fileFacade: Boolean,
         composed: Boolean
@@ -170,6 +171,13 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
             else -> {
                 uncommitedOriginalIrTopLevelClasses.putIfAbsent(filePath, mutableSetOf())
                 uncommitedOriginalIrTopLevelClasses[filePath]!!.add(ir)
+            }
+        }
+        if (dump.isNotEmpty()) {
+            if (composed && !uncommitedComposedIrDump.containsKey(filePath)) {
+                uncommitedComposedIrDump[filePath] = dump
+            } else if (!composed && !uncommitedOriginalIrDump.containsKey(filePath)) {
+                uncommitedOriginalIrDump[filePath] = dump
             }
         }
     }
@@ -188,7 +196,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         } else null
     }
 
-    private fun extractIr(value: EncodedValue): List<String>? {
+    private fun extractStringArray(value: EncodedValue): List<String>? {
         return if (value.valueType == ValueType.ARRAY) {
             val stringList = mutableListOf<String>()
             val arrayValue = value as ArrayEncodedValue
@@ -219,27 +227,8 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         irWaitersByPath.forEach {
             val filePath = it.key
             val waiter = it.value
-            val projectFile = projectFiles?.get(filePath)
-            val virtualFileIr = if (projectFile == null) {
-                VirtualFileIr(
-                    filePath = filePath,
-                    composedIrFile = null,
-                    composedTopLevelIrClasses = emptySet(),
-                    originalIrFile = null,
-                    originalTopLevelIrClasses = emptySet()
-                )
-            } else {
-                VirtualFileIr(
-                    filePath = filePath,
-                    composedIrFile = projectFile.composedIrFile,
-                    composedTopLevelIrClasses = projectFile.composedTopLevelIrClasses,
-                    originalIrFile = projectFile.originalIrFile,
-                    originalTopLevelIrClasses = projectFile.originalTopLevelIrClasses
-                )
-            }
-            waiter.resumeWith(
-                Result.success(virtualFileIr)
-            )
+            val virtualFileIr = projectFiles?.get(filePath) ?: VirtualFileIr(filePath = filePath)
+            waiter.resumeWith(Result.success(virtualFileIr))
         }
         irWaitersByPath.clear()
     }
@@ -251,11 +240,3 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         private const val POST_COMPOSE_IR_SIGNATURE = "Lcom/decomposer/runtime/PostComposeIr;"
     }
 }
-
-internal data class ProjectFile(
-    val projectFilePath: String,
-    val composedIrFile: List<String>? = null,
-    val composedTopLevelIrClasses: Set<List<String>> = emptySet(),
-    val originalIrFile: List<String>? = null,
-    val originalTopLevelIrClasses: Set<List<String>> = emptySet(),
-)

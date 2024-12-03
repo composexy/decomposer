@@ -157,8 +157,10 @@ internal abstract class AbstractOkHttpClient(
                     filePath = it,
                     composedIrFile = virtualFileIr.composedIrFile ?: emptyList(),
                     composedTopLevelIrClasses = virtualFileIr.composedTopLevelIrClasses,
+                    composedStandardDump = virtualFileIr.composedStandardDump,
                     originalIrFile = virtualFileIr.originalIrFile ?: emptyList(),
-                    originalTopLevelIrClasses = virtualFileIr.originalTopLevelIrClasses
+                    originalTopLevelIrClasses = virtualFileIr.originalTopLevelIrClasses,
+                    originalStandardDump = virtualFileIr.originalStandardDump
                 )
                 val serialized = Json.encodeToString(VirtualFileIr.serializer(), irToSend)
                 log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")

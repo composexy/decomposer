@@ -6,7 +6,8 @@ package com.decomposer.runtime
 annotation class PreComposeIr(
     val filePath: String,
     val isFileFacade: Boolean,
-    val data: Array<String>
+    val standardDump: Array<String>,
+    val data: Array<String>,
 )
 
 @MustBeDocumented
@@ -15,5 +16,6 @@ annotation class PreComposeIr(
 annotation class PostComposeIr(
     val filePath: String,
     val isFileFacade: Boolean,
-    val data: Array<String>
+    val standardDump: Array<String>,
+    val data: Array<String>,
 )

@@ -119,16 +119,10 @@ class FileTreeNode(
                 .padding(start = 24.dp * level)
         ) {
             val interactionSource = remember { MutableInteractionSource() }
-            val active by interactionSource.collectIsHoveredAsState()
 
             FileIcon(Modifier.align(Alignment.CenterVertically))
             Text(
                 text = name,
-                color = if (active) {
-                    LocalContentColor.current.copy(alpha = 0.60f)
-                } else {
-                    LocalContentColor.current
-                },
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
                     .clipToBounds()
@@ -170,17 +164,25 @@ class FileTreeNode(
         ) {
             when {
                 isFolder && expanded -> {
+                    val interactionSource = remember { MutableInteractionSource() }
                     Image(
                         painter = painterResource(Res.drawable.folder_open),
                         contentDescription = "Unfold $name",
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier
+                            .size(32.dp)
+                            .hoverable(interactionSource)
+                            .pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
                 isFolder && !expanded -> {
+                    val interactionSource = remember { MutableInteractionSource() }
                     Image(
                         painter = painterResource(Res.drawable.folder_close),
                         contentDescription = "Unfold $name",
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier
+                            .size(32.dp)
+                            .hoverable(interactionSource)
+                            .pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
                 else -> {

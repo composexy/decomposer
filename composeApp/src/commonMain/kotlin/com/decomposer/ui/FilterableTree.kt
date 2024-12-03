@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 import kotlin.reflect.KClass
 
 class FilterableTree(
-    val root: TreeNode
+    private val root: TreeNode
 ) {
     private val filterCache = mutableMapOf<KClass<*>, FilterableTree>()
 

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.server.SessionState
@@ -101,7 +102,7 @@ fun Panels(
                         )
                     }
                     if (panelsState.compositionViewerVisible) {
-                        if (panelsState.irViewerVisible) {
+                        if (panelsState.irViewerVisible || panelsState.fileTreeVisible) {
                             VerticalSplitter()
                         }
                         CompositionPanel(
@@ -156,7 +157,9 @@ fun DefaultPanelText(
         fontFamily = Fonts.jetbrainsMono(),
         fontSize = 24.sp,
         fontWeight = FontWeight.Light,
-        lineHeight = 36.sp
+        lineHeight = 36.sp,
+        overflow = TextOverflow.Ellipsis,
+        maxLines = 1
     )
 }
 

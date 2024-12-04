@@ -14,11 +14,14 @@ import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.runtime.connection.model.VirtualFileIrResponse
 import com.decomposer.runtime.connection.model.commandResponseSerializer
 import io.ktor.http.HttpStatusCode
+import io.ktor.network.tls.certificates.buildKeyStore
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respond
@@ -42,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import java.security.KeyStore
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
@@ -55,7 +59,10 @@ class DefaultServer(private val serverPort: Int) {
     private var embeddedServer: EmbeddedServer<*, *>? = null
 
     fun start() {
-        embeddedServer = embeddedServer(Netty, serverPort) {
+        embeddedServer = embeddedServer(
+            factory = Netty,
+            configure = { configureSSL() }
+        ) {
             install(WebSockets) {
                 pingPeriod = PING_INTERVAL_SECONDS.seconds
                 timeout = CONNECTION_TIMEOUT_SECONDS.seconds
@@ -95,6 +102,23 @@ class DefaultServer(private val serverPort: Int) {
             }
         }.start(wait = false)
         _sessionStateFlow.value = SessionState.Started(port = serverPort)
+    }
+
+    private fun ApplicationEngine.Configuration.configureSSL() {
+        val keyStoreInputStream= javaClass.classLoader.getResourceAsStream("keystore.jks")
+        val keyStore = keyStoreInputStream.use {
+            val keystore = KeyStore.getInstance("JKS")
+            keystore.load(it, "123456".toCharArray())
+            keystore
+        }
+        sslConnector(
+            keyStore = keyStore,
+            keyAlias = "decomposer",
+            keyStorePassword = { "123456".toCharArray() },
+            privateKeyPassword = { "123456".toCharArray() }
+        ) {
+            port = serverPort
+        }
     }
 
     fun stop() {

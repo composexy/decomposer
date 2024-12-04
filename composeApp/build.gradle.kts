@@ -24,6 +24,7 @@ kotlin {
             implementation(libs.ktor.server.websockets)
             implementation(libs.ktor.server.contentNegotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.ktor.tls.certificates)
             implementation(libs.kotlin.compilerEmbeddable)
             implementation(libs.squareup.moshi)
             implementation(libs.squareup.moshiAdapters)

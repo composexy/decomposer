@@ -5,13 +5,11 @@ import com.decomposer.runtime.compose.CompositionExtractor
 import com.decomposer.runtime.connection.model.Command
 import com.decomposer.runtime.connection.model.CommandKeys
 import com.decomposer.runtime.connection.model.CompositionDataResponse
-import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.ProjectSnapshotResponse
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.runtime.connection.model.VirtualFileIrResponse
-import com.decomposer.runtime.connection.model.commandResponseSerializer
 import com.decomposer.runtime.ir.ProjectScanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,12 +38,12 @@ internal abstract class AbstractOkHttpClient(
     private lateinit var webSocket: WebSocket
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val loggerTag = this::class.java.simpleName
-    private val okHttpClient = OkHttpClient()
+    private val okHttpClient = buildClient()
 
     override fun start() {
         val device = buildDeviceDescriptor()
         val newSessionRequest = Request.Builder().url(
-            "http://localhost:$serverPort/${ConnectionContract.DEFAULT_CONNECTION_PATH}"
+            "https://localhost:$serverPort/${ConnectionContract.DEFAULT_CONNECTION_PATH}"
         ).header(ConnectionContract.HEADER_DEVICE_TYPE, device.deviceType.name).build()
 
         okHttpClient.newCall(newSessionRequest).enqueue(object : Callback {
@@ -88,6 +86,13 @@ internal abstract class AbstractOkHttpClient(
         }
     }
 
+    private fun buildClient(): OkHttpClient {
+        val (sslContext, trustManager) = Certificates.buildSSLContext()
+        return OkHttpClient.Builder().sslSocketFactory(
+            sslContext.socketFactory, trustManager
+        ).build()
+    }
+
     override fun stop() {
         webSocket.close(1000, "stop")
         coroutineScope.cancel()
@@ -95,7 +100,7 @@ internal abstract class AbstractOkHttpClient(
 
     private fun runSession(sessionUrl: String): WebSocket {
         val websocketRequest = Request.Builder()
-            .url("ws://localhost:$serverPort/$sessionUrl")
+            .url("wss://localhost:$serverPort/$sessionUrl")
             .build()
         val websocketListener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

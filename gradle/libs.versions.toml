@@ -86,6 +86,7 @@ ktor-server-contentNegotiation = { group = "io.ktor", name = "ktor-server-conten
 ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor" }
 ktor-server-websockets = { group = "io.ktor", name = "ktor-server-websockets", version.ref = "ktor" }
+ktor-tls-certificates = { group = "io.ktor", name = "ktor-network-tls-certificates", version.ref = "ktor" }
 androidx-collection-jvm = { group = "androidx.collection", name = "collection-jvm", version.ref = "collectionJvm" }
 
 [plugins]

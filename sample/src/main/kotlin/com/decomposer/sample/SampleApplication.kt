@@ -7,6 +7,8 @@ class SampleApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        runtimeInit()
+        if (BuildConfig.DEBUG) {
+            runtimeInit()
+        }
     }
 }

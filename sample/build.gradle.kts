@@ -8,6 +8,10 @@ android {
     namespace = "com.decomposer.sample"
     compileSdk = 34
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.decomposer.sample"
         minSdk = 26
@@ -20,11 +24,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        debug {
+            isDebuggable = true
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -38,9 +47,19 @@ android {
 
 kotlin {
     compilerOptions {
-        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:enabled=true")
-        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:preComposeIrStorageEnabled=true")
-        freeCompilerArgs.addAll("-P", "plugin:com.decomposer.compiler:postComposeIrStorageEnabled=true")
+        val isDebug = project.hasProperty("android")
+                && android.buildTypes.find { it.name == "debug" } != null
+        if (isDebug) {
+            freeCompilerArgs.addAll(
+                "-P", "plugin:com.decomposer.compiler:enabled=true",
+                "-P", "plugin:com.decomposer.compiler:preComposeIrStorageEnabled=true",
+                "-P", "plugin:com.decomposer.compiler:postComposeIrStorageEnabled=true"
+            )
+        } else {
+            freeCompilerArgs.addAll(
+                "-P", "plugin:com.decomposer.compiler:enabled=false"
+            )
+        }
     }
 }
 

@@ -33,7 +33,6 @@ class CompositionDataResponse(
 val commandResponseSerializer = Json {
     prettyPrint = true
     ignoreUnknownKeys = true
-    classDiscriminator = "type"
     serializersModule = SerializersModule {
         polymorphic(CommandResponse::class) {
             subclass(ProjectSnapshotResponse::class)

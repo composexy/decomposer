@@ -4,21 +4,19 @@ import com.decomposer.runtime.Logger
 import com.decomposer.runtime.compose.CompositionExtractor
 import com.decomposer.runtime.connection.model.Command
 import com.decomposer.runtime.connection.model.CommandKeys
+import com.decomposer.runtime.connection.model.CommandResponse
 import com.decomposer.runtime.connection.model.CompositionDataResponse
-import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.ProjectSnapshotResponse
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.runtime.connection.model.VirtualFileIrResponse
-import com.decomposer.runtime.connection.model.commandResponseSerializer
 import com.decomposer.runtime.ir.ProjectScanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
@@ -140,7 +138,7 @@ internal abstract class AbstractOkHttpClient(
         coroutineScope.launch {
             val compositionRoots = compositionExtractor.extractCompositionRoots()
             val response = CompositionDataResponse(compositionRoots)
-            val serialized = Json.encodeToString(response)
+            val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
@@ -150,7 +148,7 @@ internal abstract class AbstractOkHttpClient(
         coroutineScope.launch {
             val projectSnapshot = ProjectSnapshot(projectScanner.fetchProjectSnapshot())
             val response = ProjectSnapshotResponse(projectSnapshot)
-            val serialized = Json.encodeToString(response)
+            val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
@@ -170,7 +168,7 @@ internal abstract class AbstractOkHttpClient(
                     originalStandardDump = ir.originalStandardDump
                 )
                 val response = VirtualFileIrResponse(virtualFileIr)
-                val serialized = Json.encodeToString(response)
+                val serialized = Json.encodeToString(CommandResponse.serializer(), response)
                 log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
                 webSocket.send(serialized)
             }

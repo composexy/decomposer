@@ -1,13 +1,16 @@
 package com.decomposer.runtime.connection
 
-import com.decomposer.runtime.Command
-import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.Logger
 import com.decomposer.runtime.compose.CompositionExtractor
-import com.decomposer.runtime.connection.model.CompositionRoots
+import com.decomposer.runtime.connection.model.Command
+import com.decomposer.runtime.connection.model.CommandKeys
+import com.decomposer.runtime.connection.model.CommandResponse
+import com.decomposer.runtime.connection.model.CompositionDataResponse
 import com.decomposer.runtime.connection.model.ProjectSnapshot
+import com.decomposer.runtime.connection.model.ProjectSnapshotResponse
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
+import com.decomposer.runtime.connection.model.VirtualFileIrResponse
 import com.decomposer.runtime.ir.ProjectScanner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -134,7 +137,8 @@ internal abstract class AbstractOkHttpClient(
     private fun processCompositionData(webSocket: WebSocket) {
         coroutineScope.launch {
             val compositionRoots = compositionExtractor.extractCompositionRoots()
-            val serialized = Json.encodeToString(CompositionRoots.serializer(), compositionRoots)
+            val response = CompositionDataResponse(compositionRoots)
+            val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
@@ -143,7 +147,8 @@ internal abstract class AbstractOkHttpClient(
     private fun processProjectSnapshot(webSocket: WebSocket) {
         coroutineScope.launch {
             val projectSnapshot = ProjectSnapshot(projectScanner.fetchProjectSnapshot())
-            val serialized = Json.encodeToString(ProjectSnapshot.serializer(), projectSnapshot)
+            val response = ProjectSnapshotResponse(projectSnapshot)
+            val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
@@ -152,17 +157,18 @@ internal abstract class AbstractOkHttpClient(
     private fun processVirtualFileIr(webSocket: WebSocket, filePaths: List<String>) {
         coroutineScope.launch {
             filePaths.forEach {
-                val virtualFileIr = projectScanner.fetchIr(it)
-                val irToSend = VirtualFileIr(
+                val ir = projectScanner.fetchIr(it)
+                val virtualFileIr = VirtualFileIr(
                     filePath = it,
-                    composedIrFile = virtualFileIr.composedIrFile ?: emptyList(),
-                    composedTopLevelIrClasses = virtualFileIr.composedTopLevelIrClasses,
-                    composedStandardDump = virtualFileIr.composedStandardDump,
-                    originalIrFile = virtualFileIr.originalIrFile ?: emptyList(),
-                    originalTopLevelIrClasses = virtualFileIr.originalTopLevelIrClasses,
-                    originalStandardDump = virtualFileIr.originalStandardDump
+                    composedIrFile = ir.composedIrFile ?: emptyList(),
+                    composedTopLevelIrClasses = ir.composedTopLevelIrClasses,
+                    composedStandardDump = ir.composedStandardDump,
+                    originalIrFile = ir.originalIrFile ?: emptyList(),
+                    originalTopLevelIrClasses = ir.originalTopLevelIrClasses,
+                    originalStandardDump = ir.originalStandardDump
                 )
-                val serialized = Json.encodeToString(VirtualFileIr.serializer(), irToSend)
+                val response = VirtualFileIrResponse(virtualFileIr)
+                val serialized = Json.encodeToString(CommandResponse.serializer(), response)
                 log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
                 webSocket.send(serialized)
             }

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
+import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
 
 @Composable
@@ -109,18 +110,31 @@ fun IrPanel(
     LaunchedEffect(filePath, compose, session.sessionId) {
         if (filePath != null) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
-            irProcessor.processVirtualFileIr(virtualFileIr)
-            val kotlinFile = if (compose) {
-                irProcessor.composedFile(filePath)
+            if (!virtualFileIr.isEmpty) {
+                irProcessor.processVirtualFileIr(virtualFileIr)
+                val kotlinFile = if (compose) {
+                    irProcessor.composedFile(filePath)
+                } else {
+                    irProcessor.originalFile(filePath)
+                }
+                val visualData = IrVisualBuilder(kotlinFile).visualize()
+                kotlinLikeIr = visualData.annotatedString
+                standardIr = kotlinFile.standardIrDump
             } else {
-                irProcessor.originalFile(filePath)
+                kotlinLikeIr = null
+                standardIr = null
             }
-            val visualData = IrVisualBuilder(kotlinFile).visualize()
-            kotlinLikeIr = visualData.annotatedString
-            standardIr = kotlinFile.standardIrDump
         }
     }
 }
+
+private val VirtualFileIr.isEmpty: Boolean
+    get() {
+        return this.composedIrFile.isEmpty() &&
+                this.composedTopLevelIrClasses.isEmpty() &&
+                this.originalIrFile.isEmpty() &&
+                this.originalTopLevelIrClasses.isEmpty()
+    }
 
 @Composable
 fun CodeContent(

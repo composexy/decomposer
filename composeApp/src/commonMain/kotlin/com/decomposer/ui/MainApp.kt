@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -13,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.decomposer.runtime.connection.ConnectionContract
 import com.decomposer.server.AdbConnectResult
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -60,10 +62,25 @@ fun MainApp() {
         }
     }
 
+    DetectAdbDisconnect(connectionState)
+
     DisposableEffect(connectionState) {
         connectionState.serverConnect()
         onDispose {
             connectionState.serverDisconnect()
+        }
+    }
+}
+
+@Composable
+fun DetectAdbDisconnect(connectionState: ConnectionState) {
+    val adbConnectState by connectionState.adbConnectState.collectAsState()
+    LaunchedEffect(adbConnectState) {
+        if (adbConnectState == AdbConnectResult.Success) {
+            while (true) {
+                delay(1000)
+                connectionState.adbConnect()
+            }
         }
     }
 }

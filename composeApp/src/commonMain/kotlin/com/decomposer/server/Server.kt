@@ -1,13 +1,18 @@
 package com.decomposer.server
 
-import com.decomposer.runtime.Command
-import com.decomposer.runtime.CommandKeys
 import com.decomposer.runtime.connection.ConnectionContract
+import com.decomposer.runtime.connection.model.Command
+import com.decomposer.runtime.connection.model.CommandKeys
+import com.decomposer.runtime.connection.model.CommandResponse
+import com.decomposer.runtime.connection.model.CompositionDataResponse
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.DeviceType
 import com.decomposer.runtime.connection.model.ProjectSnapshot
+import com.decomposer.runtime.connection.model.ProjectSnapshotResponse
 import com.decomposer.runtime.connection.model.SessionData
 import com.decomposer.runtime.connection.model.VirtualFileIr
+import com.decomposer.runtime.connection.model.VirtualFileIrResponse
+import com.decomposer.runtime.connection.model.commandResponseSerializer
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
@@ -30,7 +35,9 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.close
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -55,11 +62,7 @@ class DefaultServer(private val serverPort: Int) {
                 contentConverter = KotlinxWebsocketSerializationConverter(Json)
             }
             install(ContentNegotiation) {
-                json(
-                    Json {
-                        prettyPrint = true
-                    }
-                )
+                json(commandResponseSerializer)
             }
             routing {
                 get(ConnectionContract.DEFAULT_CONNECTION_PATH) {
@@ -136,9 +139,16 @@ class DefaultServer(private val serverPort: Int) {
 class Session(val sessionId: String) {
     private var projectSnapshot: ProjectSnapshot? = null
     private val virtualFileIrByFilePath = mutableMapOf<String, VirtualFileIr>()
-    private val projectSnapshotRequests = MutableStateFlow<ProjectSnapshotRequest?>(null)
-    private val virtualFileIrRequests = MutableStateFlow<VirtualFileIrRequest?>(null)
-    private val compositionDataRequests = MutableStateFlow<CompositionDataRequest?>(null)
+    private val projectSnapshotRequests =
+        MutableSharedFlow<ProjectSnapshotRequest>(replay = 1, extraBufferCapacity = 5)
+    private val virtualFileIrRequests =
+        MutableSharedFlow<VirtualFileIrRequest>(replay = 1, extraBufferCapacity = 20)
+    private val compositionDataRequests =
+        MutableSharedFlow<CompositionDataRequest>(replay = 1, extraBufferCapacity = 5)
+    private val projectSnapshotWaiters = mutableListOf<SendChannel<ProjectSnapshot>>()
+    private val virtualFileIrWaiters =
+        mutableMapOf<String, MutableList<SendChannel<VirtualFileIr>>>()
+    private val compositionDataWaiters = mutableListOf<SendChannel<CompositionRoots>>()
     private var websocketSession: DefaultWebSocketServerSession? = null
 
     internal suspend fun DefaultWebSocketServerSession.handleSession() {
@@ -148,27 +158,71 @@ class Session(val sessionId: String) {
             launch {
                 projectSnapshotRequests.filterNotNull().collect {
                     sendSerialized(it.command)
-                    val received = receiveDeserialized<ProjectSnapshot>()
-                    projectSnapshot = received
-                    it.receive.send(received)
+                    synchronized(projectSnapshotWaiters) {
+                        projectSnapshotWaiters.add(it.receive)
+                    }
                 }
             }
 
             launch {
                 virtualFileIrRequests.filterNotNull().collect {
                     sendSerialized(it.command)
-                    val virtualFileIr = receiveDeserialized<VirtualFileIr>()
-                    val filePath = it.command.parameters[0]
-                    virtualFileIrByFilePath[filePath] = virtualFileIr
-                    it.receive.send(virtualFileIr)
+                    synchronized(virtualFileIrWaiters) {
+                        virtualFileIrWaiters.computeIfAbsent(it.filePath) {
+                            mutableListOf()
+                        }.add(it.receive)
+                    }
                 }
             }
 
             launch {
                 compositionDataRequests.filterNotNull().collect {
                     sendSerialized(it.command)
-                    val compositionData = receiveDeserialized<CompositionRoots>()
-                    it.receive.send(compositionData)
+                    synchronized(compositionDataWaiters) {
+                        compositionDataWaiters.add(it.receive)
+                    }
+                }
+            }
+
+            launch {
+                while (true) {
+                    when (val response = receiveDeserialized<CommandResponse>()) {
+                        is CompositionDataResponse -> {
+                            val waiters = synchronized(compositionDataWaiters) {
+                                mutableListOf<SendChannel<CompositionRoots>>().also {
+                                    it.addAll(compositionDataWaiters)
+                                    compositionDataWaiters.clear()
+                                }
+                            }
+                            waiters.forEach {
+                                it.send(response.compositionRoots)
+                            }
+                        }
+                        is ProjectSnapshotResponse -> {
+                            val waiters = synchronized(projectSnapshotWaiters) {
+                                mutableListOf<SendChannel<ProjectSnapshot>>().also {
+                                    it.addAll(projectSnapshotWaiters)
+                                    projectSnapshotWaiters.clear()
+                                }
+                            }
+                            waiters.forEach {
+                                it.send(response.projectSnapshot)
+                            }
+                        }
+                        is VirtualFileIrResponse -> {
+                            val waiters = synchronized(virtualFileIrWaiters) {
+                                virtualFileIrWaiters[response.virtualFileIr.filePath]?.let {
+                                    mutableListOf<SendChannel<VirtualFileIr>>().also { list ->
+                                        list.addAll(it)
+                                        it.clear()
+                                    }
+                                } ?: emptyList()
+                            }
+                            waiters.forEach {
+                                it.send(response.virtualFileIr)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -213,7 +267,7 @@ class Session(val sessionId: String) {
         command = Command(CommandKeys.PROJECT_SNAPSHOT)
     )
 
-    private class VirtualFileIrRequest(filePath: String) : Request<VirtualFileIr>(
+    private class VirtualFileIrRequest(val filePath: String) : Request<VirtualFileIr>(
         command = Command(CommandKeys.VIRTUAL_FILE_IR, listOf(filePath))
     )
 

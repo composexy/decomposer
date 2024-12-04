@@ -1,6 +1,6 @@
 package com.decomposer.sample
 
-class Person2(val name: String, val age: Int) {
+class Persons(val name: String, val age: Int) {
     constructor(name: String) : this(name, 0)
 }
 

@@ -92,7 +92,9 @@ fun FileTreePanel(
 
     LaunchedEffect(session.sessionId) {
         val projectSnapshot = session.getProjectSnapshot()
-        fileTree = projectSnapshot.buildFileTree(onClickFileEntry)
+        fileTree = projectSnapshot.buildFileTree {
+            projectSnapshot.findMatching(it)?.let(onClickFileEntry)
+        }
     }
 }
 
@@ -253,6 +255,13 @@ internal fun ProjectSnapshot.buildFileTree(
         onClickFileEntry = onClickFileEntry
     )
     return FilterableTree(root)
+}
+
+private fun ProjectSnapshot.findMatching(other: String): String? {
+    return this.fileTree.firstOrNull {
+        val normalized = Paths.get(it).normalize().toString()
+        normalized == other
+    }
 }
 
 private fun findCommonPrefix(paths: List<Path>): Path {

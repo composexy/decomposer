@@ -1,10 +1,8 @@
 package com.decomposer.ui
 
-import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -17,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
@@ -57,7 +57,7 @@ import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.data
 import decomposer.composeapp.generated.resources.expand_down
 import decomposer.composeapp.generated.resources.expand_right
-import decomposer.composeapp.generated.resources.link
+import decomposer.composeapp.generated.resources.show
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -381,13 +381,15 @@ private fun ExpandedRecomposeScope(
                 modifier = Modifier.fillMaxWidth().wrapContentHeight()
             )
             FlowColumn(
-                modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 600.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                val states = recomposeScope.composeStateHashes.map {
+                val states = recomposeScope.composeStateHashes.mapNotNull {
                     statesByHash[it]
-                }.filterNotNull()
+                }
                 states.forEach {
-                    var expanded: Boolean by mutableStateOf(false)
+                    var expanded: Boolean by remember {
+                        mutableStateOf(false)
+                    }
                     DataItem(
                         modifier = Modifier.padding(4.dp),
                         level = 0,
@@ -403,6 +405,20 @@ private fun ExpandedRecomposeScope(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedDataDefault(
+    modifier: Modifier,
+    contexts: Contexts,
+    data: Data
+) {
+    with(contexts) {
+        Column(modifier) {
+            DefaultPanelText("${data.typeName ?: ""}@${data.hashCode}")
+            DefaultPanelText("toString: ${data.toString}")
         }
     }
 }
@@ -443,17 +459,21 @@ private fun DataIcon(modifier: Modifier, data: Data) {
 }
 
 @Composable
-private fun CodeNavigationIcon(modifier: Modifier, onClick: () -> Unit) {
+private fun ShowDataIcon(modifier: Modifier, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = modifier
             .wrapContentSize()
             .padding(4.dp)
+            .hoverable(interactionSource)
+            .pointerHoverIcon(PointerIcon.Hand)
             .clickable {
                 onClick()
             }
     ) {
         Image(
-            painter = painterResource(Res.drawable.link),
+            painter = painterResource(Res.drawable.show),
             contentDescription = "Navigate",
             modifier = Modifier.size(32.dp),
         )
@@ -477,20 +497,16 @@ private class RootsNode(
     private val compositionRoots: CompositionRoots,
     private val contexts: Contexts
 ) : BaseTreeNode() {
-
-    override val name = "Application"
-    override val children: List<TreeNode>
-        get() {
-            return compositionRoots.compositionData.map {
-                RootNode(
-                    compositionRoot = it,
-                    level = level + 1,
-                    contexts = contexts
-                )
-            }
-        }
-    override val tags: List<Any> = emptyList()
     override val level = 0
+    override val name = "Application"
+    override val children: List<TreeNode> = compositionRoots.compositionData.map {
+        RootNode(
+            compositionRoot = it,
+            level = level + 1,
+            contexts = contexts
+        )
+    }
+    override val tags: List<Any> = emptyList()
 
     @OptIn(ExperimentalLayoutApi::class)
     @Composable
@@ -500,21 +516,26 @@ private class RootsNode(
                 val verticalScrollState = rememberScrollState()
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(verticalScrollState)
+                        .requiredWidth(800.dp)
+                        .requiredHeightIn(400.dp, 1000.dp)
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .verticalScroll(verticalScrollState)
                     ) {
                         DefaultPanelText(
                             text = "States:",
                             modifier = Modifier.fillMaxWidth().wrapContentHeight()
                         )
                         FlowColumn(
-                            modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 1000.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             statesByHash.values.forEach {
-                                var expanded: Boolean by mutableStateOf(false)
+                                var expanded: Boolean by remember {
+                                    mutableStateOf(false)
+                                }
                                 DataItem(
                                     modifier = Modifier.padding(4.dp),
                                     level = 0,
@@ -547,7 +568,7 @@ private class RootNode(
     private val contexts: Contexts,
     override val level: Int
 ) : BaseTreeNode() {
-    override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: ""})"
+    override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: "Recomposer"})"
     override val children: List<TreeNode> = compositionRoot.groups.map {
         GroupNode(
             group = it,
@@ -603,7 +624,9 @@ private class GroupNode(
         Column(
             modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
-            var showData: Boolean by mutableStateOf(false)
+            var showData: Boolean by remember {
+                mutableStateOf(false)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -613,18 +636,20 @@ private class GroupNode(
                 ) {
                     showData = !showData
                 }
-                CodeNavigationIcon(Modifier.align(Alignment.CenterVertically)) { }
+                if (group.data.isNotEmpty()) {
+                    ShowDataIcon(Modifier.align(Alignment.CenterVertically)) {
+                        showData = !showData
+                    }
+                }
             }
             if (showData) {
                 group.data.forEach {
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
+                        level = level + 1,
                         data = it,
                         expanded = false,
-                        onClick = {
-                            popup(dataPopup(it))
-                        }
+                        onClick = { popup(dataPopup(it)) }
                     )
                 }
             }
@@ -637,46 +662,56 @@ private class GroupNode(
 
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(verticalScrollState)
+                    .requiredWidth(800.dp)
+                    .requiredHeightIn(400.dp, 1000.dp)
             ) {
-                when (data) {
-                    is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        composableLambdaImpl = data
-                    )
-                    is ComposeState -> ExpandedState(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        state = data
-                    )
-                    is CompositionContextHolder -> ExpandedCompositionContextHolder(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        compositionContextHolder = data
-                    )
-                    is Context -> ExpandedContext(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        context = data
-                    )
-                    is LayoutNode -> ExpandedLayoutNode(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        layoutNode = data
-                    )
-                    is RecomposeScope -> ExpandedRecomposeScope(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        recomposeScope = data
-                    )
-                    is RememberObserverHolder -> ExpandedRememberObserverHolder(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                        contexts = contexts,
-                        rememberObserverHolder = data
-                    )
-                    else -> DefaultPanelText(text = "No extra detail!")
+                Box(
+                    modifier = Modifier.wrapContentHeight().verticalScroll(verticalScrollState)
+                ) {
+                    when (data) {
+                        is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            composableLambdaImpl = data
+                        )
+                        is ComposeState -> ExpandedState(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            state = data
+                        )
+                        is CompositionContextHolder -> ExpandedCompositionContextHolder(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            compositionContextHolder = data
+                        )
+                        is Context -> ExpandedContext(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            context = data
+                        )
+                        is LayoutNode -> ExpandedLayoutNode(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            layoutNode = data
+                        )
+                        is RecomposeScope -> ExpandedRecomposeScope(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            recomposeScope = data
+                        )
+                        is RememberObserverHolder -> ExpandedRememberObserverHolder(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            rememberObserverHolder = data
+                        )
+                        else -> {
+                            ExpandedDataDefault(
+                                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                                contexts = contexts,
+                                data = data
+                            )
+                        }
+                    }
                 }
 
                 VerticalScrollbar(

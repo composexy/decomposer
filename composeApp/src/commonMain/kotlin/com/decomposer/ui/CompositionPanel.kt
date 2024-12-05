@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.IconButton
 import androidx.compose.material.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,12 +35,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.decomposer.runtime.connection.model.CompositionRoot
-import com.decomposer.runtime.connection.model.CompositionRoots
-import com.decomposer.runtime.connection.model.Group
-import com.decomposer.runtime.connection.model.IntKey
 import com.decomposer.runtime.connection.model.LayoutNode
-import com.decomposer.runtime.connection.model.ObjectKey
 import com.decomposer.runtime.connection.model.RecomposeScope
 import com.decomposer.runtime.connection.model.SubcomposeState
 import com.decomposer.server.Session
@@ -54,7 +48,8 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun CompositionPanel(
     modifier: Modifier = Modifier,
-    session: Session
+    session: Session,
+    onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
     var compositionTree: FilterableTree by remember {
         mutableStateOf(FilterableTree.EMPTY_TREE)
@@ -78,7 +73,14 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
-                        val fullTree = compositionRoots.buildCompositionTree()
+                        val fullTree = compositionRoots.buildCompositionTree(
+                            showContextPopup = {
+                                onShowPopup(it)
+                            },
+                            sourceNavigation = { path, start, end ->
+
+                            }
+                        )
                         compositionTree = when (filteredNodeKind) {
                             NodeKind.ALL -> fullTree
                             NodeKind.RECOMPOSE_SCOPE -> fullTree.filterSubTree(RecomposeScope::class)
@@ -108,7 +110,10 @@ fun CompositionPanel(
                     state = verticalScrollState,
                     contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                 ) {
-
+                    val nodes = compositionTree.flattenNodes
+                    items(nodes.size) {
+                        nodes[it].TreeNodeRow()
+                    }
                 }
             }
 

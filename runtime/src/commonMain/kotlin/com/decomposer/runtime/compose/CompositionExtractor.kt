@@ -188,7 +188,7 @@ internal abstract class CompositionExtractor(
         outStates: MutableSet<ComposeState>
     ): RecomposeScope {
         return RecomposeScope(
-            composeStates = findObservedStateHashes(recomposeScope, observations, outStates),
+            composeStateHashes = findObservedStateHashes(recomposeScope, observations, outStates),
             toString = recomposeScope.toString(),
             typeName = recomposeScope::class.qualifiedName,
             hashCode = recomposeScope.hashCode()

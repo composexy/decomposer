@@ -167,7 +167,7 @@ class FileTreeNode(
                     val interactionSource = remember { MutableInteractionSource() }
                     Image(
                         painter = painterResource(Res.drawable.folder_open),
-                        contentDescription = "Unfold $name",
+                        contentDescription = "Fold $name",
                         modifier = Modifier
                             .size(32.dp)
                             .hoverable(interactionSource)

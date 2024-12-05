@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.decomposer.server.SessionState
 
 @Composable
@@ -79,36 +81,53 @@ fun Panels(
                     panelsState = panelsState
                 )
                 HorizontalSplitter()
-                Row(
-                    modifier = Modifier.fillMaxSize()
+                Box(
+                    modifier = modifier.fillMaxSize()
                 ) {
-                    if (panelsState.fileTreeVisible) {
-                        FileTreePanel(
-                            modifier = Modifier.weight(0.16f),
-                            session = sessionState.session,
-                            onClickFileEntry = {
-                                panelsState.selectedIrFilePath = it
-                            }
-                        )
-                    }
-                    if (panelsState.irViewerVisible) {
+                    Row(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                         if (panelsState.fileTreeVisible) {
-                            VerticalSplitter()
+                            FileTreePanel(
+                                modifier = Modifier.weight(0.16f),
+                                session = sessionState.session,
+                                onClickFileEntry = {
+                                    panelsState.selectedIrFilePath = it
+                                }
+                            )
                         }
-                        IrPanel(
-                            modifier = Modifier.weight(0.42f),
-                            session = sessionState.session,
-                            filePath = panelsState.selectedIrFilePath
-                        )
+                        if (panelsState.irViewerVisible) {
+                            if (panelsState.fileTreeVisible) {
+                                VerticalSplitter()
+                            }
+                            IrPanel(
+                                modifier = Modifier.weight(0.42f),
+                                session = sessionState.session,
+                                filePath = panelsState.selectedIrFilePath
+                            )
+                        }
+                        if (panelsState.compositionViewerVisible) {
+                            if (panelsState.irViewerVisible || panelsState.fileTreeVisible) {
+                                VerticalSplitter()
+                            }
+                            CompositionPanel(
+                                modifier = Modifier.weight(0.42f),
+                                session = sessionState.session,
+                                onShowPopup = {
+                                    panelsState.currentPopup = it
+                                }
+                            )
+                        }
                     }
-                    if (panelsState.compositionViewerVisible) {
-                        if (panelsState.irViewerVisible || panelsState.fileTreeVisible) {
-                            VerticalSplitter()
+                    panelsState.currentPopup?.let {
+                        Popup(
+                            alignment = Alignment.Center,
+                            onDismissRequest = {
+                                panelsState.currentPopup = null
+                            }
+                        ) {
+                            it()
                         }
-                        CompositionPanel(
-                            modifier = Modifier.weight(0.42f),
-                            session = sessionState.session
-                        )
                     }
                 }
             }
@@ -168,4 +187,5 @@ class PanelsState {
     var irViewerVisible by mutableStateOf(true)
     var compositionViewerVisible by mutableStateOf(false)
     var selectedIrFilePath: String? by mutableStateOf(null)
+    var currentPopup: (@Composable () -> Unit)? by mutableStateOf(null)
 }

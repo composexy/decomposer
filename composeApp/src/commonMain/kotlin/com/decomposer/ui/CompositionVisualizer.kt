@@ -1,20 +1,34 @@
 package com.decomposer.ui
 
+import androidx.compose.foundation.HorizontalScrollbar
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowColumn
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -24,21 +38,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.decomposer.runtime.connection.model.ComposableLambdaImpl
 import com.decomposer.runtime.connection.model.ComposeState
+import com.decomposer.runtime.connection.model.CompositionContextHolder
 import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.connection.model.CompositionRoots
+import com.decomposer.runtime.connection.model.Context
+import com.decomposer.runtime.connection.model.Data
 import com.decomposer.runtime.connection.model.Group
 import com.decomposer.runtime.connection.model.IntKey
 import com.decomposer.runtime.connection.model.LayoutNode
 import com.decomposer.runtime.connection.model.ModifierNode
 import com.decomposer.runtime.connection.model.ObjectKey
 import com.decomposer.runtime.connection.model.RecomposeScope
+import com.decomposer.runtime.connection.model.RememberObserverHolder
+import com.decomposer.runtime.connection.model.SubcomposeState
+import decomposer.composeapp.generated.resources.Res
+import decomposer.composeapp.generated.resources.data
+import decomposer.composeapp.generated.resources.expand_down
+import decomposer.composeapp.generated.resources.expand_right
+import decomposer.composeapp.generated.resources.link
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
-private fun BaseGroupRow(
+private fun GroupItem(
     level: Int,
-    name: String,
-    onClick: () -> Unit
+    node: BaseTreeNode,
+    onClick: () -> Unit = { }
 ) {
     Row(
         modifier = Modifier
@@ -47,9 +73,9 @@ private fun BaseGroupRow(
             .padding(start = 24.dp * level)
     ) {
         val interactionSource = remember { MutableInteractionSource() }
-
+        GroupIcon(Modifier.align(Alignment.CenterVertically), node)
         Text(
-            text = name,
+            text = node.name,
             modifier = Modifier
                 .align(Alignment.CenterVertically)
                 .clipToBounds()
@@ -68,54 +94,312 @@ private fun BaseGroupRow(
 }
 
 @Composable
-private fun StateRow(
+private fun DataItem(
+    modifier: Modifier = Modifier,
     level: Int,
-    state: ComposeState
+    data: Data,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    expandedContent: @Composable () -> Unit = {}
 ) {
-
+    Box(
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .wrapContentHeight()
+                .fillMaxWidth()
+                .padding(start = 24.dp * level)
+        ) {
+            if (expanded) {
+                expandedContent()
+            } else {
+                val interactionSource = remember { MutableInteractionSource() }
+                DataIcon(Modifier.align(Alignment.CenterVertically), data)
+                Text(
+                    text = data.toString,
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .clipToBounds()
+                        .hoverable(interactionSource)
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable { onClick() },
+                    softWrap = true,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    fontFamily = Fonts.jetbrainsMono(),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Thin,
+                    lineHeight = 36.sp
+                )
+            }
+        }
+    }
 }
 
-fun CompositionRoots.buildCompositionTree(
-    showContextPopup: (@Composable () -> Unit) -> Unit,
-    sourceNavigation: (String, Int, Int) -> Unit
-): FilterableTree {
-    return FilterableTree(
-        root = RootsNode(this, showContextPopup, sourceNavigation)
+@Composable
+private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
+    Box(
+        modifier = modifier
+            .wrapContentSize()
+            .padding(4.dp)
+            .clickable { node.expanded = !node.expanded }
+    ) {
+        if (node.expanded) {
+            val interactionSource = remember { MutableInteractionSource() }
+            Image(
+                painter = painterResource(Res.drawable.expand_down),
+                contentDescription = "Fold ${node.name}",
+                modifier = Modifier
+                    .size(40.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand),
+            )
+        } else {
+            val interactionSource = remember { MutableInteractionSource() }
+            Image(
+                painter = painterResource(Res.drawable.expand_right),
+                contentDescription = "Unfold ${node.name}",
+                modifier = Modifier
+                    .size(40.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpandedState(modifier: Modifier, contexts: Contexts, state: ComposeState) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(text = "Value:")
+            DataItem(
+                modifier = Modifier.padding(vertical = 4.dp),
+                level = 0,
+                data = state.value,
+                expanded = false,
+                onClick = {}
+            )
+            HorizontalSplitter()
+            val readers = mutableListOf<String>()
+            if (state.readInComposition == true) readers.add("Composition")
+            if (state.readInSnapshotStateObserver == true) readers.add("SnapshotStateObserver")
+            if (state.readInSnapshotFlow == true) readers.add("SnapshotFlow")
+            DefaultPanelText(text = "Readers: ${readers.joinToString(", ")}")
+            HorizontalSplitter()
+            DefaultPanelText("Dependencies:")
+            state.dependencyHashes.forEach {
+                statesByHash[it]?.let { dependency ->
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = dependency,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedComposableLambdaImpl(
+    modifier: Modifier,
+    contexts: Contexts,
+    composableLambdaImpl: ComposableLambdaImpl
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(text = "Key: ${composableLambdaImpl.key}")
+            composableLambdaImpl.block?.let {
+                HorizontalSplitter()
+                DataItem(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    level = 0,
+                    data = it,
+                    expanded = false,
+                    onClick = {}
+                )
+            }
+            HorizontalSplitter()
+            DefaultPanelText(text = "Tracked: ${composableLambdaImpl.tracked}")
+            composableLambdaImpl.scopeHash?.let {
+                recomposeScopesByHash[it]?.let { scope ->
+                    HorizontalSplitter()
+                    DefaultPanelText(text = "Scope:")
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = scope,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
+            val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
+                recomposeScopesByHash[it]
+            }
+            if (scopes.isNotEmpty()) {
+                HorizontalSplitter()
+                DefaultPanelText(text = "Scopes:")
+                scopes.forEach {
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = it,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedCompositionContextHolder(
+    modifier: Modifier,
+    contexts: Contexts,
+    compositionContextHolder: CompositionContextHolder
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(text = "Reference:")
+            ExpandedContext(
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                contexts = contexts,
+                context = compositionContextHolder.ref
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpandedContext(
+    modifier: Modifier,
+    contexts: Contexts,
+    context: Context
+) {
+    DefaultPanelText(
+        modifier = modifier,
+        text = "CompoundHashKey: ${context.compoundHashKey}"
     )
 }
 
-private class RootsNode(
-    private val compositionRoots: CompositionRoots,
-    val showContextPopup: (@Composable () -> Unit) -> Unit,
-    val sourceNavigation: (String, Int, Int) -> Unit
-) : BaseTreeNode() {
+@Composable
+private fun ExpandedLayoutNode(
+    modifier: Modifier,
+    contexts: Contexts,
+    layoutNode: LayoutNode
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            layoutNode.lookaheadRootHash?.let {
+                layoutNodesByHash[it]?.let { node ->
+                    DefaultPanelText(text = "Lookahead root:")
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = node,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
 
-    override val name = "Application"
-    override val children: List<TreeNode>
-        get() {
-            return compositionRoots.compositionData.map {
-                it.map(level + 1, showContextPopup, sourceNavigation)
+            layoutNode.parentHash?.let {
+                layoutNodesByHash[it]?.let { node ->
+                    HorizontalSplitter()
+                    DefaultPanelText(text = "Parent:")
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = node,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
+
+            val children = layoutNode.childrenHashes.mapNotNull {
+                layoutNodesByHash[it]
+            }
+            if (children.isNotEmpty()) {
+                HorizontalSplitter()
+                DefaultPanelText(text = "Children:")
+                children.forEach { child ->
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = child,
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
+            }
+
+            HorizontalSplitter()
+            DefaultPanelText(text = "Coordinators:")
+            var currentNodeIndex = 0
+            layoutNode.coordinators.forEach { coordinator ->
+                DataItem(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    level = 0,
+                    data = coordinator,
+                    expanded = false,
+                    onClick = {}
+                )
+                while (coordinator.tailNodeHash != layoutNode.nodes[currentNodeIndex].hashCode) {
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = layoutNode.nodes[currentNodeIndex++],
+                        expanded = false,
+                        onClick = {}
+                    )
+                }
             }
         }
-    override val tags: List<Any> = emptyList()
-    override val level = 0
+    }
+}
 
-    @OptIn(ExperimentalLayoutApi::class)
-    @Composable
-    override fun TreeNodeRow() {
-        BaseGroupRow(level, name) {
-            showContextPopup @Composable {
-                Column(
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
-                ) {
-                    DefaultPanelText(
-                        text = "States",
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
-                    )
-                    FlowColumn(
-                        modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 600.dp)
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExpandedRecomposeScope(
+    modifier: Modifier,
+    contexts: Contexts,
+    recomposeScope: RecomposeScope
+) {
+    with(contexts) {
+        Column(
+            modifier = modifier
+        ) {
+            DefaultPanelText(
+                text = "Observing states:",
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+            )
+            FlowColumn(
+                modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 600.dp)
+            ) {
+                val states = recomposeScope.composeStateHashes.map {
+                    statesByHash[it]
+                }.filterNotNull()
+                states.forEach {
+                    var expanded: Boolean by mutableStateOf(false)
+                    DataItem(
+                        modifier = Modifier.padding(4.dp),
+                        level = 0,
+                        data = it,
+                        expanded = expanded,
+                        onClick = { expanded = !expanded }
                     ) {
-
+                        ExpandedState(
+                            modifier = Modifier.fillMaxColumnWidth().wrapContentHeight(),
+                            contexts = contexts,
+                            state = it
+                        )
                     }
                 }
             }
@@ -123,13 +407,311 @@ private class RootsNode(
     }
 }
 
-private fun CompositionRoot.map(
-    level: Int,
+@Composable
+private fun ExpandedRememberObserverHolder(
+    modifier: Modifier,
+    contexts: Contexts,
+    rememberObserverHolder: RememberObserverHolder
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(text = "Wrapped:")
+            DataItem(
+                modifier = Modifier.padding(4.dp),
+                level = 0,
+                data = rememberObserverHolder.wrapped,
+                expanded = false,
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DataIcon(modifier: Modifier, data: Data) {
+    Box(
+        modifier = modifier
+            .wrapContentSize()
+            .padding(4.dp)
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.data),
+            contentDescription = data::class.simpleName,
+            modifier = Modifier.size(32.dp),
+        )
+    }
+}
+
+@Composable
+private fun CodeNavigationIcon(modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .wrapContentSize()
+            .padding(4.dp)
+            .clickable {
+                onClick()
+            }
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.link),
+            contentDescription = "Navigate",
+            modifier = Modifier.size(32.dp),
+        )
+    }
+}
+
+fun CompositionRoots.buildCompositionTree(
     showContextPopup: (@Composable () -> Unit) -> Unit,
     sourceNavigation: (String, Int, Int) -> Unit
-): TreeNode {
-    TODO()
+): FilterableTree {
+    val contexts = this.buildContexts(
+        popup = showContextPopup,
+        navigate = sourceNavigation
+    )
+    return FilterableTree(
+        root = RootsNode(this, contexts)
+    )
 }
+
+private class RootsNode(
+    private val compositionRoots: CompositionRoots,
+    private val contexts: Contexts
+) : BaseTreeNode() {
+
+    override val name = "Application"
+    override val children: List<TreeNode>
+        get() {
+            return compositionRoots.compositionData.map {
+                RootNode(
+                    compositionRoot = it,
+                    level = level + 1,
+                    contexts = contexts
+                )
+            }
+        }
+    override val tags: List<Any> = emptyList()
+    override val level = 0
+
+    @OptIn(ExperimentalLayoutApi::class)
+    @Composable
+    override fun TreeNodeRow() = with(contexts) {
+        GroupItem(level, this@RootsNode) {
+            popup @Composable {
+                val verticalScrollState = rememberScrollState()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(verticalScrollState)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                    ) {
+                        DefaultPanelText(
+                            text = "States:",
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                        )
+                        FlowColumn(
+                            modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 1000.dp)
+                        ) {
+                            statesByHash.values.forEach {
+                                var expanded: Boolean by mutableStateOf(false)
+                                DataItem(
+                                    modifier = Modifier.padding(4.dp),
+                                    level = 0,
+                                    data = it,
+                                    expanded = expanded,
+                                    onClick = { expanded = !expanded }
+                                ) {
+                                    ExpandedState(
+                                        modifier = Modifier.fillMaxColumnWidth().wrapContentHeight(),
+                                        contexts = contexts,
+                                        state = it
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    VerticalScrollbar(
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        adapter = rememberScrollbarAdapter(verticalScrollState)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private class RootNode(
+    private val compositionRoot: CompositionRoot,
+    private val contexts: Contexts,
+    override val level: Int
+) : BaseTreeNode() {
+    override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: ""})"
+    override val children: List<TreeNode> = compositionRoot.groups.map {
+        GroupNode(
+            group = it,
+            level = level + 1,
+            contexts = contexts
+        )
+    }
+    override val tags: List<Any> = emptyList()
+
+    @Composable
+    override fun TreeNodeRow()  {
+        GroupItem(
+            level = level,
+            node = this@RootNode
+        )
+    }
+}
+
+private class GroupNode(
+    private val group: Group,
+    private val contexts: Contexts,
+    override val level: Int
+) : BaseTreeNode() {
+    override val name = group.name
+    override val children: List<TreeNode> = run {
+        val children = mutableListOf<TreeNode>()
+        children.addAll(
+            group.children.map {
+                GroupNode(
+                    group = it,
+                    level = level + 1,
+                    contexts = contexts
+                )
+            }
+        )
+        val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
+        children.addAll(
+            subcomposeStates.map {
+                SubcompositionsNode(
+                    subcomposeState = it,
+                    level = level + 1,
+                    contexts = contexts
+                )
+            }
+        )
+        children
+    }
+
+    override val tags: List<Any> = group.data
+
+    @Composable
+    override fun TreeNodeRow() = with(contexts) {
+        Column(
+            modifier = Modifier.wrapContentHeight().fillMaxWidth()
+        ) {
+            var showData: Boolean by mutableStateOf(false)
+            Row(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                GroupItem(
+                    level = level,
+                    node = this@GroupNode
+                ) {
+                    showData = !showData
+                }
+                CodeNavigationIcon(Modifier.align(Alignment.CenterVertically)) { }
+            }
+            if (showData) {
+                group.data.forEach {
+                    DataItem(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        level = 0,
+                        data = it,
+                        expanded = false,
+                        onClick = {
+                            popup(dataPopup(it))
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun dataPopup(data: Data): @Composable () -> Unit {
+        return {
+            val verticalScrollState = rememberScrollState()
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(verticalScrollState)
+            ) {
+                when (data) {
+                    is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        composableLambdaImpl = data
+                    )
+                    is ComposeState -> ExpandedState(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        state = data
+                    )
+                    is CompositionContextHolder -> ExpandedCompositionContextHolder(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        compositionContextHolder = data
+                    )
+                    is Context -> ExpandedContext(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        context = data
+                    )
+                    is LayoutNode -> ExpandedLayoutNode(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        layoutNode = data
+                    )
+                    is RecomposeScope -> ExpandedRecomposeScope(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        recomposeScope = data
+                    )
+                    is RememberObserverHolder -> ExpandedRememberObserverHolder(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        rememberObserverHolder = data
+                    )
+                    else -> DefaultPanelText(text = "No extra detail!")
+                }
+
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    adapter = rememberScrollbarAdapter(verticalScrollState)
+                )
+            }
+        }
+    }
+}
+
+private class SubcompositionsNode(
+    private val subcomposeState: SubcomposeState,
+    private val contexts: Contexts,
+    override val level: Int
+) : BaseTreeNode() {
+    override val name: String = "Subcompositions"
+    override val children: List<TreeNode> = subcomposeState.compositions.map {
+        RootNode(
+            compositionRoot = it,
+            level = level + 1,
+            contexts = contexts
+        )
+    }
+    override val tags: List<Any> = emptyList()
+
+    @Composable
+    override fun TreeNodeRow() {
+        GroupItem(
+            level = level,
+            node = this@SubcompositionsNode
+        )
+    }
+}
+
 
 private fun CompositionRoots.buildContexts(
     popup: (@Composable () -> Unit) -> Unit,
@@ -139,6 +721,26 @@ private fun CompositionRoots.buildContexts(
     val layoutNodesByHash = mutableMapOf<Int, LayoutNode>()
     val modifiersByHash = mutableMapOf<Int, ModifierNode>()
     val recomposeScopesByHash = mutableMapOf<Int, RecomposeScope>()
+
+    fun traverse(group: Group) {
+        group.data.forEach {
+            when (it) {
+                is LayoutNode -> layoutNodesByHash[it.hashCode] = it
+                is ModifierNode -> modifiersByHash[it.hashCode] = it
+                is RecomposeScope -> recomposeScopesByHash[it.hashCode] = it
+                else -> { }
+            }
+        }
+        group.children.forEach {
+            traverse(it)
+        }
+    }
+
+    this.compositionData.forEach {
+        it.groups.forEach { group ->
+            traverse(group)
+        }
+    }
 
     return Contexts(
         statesByHash = statesByHash,
@@ -163,6 +765,9 @@ private val Group.name: String
     get() {
         val sourceInfo = this.attributes.sourceInformation
         val key = this.attributes.key
+        val intKeyValue = if (key is IntKey) {
+            key.value
+        } else null
         val sourceKey = if (sourceInfo != null) {
             val startIndex =
                 when {
@@ -175,17 +780,24 @@ private val Group.name: String
                 sourceInfo.substring(startIndex, endIndex)
             else null
         } else null
-        if (sourceKey?.isNotBlank() == true) return sourceKey
         val wellKnownKey = if (key is IntKey) {
             WellKnownKeys.entries.firstOrNull {
                 it.intKey == key.value
             }?.displayName
         } else null
-        if (wellKnownKey?.isNotBlank() == true) return wellKnownKey
+        val intKey = if (key is IntKey) {
+            "KeyGroup(${key.value})"
+        } else null
         val objectKey = if (key is ObjectKey) {
             "KeyGroup(${key.value})"
         } else null
-        return objectKey ?: "Group"
+        return when {
+            sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
+            wellKnownKey != null -> wellKnownKey
+            intKey != null -> intKey
+            objectKey != null -> objectKey
+            else -> "Group"
+        }
     }
 
 private enum class WellKnownKeys(val intKey: Int, val displayName: String) {

@@ -198,7 +198,7 @@ class FileTreeNode(
 }
 
 @Suppress("UNCHECKED_CAST")
-internal fun ProjectSnapshot.buildFileTree(
+private fun ProjectSnapshot.buildFileTree(
     onClickFileEntry: (String) -> Unit
 ): FilterableTree {
     val paths = this.fileTree

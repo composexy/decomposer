@@ -36,6 +36,14 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.decomposer.runtime.connection.model.CompositionRoot
+import com.decomposer.runtime.connection.model.CompositionRoots
+import com.decomposer.runtime.connection.model.Group
+import com.decomposer.runtime.connection.model.IntKey
+import com.decomposer.runtime.connection.model.LayoutNode
+import com.decomposer.runtime.connection.model.ObjectKey
+import com.decomposer.runtime.connection.model.RecomposeScope
+import com.decomposer.runtime.connection.model.SubcomposeState
 import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.refresh
@@ -70,6 +78,13 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
+                        val fullTree = compositionRoots.buildCompositionTree()
+                        compositionTree = when (filteredNodeKind) {
+                            NodeKind.ALL -> fullTree
+                            NodeKind.RECOMPOSE_SCOPE -> fullTree.filterSubTree(RecomposeScope::class)
+                            NodeKind.LAYOUT_NODE -> fullTree.filterSubTree(LayoutNode::class)
+                            NodeKind.SUBCOMPOSITION -> fullTree.filterSubTree(SubcomposeState::class)
+                        }
                     }
                 },
                 onSelectedOption = {

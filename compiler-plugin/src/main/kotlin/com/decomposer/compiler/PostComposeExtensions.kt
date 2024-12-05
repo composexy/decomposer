@@ -11,17 +11,14 @@ class PostComposeExtensions(
     private val configuration: CompilerConfiguration
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
-        val postComposeIrStorageEnabled = configuration[KEY_POST_COMPOSE_IR_STORAGE_ENABLED] == true
-        if (postComposeIrStorageEnabled) {
-            moduleFragment.transform(
-                IrSerializeTransformer(
-                    composed = true,
-                    messageCollector = messageCollector,
-                    configuration = configuration,
-                    context = pluginContext
-                ),
-                null
-            )
-        }
+        moduleFragment.transform(
+            IrSerializeTransformer(
+                composed = true,
+                messageCollector = messageCollector,
+                configuration = configuration,
+                context = pluginContext
+            ),
+            null
+        )
     }
 }

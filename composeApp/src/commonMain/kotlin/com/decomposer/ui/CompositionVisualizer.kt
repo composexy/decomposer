@@ -86,9 +86,9 @@ private fun GroupItem(
             overflow = TextOverflow.Ellipsis,
             maxLines = 1,
             fontFamily = Fonts.jetbrainsMono(),
-            fontSize = 32.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Light,
-            lineHeight = 48.sp
+            lineHeight = 36.sp
         )
     }
 }
@@ -151,7 +151,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                 painter = painterResource(Res.drawable.expand_down),
                 contentDescription = "Fold ${node.name}",
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(32.dp)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand),
             )
@@ -161,7 +161,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                 painter = painterResource(Res.drawable.expand_right),
                 contentDescription = "Unfold ${node.name}",
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(32.dp)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand),
             )

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +29,10 @@ import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Group
 import com.decomposer.runtime.connection.model.IntKey
+import com.decomposer.runtime.connection.model.LayoutNode
+import com.decomposer.runtime.connection.model.ModifierNode
 import com.decomposer.runtime.connection.model.ObjectKey
+import com.decomposer.runtime.connection.model.RecomposeScope
 
 @Composable
 private fun BaseGroupRow(
@@ -105,11 +109,11 @@ private class RootsNode(
                     modifier = Modifier.fillMaxWidth().wrapContentHeight()
                 ) {
                     DefaultPanelText(
-                        text = "Found states:",
-                        modifier = Modifier.fillMaxWidth()
+                        text = "States",
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
                     )
                     FlowColumn(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().requiredHeightIn(400.dp, 600.dp)
                     ) {
 
                     }
@@ -126,6 +130,34 @@ private fun CompositionRoot.map(
 ): TreeNode {
     TODO()
 }
+
+private fun CompositionRoots.buildContexts(
+    popup: (@Composable () -> Unit) -> Unit,
+    navigate: (String, Int, Int) -> Unit
+): Contexts {
+    val statesByHash = this.stateTable.associateBy { it.hashCode }
+    val layoutNodesByHash = mutableMapOf<Int, LayoutNode>()
+    val modifiersByHash = mutableMapOf<Int, ModifierNode>()
+    val recomposeScopesByHash = mutableMapOf<Int, RecomposeScope>()
+
+    return Contexts(
+        statesByHash = statesByHash,
+        layoutNodesByHash = layoutNodesByHash,
+        modifiersByBash = modifiersByHash,
+        recomposeScopesByHash = recomposeScopesByHash,
+        popup = popup,
+        navigate = navigate
+    )
+}
+
+private class Contexts(
+    val statesByHash: Map<Int, ComposeState>,
+    val layoutNodesByHash: Map<Int, LayoutNode>,
+    val modifiersByBash: Map<Int, ModifierNode>,
+    val recomposeScopesByHash: Map<Int, RecomposeScope>,
+    val popup: (@Composable () -> Unit) -> Unit,
+    val navigate: (String, Int, Int) -> Unit
+)
 
 private val Group.name: String
     get() {

@@ -543,7 +543,6 @@ private fun GroupAttributesIcon(
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-
     Box(
         modifier = modifier
             .wrapContentSize()
@@ -741,8 +740,11 @@ private class GroupNode(
                 else -> { }
             }
         }
-        if (group.data.isEmpty() && group.children.isEmpty()) {
-            tags.add(EmptyGroup)
+        if (group.children.isEmpty()) {
+            tags.add(LeafGroup)
+            if (group.children.isEmpty()) {
+                tags.add(EmptyGroup)
+            }
         }
         when(group.sourceKey) {
             "SubcomposeLayout" -> tags.add(CompositionGroup)

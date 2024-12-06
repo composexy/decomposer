@@ -11,22 +11,22 @@ import kotlin.reflect.KClass
 class FilterableTree(
     val root: TreeNode
 ) {
-    private val filterCache = mutableMapOf<Set<KClass<*>>, FilterableTree>()
+    private val subtreeCache = mutableMapOf<KClass<*>, FilterableTree>()
 
-    fun subtree(classes: Set<KClass<*>>): FilterableTree {
-        val cachedTree = filterCache[classes]
+    fun subtree(clazz: KClass<*>): FilterableTree {
+        val cachedTree = subtreeCache[clazz]
         if (cachedTree != null) {
             return cachedTree
         }
 
         fun filterNode(node: TreeNode, level: Int): List<TreeNode> {
-            val filteredChildren = if (classes.all { node.hasTag(it) } || node === root) {
+            val filteredChildren = if (node.hasTag(clazz) || node === root) {
                 node.children.flatMap { filterNode(it, level + 1) }
             } else {
                 node.children.flatMap { filterNode(it, level) }
             }
 
-            if (classes.all { node.hasTag(it) }) {
+            if (node.hasTag(clazz)) {
                 return listOf(
                     FilteredNode(
                         wrapped = node,
@@ -45,7 +45,7 @@ class FilterableTree(
             filteredNodes.isEmpty() -> EMPTY_TREE
             filteredNodes.first().level == 0 -> {
                 FilterableTree(filteredNodes.first()).also {
-                    filterCache[classes] = it
+                    subtreeCache[clazz] = it
                 }
             }
             else -> {
@@ -55,7 +55,7 @@ class FilterableTree(
                     level = 0
                 )
                 FilterableTree(newRoot).also {
-                    filterCache[classes] = it
+                    subtreeCache[clazz] = it
                 }
             }
         }

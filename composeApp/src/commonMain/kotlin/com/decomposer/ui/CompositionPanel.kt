@@ -17,13 +17,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.Checkbox
-import androidx.compose.material.RadioButton
+import androidx.compose.material.LocalContentColor
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -32,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -56,17 +61,30 @@ fun CompositionPanel(
         mutableStateOf(FilterableTree.EMPTY_TREE)
     }
 
-    var filteredNodeKind: NodeKind by remember {
-        mutableStateOf(NodeKind.ALL)
+    var selectedTreeKind: TreeKind by remember {
+        mutableStateOf(TreeKind.FULL)
     }
 
-    var filterSystem: Boolean by remember {
+    var hideWrapper: Boolean by remember {
+        mutableStateOf(false)
+    }
+
+    var hideEmpty: Boolean by remember {
         mutableStateOf(true)
     }
 
-    val filteredCompositionTree: FilterableTree by remember {
+    var hideLeaf: Boolean by remember {
+        mutableStateOf(false)
+    }
+
+    val subtree: FilterableTree by remember {
         derivedStateOf {
-            compositionTree
+            when (selectedTreeKind) {
+                TreeKind.FULL -> compositionTree
+                TreeKind.RECOMPOSE_SCOPE -> compositionTree.subtree(RecomposeScopeGroup::class)
+                TreeKind.COMPOSE_NODE -> compositionTree.subtree(ComposeNodeGroup::class)
+                TreeKind.COMPOSITION -> compositionTree.subtree(CompositionGroup::class)
+            }
         }
     }
 
@@ -80,7 +98,6 @@ fun CompositionPanel(
         ) {
             CompositionPanelBar(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                filteredNodeKind = filteredNodeKind,
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
@@ -94,9 +111,33 @@ fun CompositionPanel(
                         )
                     }
                 },
-                onSelectedOption = { filteredNodeKind = it },
-                onFilterSystemChange = { filterSystem = it },
-                filterSystem = filterSystem
+                hideWrapper = hideWrapper,
+                hideEmpty = hideEmpty,
+                hideLeaf = hideLeaf,
+                onHideWrapperCheckedChanged = {
+                    hideWrapper = it
+                    if (hideWrapper) {
+                        compositionTree.root.addExcludesRecursive(setOf(WrapperGroup::class))
+                    } else {
+                        compositionTree.root.removeExcludesRecursive(setOf(WrapperGroup::class))
+                    }
+                },
+                onHideEmptyCheckedChanged = {
+                    hideEmpty = it
+                    if (hideEmpty) {
+                        compositionTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
+                    } else {
+                        compositionTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+                    }
+                },
+                onHideLeafCheckedChanged = {
+                    hideLeaf = it
+                    if (hideLeaf) {
+                        compositionTree.root.addExcludesRecursive(setOf(LeafGroup::class))
+                    } else {
+                        compositionTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
+                    }
+                }
             )
         }
         Row(
@@ -121,7 +162,7 @@ fun CompositionPanel(
         }
 
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxWidth().weight(1.0f)
         ) {
             val verticalScrollState = rememberLazyListState()
             val horizontalScrollState = rememberScrollState()
@@ -136,7 +177,7 @@ fun CompositionPanel(
                     state = verticalScrollState,
                     contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                 ) {
-                    val nodes = filteredCompositionTree.flattenNodes
+                    val nodes = subtree.flattenNodes
                     items(nodes.size) {
                         nodes[it].TreeNodeRow()
                     }
@@ -152,6 +193,41 @@ fun CompositionPanel(
                 modifier = Modifier.align(Alignment.BottomCenter),
                 adapter = rememberScrollbarAdapter(horizontalScrollState)
             )
+        }
+
+        SubTreeSelector(
+            modifier = Modifier.wrapContentSize().padding(vertical = 12.dp).align(Alignment.CenterHorizontally),
+            selectedTreeKind = selectedTreeKind,
+            onSelectedOption = { selectedTreeKind = it }
+        )
+    }
+}
+
+@Composable
+fun SubTreeSelector(
+    modifier: Modifier,
+    selectedTreeKind: TreeKind,
+    onSelectedOption: (TreeKind) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        val entries = TreeKind.entries
+        TreeKind.entries.forEachIndexed { index, kind ->
+            val interactionSource = remember { MutableInteractionSource() }
+            SegmentedButton(
+                modifier = Modifier
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
+                onClick = { onSelectedOption(entries[index]) },
+                selected = entries[index] == selectedTreeKind,
+                colors = SegmentedButtonDefaults.colors().copy(
+                    activeContainerColor = Color.Transparent,
+                    inactiveContainerColor = Color.Transparent,
+                    activeContentColor = LocalContentColor.current
+                )
+            ) {
+                DefaultPanelText(kind.tag)
+            }
         }
     }
 }
@@ -194,47 +270,30 @@ fun DataExpander(
 @Composable
 fun CompositionPanelBar(
     modifier: Modifier,
-    filteredNodeKind: NodeKind,
-    filterSystem: Boolean,
     onRefresh: () -> Unit,
-    onSelectedOption: (NodeKind) -> Unit,
-    onFilterSystemChange: (Boolean) -> Unit
+    hideWrapper: Boolean,
+    hideEmpty: Boolean,
+    hideLeaf: Boolean,
+    onHideWrapperCheckedChanged: (Boolean) -> Unit,
+    onHideEmptyCheckedChanged: (Boolean) -> Unit,
+    onHideLeafCheckedChanged: (Boolean) -> Unit
 ) {
     Row(modifier = modifier) {
         CompositionRefresh(onRefresh)
-        FilterSystem(
-            checked = filterSystem,
-            onCheckedChanged = {
-                onFilterSystemChange(it)
-            }
+        ComposeCheckBox(
+            text = "Hide wrapper groups",
+            checked = hideWrapper,
+            onCheckedChanged = { onHideWrapperCheckedChanged(it) }
         )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.ALL,
-            text = NodeKind.ALL.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.ALL)
-            }
+        ComposeCheckBox(
+            text = "Hide empty groups",
+            checked = hideEmpty,
+            onCheckedChanged = { onHideEmptyCheckedChanged(it) }
         )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.RECOMPOSE_SCOPE,
-            text = NodeKind.RECOMPOSE_SCOPE.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.RECOMPOSE_SCOPE)
-            }
-        )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.COMPOSE_NODE,
-            text = NodeKind.COMPOSE_NODE.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.COMPOSE_NODE)
-            }
-        )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.COMPOSITION,
-            text = NodeKind.COMPOSITION.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.COMPOSITION)
-            }
+        ComposeCheckBox(
+            text = "Hide leaf groups",
+            checked = hideLeaf,
+            onCheckedChanged = { onHideLeafCheckedChanged(it) }
         )
     }
 }
@@ -264,7 +323,8 @@ fun CompositionRefresh(onRefresh: () -> Unit) {
 }
 
 @Composable
-fun FilterSystem(
+fun ComposeCheckBox(
+    text: String,
     checked: Boolean,
     onCheckedChanged: (Boolean) -> Unit
 ) {
@@ -287,56 +347,24 @@ fun FilterSystem(
             onCheckedChange = null
         )
         DefaultPanelText(
-            text = "Filter system",
-            modifier = Modifier.padding(start = 4.dp)
-        )
-    }
-}
-
-@Composable
-fun FilterOption(
-    selected: Boolean,
-    text: String,
-    onSelected: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Row(
-        Modifier
-            .wrapContentSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .hoverable(interactionSource)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .toggleable(
-                value = selected,
-                onValueChange = { onSelected() },
-                role = Role.RadioButton
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick = null
-        )
-        DefaultPanelText(
             text = text,
             modifier = Modifier.padding(start = 4.dp)
         )
     }
 }
 
-enum class NodeKind(val tag: String) {
-    ALL("All"),
+enum class TreeKind(val tag: String) {
+    FULL("Full"),
     RECOMPOSE_SCOPE("RecomposeScope"),
     COMPOSE_NODE("ComposeNode"),
     COMPOSITION("Composition")
 }
 
 sealed interface ComposeTag
-data object SystemGroup : ComposeTag
-data object ProjectGroup : ComposeTag
 data object RecomposeScopeGroup : ComposeTag
 data object ComposeNodeGroup : ComposeTag
 data object CompositionGroup : ComposeTag
 data object WrapperGroup : ComposeTag
 data object EmptyGroup : ComposeTag
+data object LeafGroup : ComposeTag
 data object SlotNode : ComposeTag

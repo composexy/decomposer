@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
+import java.nio.file.Paths
 
 @Composable
 fun IrPanel(
@@ -102,7 +103,7 @@ fun IrPanel(
                         }
                     )
                 }
-                CodeContent(kotlinLikeIrDump, standardIrDump, kotlinLike)
+                CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike)
             }
         }
     }
@@ -138,65 +139,76 @@ private val VirtualFileIr.isEmpty: Boolean
 
 @Composable
 fun CodeContent(
+    filePath: String?,
     kotlinLikeIr: AnnotatedString,
     standardIr: String,
     kotlinLike: Boolean
 ) {
-    Box(
+    Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        val verticalScrollState = rememberScrollState()
-        val horizontalScrollState = rememberScrollState()
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(verticalScrollState)
-                .horizontalScroll(horizontalScrollState),
-        ) {
-            LineNumbers(
-                length = if (kotlinLike) {
-                    kotlinLikeIr.lines().size
-                } else {
-                    standardIr.lines().size
-                }
+        filePath?.let {
+            DefaultPanelText(
+                text = Paths.get(it).fileName.toString(),
+                modifier = Modifier.fillMaxWidth()
             )
-            SelectionContainer {
-                if (kotlinLike) {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        text = kotlinLikeIr,
-                        fontFamily = Fonts.jetbrainsMono(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        lineHeight = 36.sp
-                    )
-                } else {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        text = standardIr,
-                        fontFamily = Fonts.jetbrainsMono(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        lineHeight = 36.sp
-                    )
+        }
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val verticalScrollState = rememberScrollState()
+            val horizontalScrollState = rememberScrollState()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(verticalScrollState)
+                    .horizontalScroll(horizontalScrollState),
+            ) {
+                LineNumbers(
+                    length = if (kotlinLike) {
+                        kotlinLikeIr.lines().size
+                    } else {
+                        standardIr.lines().size
+                    }
+                )
+                SelectionContainer {
+                    if (kotlinLike) {
+                        Text(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            text = kotlinLikeIr,
+                            fontFamily = Fonts.jetbrainsMono(),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            lineHeight = 36.sp
+                        )
+                    } else {
+                        Text(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            text = standardIr,
+                            fontFamily = Fonts.jetbrainsMono(),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            lineHeight = 36.sp
+                        )
+                    }
                 }
             }
+
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
+
+            HorizontalScrollbar(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                adapter = rememberScrollbarAdapter(horizontalScrollState)
+            )
         }
-
-        VerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-            adapter = rememberScrollbarAdapter(verticalScrollState)
-        )
-
-        HorizontalScrollbar(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-            adapter = rememberScrollbarAdapter(horizontalScrollState)
-        )
     }
 }
 

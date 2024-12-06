@@ -157,7 +157,7 @@ class SubcomposeLayoutStateReflection(
     companion object {
         private const val LAYOUT_NODE_SUBCOMPOSITION_STATE =
             "androidx.compose.ui.layout.LayoutNodeSubcompositionsState"
-        private const val NODE_STATE = "NodeState"
+        private const val NODE_STATE = "androidx.compose.ui.layout.LayoutNodeSubcompositionsState.NodeState"
         private const val SUBCOMPOSE_LAYOUT_STATE_STATE = "state"
         private const val LAYOUT_NODE_NODE_STATE = "nodeToNodeState"
         private const val NODE_STATE_COMPOSITION = "composition"

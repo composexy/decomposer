@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowColumn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
@@ -55,6 +54,7 @@ import com.decomposer.runtime.connection.model.RememberObserverHolder
 import com.decomposer.runtime.connection.model.SubcomposeState
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.data
+import decomposer.composeapp.generated.resources.empty_group
 import decomposer.composeapp.generated.resources.expand_down
 import decomposer.composeapp.generated.resources.expand_right
 import decomposer.composeapp.generated.resources.show
@@ -123,12 +123,13 @@ private fun DataItem(
                         .clipToBounds()
                         .hoverable(interactionSource)
                         .pointerHoverIcon(PointerIcon.Hand)
-                        .clickable { onClick() },
+                        .clickable { onClick() }
+                        .requiredWidthIn(80.dp, 5000.dp),
                     softWrap = true,
-                    overflow = TextOverflow.Ellipsis,
                     maxLines = 1,
                     fontFamily = Fonts.jetbrainsMono(),
                     fontSize = 24.sp,
+                    overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Thin,
                     lineHeight = 36.sp
                 )
@@ -143,29 +144,48 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
         modifier = modifier
             .wrapContentSize()
             .padding(4.dp)
-            .clickable { node.expanded = !node.expanded }
+            .run {
+                if (node.children.isNotEmpty()) {
+                    clickable {
+                        node.expanded = !node.expanded
+                    }
+                } else {
+                    this
+                }
+            }
     ) {
-        if (node.expanded) {
-            val interactionSource = remember { MutableInteractionSource() }
-            Image(
-                painter = painterResource(Res.drawable.expand_down),
-                contentDescription = "Fold ${node.name}",
-                modifier = Modifier
-                    .size(32.dp)
-                    .hoverable(interactionSource)
-                    .pointerHoverIcon(PointerIcon.Hand),
-            )
-        } else {
-            val interactionSource = remember { MutableInteractionSource() }
-            Image(
-                painter = painterResource(Res.drawable.expand_right),
-                contentDescription = "Unfold ${node.name}",
-                modifier = Modifier
-                    .size(32.dp)
-                    .hoverable(interactionSource)
-                    .pointerHoverIcon(PointerIcon.Hand),
-            )
+        when {
+            node.children.isEmpty() -> {
+                Image(
+                    painter = painterResource(Res.drawable.empty_group),
+                    contentDescription = "Empty group",
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            node.expanded -> {
+                val interactionSource = remember { MutableInteractionSource() }
+                Image(
+                    painter = painterResource(Res.drawable.expand_down),
+                    contentDescription = "Fold ${node.name}",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .hoverable(interactionSource)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                )
+            }
+            else -> {
+                val interactionSource = remember { MutableInteractionSource() }
+                Image(
+                    painter = painterResource(Res.drawable.expand_right),
+                    contentDescription = "Unfold ${node.name}",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .hoverable(interactionSource)
+                        .pointerHoverIcon(PointerIcon.Hand),
+                )
+            }
         }
+
     }
 }
 
@@ -625,7 +645,7 @@ private class GroupNode(
             modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
             var showData: Boolean by remember {
-                mutableStateOf(false)
+                mutableStateOf(true)
             }
             Row(
                 modifier = Modifier.fillMaxWidth()
@@ -821,17 +841,17 @@ private val Group.name: String
             }?.displayName
         } else null
         val intKey = if (key is IntKey) {
-            "KeyGroup(${key.value})"
+            "Group(${key.value})"
         } else null
         val objectKey = if (key is ObjectKey) {
-            "KeyGroup(${key.value})"
+            "Group(${key.value})"
         } else null
         return when {
             sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
-            wellKnownKey != null -> wellKnownKey
+            wellKnownKey != null -> "Group($wellKnownKey)"
             intKey != null -> intKey
             objectKey != null -> objectKey
-            else -> "Group"
+            else -> "Group()"
         }
     }
 

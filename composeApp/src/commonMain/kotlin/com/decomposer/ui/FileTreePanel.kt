@@ -68,7 +68,7 @@ fun FileTreePanel(
         ) {
             Expander(
                 onFoldAll = { fileTree.foldAll() },
-                onExpandAll = { fileTree.foldAll() }
+                onExpandAll = { fileTree.expandAll() }
             )
             Box(
                 modifier = Modifier

@@ -116,12 +116,8 @@ fun CompositionPanel(
             )
         }
         Expander(
-            onFoldAll = {
-                compositionTree.foldAll()
-            },
-            onExpandAll = {
-                compositionTree.foldAll()
-            }
+            onFoldAll = { compositionTree.foldAll() },
+            onExpandAll = { compositionTree.expandAll() }
         )
         Box(
             modifier = Modifier.fillMaxSize()
@@ -240,23 +236,23 @@ fun FilterSystem(
     Row(
         Modifier
             .wrapContentSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .hoverable(interactionSource)
+            .pointerHoverIcon(PointerIcon.Hand)
             .toggleable(
                 value = checked,
                 onValueChange = { onCheckedChanged(!checked) },
                 role = Role.Checkbox
-            )
-            .hoverable(interactionSource)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = checked,
-            onCheckedChange = null,
-            modifier = Modifier.padding(4.dp)
+            onCheckedChange = null
         )
         DefaultPanelText(
             text = "Filter system",
+            modifier = Modifier.padding(start = 4.dp)
         )
     }
 }
@@ -300,5 +296,5 @@ enum class NodeKind(val tag: String) {
 }
 
 sealed interface GroupOrigin
-data object System : GroupOrigin
-data object App : GroupOrigin
+data object SystemOrigin : GroupOrigin
+data object AppOrigin : GroupOrigin

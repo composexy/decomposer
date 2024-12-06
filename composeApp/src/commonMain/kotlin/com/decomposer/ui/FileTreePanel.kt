@@ -66,9 +66,9 @@ fun FileTreePanel(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            Expander(
-                onFoldAll = { fileTree.foldAll() },
-                onExpandAll = { fileTree.expandAll() }
+            TreeExpander(
+                onFoldAll = { fileTree.root.setExpandedRecursive(false) },
+                onExpandAll = { fileTree.root.setExpandedRecursive(true) }
             )
             Box(
                 modifier = Modifier
@@ -111,7 +111,7 @@ class FileTreeNode(
     override val name: String,
     override val children: List<TreeNode>,
     override val level: Int,
-    override val tags: List<Any> = emptyList(),
+    override val tags: Set<Any> = emptySet(),
     val prefix: String,
     val onClickFileEntry: (String) -> Unit
 ) : BaseTreeNode() {
@@ -154,6 +154,16 @@ class FileTreeNode(
                 fontWeight = FontWeight.Light,
                 lineHeight = 36.sp
             )
+        }
+    }
+
+    override fun compareTo(other: TreeNode): Int {
+        return when {
+            other !is FileTreeNode -> -1
+            isFolder.compareTo(other.isFolder) != 0 -> {
+                isFolder.compareTo(other.isFolder)
+            }
+            else -> name.compareTo(other.name)
         }
     }
 

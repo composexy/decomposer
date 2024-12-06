@@ -9,19 +9,11 @@ import androidx.compose.runtime.setValue
 import kotlin.reflect.KClass
 
 class FilterableTree(
-    private val root: TreeNode
+    val root: TreeNode
 ) {
     private val filterCache = mutableMapOf<Set<KClass<*>>, FilterableTree>()
 
-    fun foldAll() {
-        root.setExpandedForAll(false)
-    }
-
-    fun expandAll() {
-        root.setExpandedForAll(true)
-    }
-
-    fun filterSubTree(classes: Set<KClass<*>>): FilterableTree {
+    fun subtree(classes: Set<KClass<*>>): FilterableTree {
         val cachedTree = filterCache[classes]
         if (cachedTree != null) {
             return cachedTree
@@ -79,12 +71,15 @@ class FilterableTree(
     ): BaseTreeNode() {
         override val name = wrapped.name
         override var expanded by mutableStateOf(wrapped.expanded)
+
         override val tags = wrapped.tags
 
         @Composable
         override fun TreeNodeRow() {
             wrapped.TreeNodeRow()
         }
+
+        override fun compareTo(other: TreeNode): Int = wrapped.compareTo(other)
     }
 
     companion object {
@@ -92,13 +87,16 @@ class FilterableTree(
             override val name = "Empty"
             override val children = emptyList<EmptyNode>()
             override var expanded = false
-            override val tags = emptyList<Any>()
+
+            override val tags = emptySet<Any>()
             override val level = 0
 
             @Composable
             override fun TreeNodeRow() {
                 DefaultPanelText(text = name)
             }
+
+            override fun compareTo(other: TreeNode): Int = 0
         }
 
         val EMPTY_TREE = FilterableTree(EmptyNode)
@@ -106,23 +104,27 @@ class FilterableTree(
 }
 
 @Stable
-interface TreeNode {
+interface TreeNode : Comparable<TreeNode> {
     val name: String
     val children: List<TreeNode>
     val flattenedChildren: List<TreeNode>
     val expanded: Boolean
-    val tags: List<Any>
+    val tags: Set<Any>
     val expandable: Boolean
     val level: Int
+    val excludes: Set<KClass<*>>
     fun hasTag(clazz: KClass<*>): Boolean
-
     @Composable
     fun TreeNodeRow()
-
-    fun setExpandedForAll(expanded: Boolean)
+    fun setExpandedRecursive(expanded: Boolean)
+    fun addExcludesRecursive(excludes: Set<KClass<*>>)
+    fun removeExcludesRecursive(excludes: Set<KClass<*>>)
 }
 
 abstract class BaseTreeNode : TreeNode {
+
+    override var excludes: Set<KClass<*>> by mutableStateOf(emptySet())
+
     override val expandable: Boolean
         get() {
             return children.isNotEmpty()
@@ -134,13 +136,14 @@ abstract class BaseTreeNode : TreeNode {
 
     override val flattenedChildren: List<TreeNode> by derivedStateOf {
         val result = mutableListOf<TreeNode>()
-        result.add(this)
-        if (expanded) {
-            val sortedChildren = this.children.sortedWith(
-                compareBy({ it.expandable }, { it.name })
-            )
-            sortedChildren.forEach {
-                result.addAll(it.flattenedChildren)
+        val excluded = tags.any { excludes.contains(it::class) }
+        if (!excluded) {
+            result.add(this)
+            if (expanded) {
+                val sortedChildren = this.children.sortedBy { this }
+                sortedChildren.forEach {
+                    result.addAll(it.flattenedChildren)
+                }
             }
         }
         result
@@ -148,10 +151,24 @@ abstract class BaseTreeNode : TreeNode {
 
     override var expanded: Boolean by mutableStateOf(false)
 
-    override fun setExpandedForAll(expanded: Boolean) {
+    override fun setExpandedRecursive(expanded: Boolean) {
         this.expanded = expanded
         this.children.forEach {
-            it.setExpandedForAll(expanded)
+            it.setExpandedRecursive(expanded)
         }
     }
-}
+
+    override fun addExcludesRecursive(excludes: Set<KClass<*>>) {
+        this.excludes += excludes
+        this.children.forEach {
+            it.addExcludesRecursive(excludes)
+        }
+    }
+
+    override fun removeExcludesRecursive(excludes: Set<KClass<*>>) {
+        this.excludes -= excludes
+        this.children.forEach {
+            it.removeExcludesRecursive(excludes)
+        }
+    }
+ }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -157,8 +158,13 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                 }
             }
     ) {
+        val isNodeEmpty = when {
+            node.children.isEmpty() -> true
+            node is GroupNode && node.children.all { it is DataNode } -> true
+            else -> false
+        }
         when {
-            node.children.isEmpty() -> {
+            isNodeEmpty -> {
                 Image(
                     painter = painterResource(Res.drawable.empty_group),
                     contentDescription = "Empty group",
@@ -567,20 +573,44 @@ fun CompositionRoots.buildCompositionTree(
     )
 }
 
+private sealed class BaseComposeTreeNode : BaseTreeNode() {
+    override fun compareTo(other: TreeNode): Int {
+        if (other !is BaseComposeTreeNode){
+            return -1
+        }
+        val selfOrder = sortOrderOf(this)
+        val otherOrder = sortOrderOf(other)
+        if (selfOrder != otherOrder) {
+            return selfOrder - otherOrder
+        }
+        return this.name.compareTo(other.name)
+    }
+
+    private fun sortOrderOf(node: BaseComposeTreeNode): Int {
+        return when(node) {
+            is CompositionNode -> 3
+            is DataNode -> 1
+            is GroupNode -> 2
+            is RootsNode -> 0
+            is SubcompositionsNode -> 4
+        }
+    }
+}
+
 private class RootsNode(
     private val compositionRoots: CompositionRoots,
     private val contexts: Contexts
-) : BaseTreeNode() {
+) : BaseComposeTreeNode() {
     override val level = 0
     override val name = "Application"
     override val children: List<TreeNode> = compositionRoots.compositionData.map {
-        RootNode(
+        CompositionNode(
             compositionRoot = it,
             level = level + 1,
             contexts = contexts
         )
     }
-    override val tags: List<Any> = emptyList()
+    override val tags: Set<Any> = emptySet()
 
     @OptIn(ExperimentalLayoutApi::class)
     @Composable
@@ -637,11 +667,11 @@ private class RootsNode(
     }
 }
 
-private class RootNode(
+private class CompositionNode(
     private val compositionRoot: CompositionRoot,
     private val contexts: Contexts,
     override val level: Int
-) : BaseTreeNode() {
+) : BaseComposeTreeNode() {
     override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: "Recomposer"})"
     override val children: List<TreeNode> = compositionRoot.groups.map {
         GroupNode(
@@ -650,13 +680,13 @@ private class RootNode(
             contexts = contexts
         )
     }
-    override val tags: List<Any> = emptyList()
+    override val tags: Set<Any> = setOf(CompositionGroup)
 
     @Composable
     override fun TreeNodeRow()  {
         GroupItem(
             level = level,
-            node = this@RootNode
+            node = this@CompositionNode
         )
     }
 }
@@ -665,10 +695,19 @@ private class GroupNode(
     private val group: Group,
     private val contexts: Contexts,
     override val level: Int
-) : BaseTreeNode() {
+) : BaseComposeTreeNode() {
     override val name = group.name
     override val children: List<TreeNode> = run {
         val children = mutableListOf<TreeNode>()
+        children.addAll(
+            group.data.map {
+                DataNode(
+                    data = it,
+                    level = level + 1,
+                    contexts = contexts
+                )
+            }
+        )
         children.addAll(
             group.children.map {
                 GroupNode(
@@ -679,28 +718,44 @@ private class GroupNode(
             }
         )
         val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
-        children.addAll(
-            subcomposeStates.map {
-                SubcompositionsNode(
-                    subcomposeState = it,
-                    level = level + 1,
-                    contexts = contexts
-                )
-            }
-        )
+        if (group.sourceKey == "SubcomposeLayout") {
+            children.addAll(
+                subcomposeStates.map {
+                    SubcompositionsNode(
+                        subcomposeState = it,
+                        level = level + 1,
+                        contexts = contexts
+                    )
+                }
+            )
+        }
         children
     }
 
-    override val tags: List<Any> = group.data
+    override val tags: Set<Any> = run {
+        val tags = mutableSetOf<ComposeTag>()
+        group.data.forEach {
+            when(it) {
+                is RecomposeScope -> tags.add(RecomposeScopeGroup)
+                is LayoutNode -> tags.add(ComposeNodeGroup)
+                else -> { }
+            }
+        }
+        if (group.data.isEmpty() && group.children.isEmpty()) {
+            tags.add(EmptyGroup)
+        }
+        when(group.sourceKey) {
+            "SubcomposeLayout" -> tags.add(CompositionGroup)
+            "ReusableComposeNode", "ComposeNode" -> tags.add(ComposeNodeGroup)
+        }
+        tags
+    }
 
     @Composable
     override fun TreeNodeRow() = with(contexts) {
         Column(
             modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
-            var showData: Boolean by remember {
-                mutableStateOf(true)
-            }
             Row(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -711,28 +766,34 @@ private class GroupNode(
                     navigate("", 0, 0)
                 }
                 if (group.data.isNotEmpty()) {
+                    val dataExpanded: Boolean by remember {
+                        derivedStateOf { !excludes.contains(SlotNode::class) }
+                    }
                     ShowDataIcon(
                         modifier = Modifier.align(Alignment.CenterVertically),
-                        expanded = showData
+                        expanded = dataExpanded
                     ) {
-                        showData = !showData
+                        val wasExpanded = dataExpanded
+                        excludes = if (wasExpanded) {
+                            excludes + SlotNode::class
+                        } else {
+                            excludes - SlotNode::class
+                        }
+                        this@GroupNode.children.forEach {
+                            if (it is DataNode) {
+                                it.excludes = if (wasExpanded) {
+                                    it.excludes + SlotNode::class
+                                } else {
+                                    it.excludes - SlotNode::class
+                                }
+                            }
+                        }
                     }
                 }
                 GroupAttributesIcon(
                     modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
                     popupGroup(group)
-                }
-            }
-            if (showData) {
-                group.data.forEach {
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        level = level + 1,
-                        data = it,
-                        expanded = false,
-                        onClick = { popupData(it) }
-                    )
                 }
             }
         }
@@ -750,6 +811,51 @@ private class GroupNode(
                 )
             }
         }
+    }
+}
+
+private class SubcompositionsNode(
+    private val subcomposeState: SubcomposeState,
+    private val contexts: Contexts,
+    override val level: Int
+) : BaseComposeTreeNode() {
+    override val name: String = "Subcompositions"
+    override val children: List<TreeNode> = subcomposeState.compositions.map {
+        CompositionNode(
+            compositionRoot = it,
+            level = level + 1,
+            contexts = contexts
+        )
+    }
+    override val tags: Set<Any> = setOf(CompositionGroup)
+
+    @Composable
+    override fun TreeNodeRow() {
+        GroupItem(
+            level = level,
+            node = this@SubcompositionsNode
+        )
+    }
+}
+
+private class DataNode(
+    private val data: Data,
+    private val contexts: Contexts,
+    override val level: Int
+) : BaseComposeTreeNode() {
+    override val name: String = data.toString
+    override val children: List<TreeNode> = emptyList()
+    override val tags: Set<Any> = setOf(SlotNode)
+
+    @Composable
+    override fun TreeNodeRow() {
+        DataItem(
+            modifier = Modifier.padding(vertical = 4.dp),
+            level = level,
+            data = data,
+            expanded = false,
+            onClick = { popupData(data) }
+        )
     }
 
     private fun popupData(data: Data) = with(contexts) {
@@ -819,31 +925,6 @@ private class GroupNode(
     }
 }
 
-private class SubcompositionsNode(
-    private val subcomposeState: SubcomposeState,
-    private val contexts: Contexts,
-    override val level: Int
-) : BaseTreeNode() {
-    override val name: String = "Subcompositions"
-    override val children: List<TreeNode> = subcomposeState.compositions.map {
-        RootNode(
-            compositionRoot = it,
-            level = level + 1,
-            contexts = contexts
-        )
-    }
-    override val tags: List<Any> = emptyList()
-
-    @Composable
-    override fun TreeNodeRow() {
-        GroupItem(
-            level = level,
-            node = this@SubcompositionsNode
-        )
-    }
-}
-
-
 private fun CompositionRoots.buildContexts(
     popup: (@Composable () -> Unit) -> Unit,
     navigate: (String, Int, Int) -> Unit
@@ -894,12 +975,41 @@ private class Contexts(
 
 private val Group.name: String
     get() {
-        val sourceInfo = this.attributes.sourceInformation
         val key = this.attributes.key
         val intKeyValue = if (key is IntKey) {
             key.value
         } else null
-        val sourceKey = if (sourceInfo != null) {
+        val sourceKey = this.sourceKey
+        val wellKnownKey = this.wellKnownKey
+        val intKey = if (key is IntKey) {
+            "Group(${key.value})"
+        } else null
+        val objectKey = if (key is ObjectKey) {
+            "Group(${key.value})"
+        } else null
+        return when {
+            sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
+            wellKnownKey != null -> "Group(${wellKnownKey.displayName})"
+            intKey != null -> intKey
+            objectKey != null -> objectKey
+            else -> "Group()"
+        }
+    }
+
+private val Group.wellKnownKey: WellKnownKey?
+    get() {
+        val key = this.attributes.key
+        return if (key is IntKey) {
+            WellKnownKey.entries.firstOrNull {
+                it.intKey == key.value
+            }
+        } else null
+    }
+
+private val Group.sourceKey: String?
+    get() {
+        val sourceInfo = this.attributes.sourceInformation
+        return if (sourceInfo != null) {
             val startIndex =
                 when {
                     sourceInfo.startsWith("C(") -> 2
@@ -911,27 +1021,9 @@ private val Group.name: String
                 sourceInfo.substring(startIndex, endIndex)
             else null
         } else null
-        val wellKnownKey = if (key is IntKey) {
-            WellKnownKeys.entries.firstOrNull {
-                it.intKey == key.value
-            }?.displayName
-        } else null
-        val intKey = if (key is IntKey) {
-            "Group(${key.value})"
-        } else null
-        val objectKey = if (key is ObjectKey) {
-            "Group(${key.value})"
-        } else null
-        return when {
-            sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
-            wellKnownKey != null -> "Group($wellKnownKey)"
-            intKey != null -> intKey
-            objectKey != null -> objectKey
-            else -> "Group()"
-        }
     }
 
-private enum class WellKnownKeys(val intKey: Int, val displayName: String) {
+private enum class WellKnownKey(val intKey: Int, val displayName: String) {
     ROOT(100, "Root"),
     NODE(125, "ComposeNode"),
     DEFAULTS(-127, "Defaults"),

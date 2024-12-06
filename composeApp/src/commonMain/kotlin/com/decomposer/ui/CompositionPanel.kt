@@ -37,16 +37,14 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.decomposer.runtime.connection.model.LayoutNode
-import com.decomposer.runtime.connection.model.RecomposeScope
-import com.decomposer.runtime.connection.model.SubcomposeState
 import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
+import decomposer.composeapp.generated.resources.expand_data
+import decomposer.composeapp.generated.resources.fold_data
 import decomposer.composeapp.generated.resources.refresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
-import kotlin.reflect.KClass
 
 @Composable
 fun CompositionPanel(
@@ -68,21 +66,7 @@ fun CompositionPanel(
 
     val filteredCompositionTree: FilterableTree by remember {
         derivedStateOf {
-            val filters = mutableSetOf<KClass<*>>().also {
-                if (filterSystem) {
-                    it.add(System::class)
-                }
-                when (filteredNodeKind) {
-                    NodeKind.RECOMPOSE_SCOPE -> it.add(RecomposeScope::class)
-                    NodeKind.LAYOUT_NODE -> it.add(LayoutNode::class)
-                    NodeKind.SUBCOMPOSITION -> it.add(SubcomposeState::class)
-                    else -> { }
-                }
-            }
-            when (filteredNodeKind) {
-                NodeKind.ALL -> compositionTree
-                else -> compositionTree.filterSubTree(filters)
-            }
+            compositionTree
         }
     }
 
@@ -115,10 +99,27 @@ fun CompositionPanel(
                 filterSystem = filterSystem
             )
         }
-        Expander(
-            onFoldAll = { compositionTree.foldAll() },
-            onExpandAll = { compositionTree.expandAll() }
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TreeExpander(
+                onFoldAll = {
+                    compositionTree.root.setExpandedRecursive(false)
+                },
+                onExpandAll = {
+                    compositionTree.root.setExpandedRecursive(true)
+                }
+            )
+            DataExpander(
+                onFoldData = {
+                    compositionTree.root.addExcludesRecursive(setOf(SlotNode::class))
+                },
+                onExpandData = {
+                    compositionTree.root.removeExcludesRecursive(setOf(SlotNode::class))
+                }
+            )
+        }
+
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -156,6 +157,41 @@ fun CompositionPanel(
 }
 
 @Composable
+fun DataExpander(
+    onExpandData: () -> Unit,
+    onFoldData: () -> Unit
+) {
+    Row(
+        modifier = Modifier.wrapContentSize()
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        Row(
+            Modifier
+                .wrapContentSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.expand_data),
+                contentDescription = "Expand all data",
+                modifier = Modifier.size(32.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onExpandData() }
+            )
+            Image(
+                painter = painterResource(Res.drawable.fold_data),
+                contentDescription = "Fold all data",
+                modifier = Modifier.size(32.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onFoldData() }
+            )
+        }
+    }
+}
+
+@Composable
 fun CompositionPanelBar(
     modifier: Modifier,
     filteredNodeKind: NodeKind,
@@ -187,17 +223,17 @@ fun CompositionPanelBar(
             }
         )
         FilterOption(
-            selected = filteredNodeKind == NodeKind.LAYOUT_NODE,
-            text = NodeKind.LAYOUT_NODE.tag,
+            selected = filteredNodeKind == NodeKind.COMPOSE_NODE,
+            text = NodeKind.COMPOSE_NODE.tag,
             onSelected = {
-                onSelectedOption(NodeKind.LAYOUT_NODE)
+                onSelectedOption(NodeKind.COMPOSE_NODE)
             }
         )
         FilterOption(
-            selected = filteredNodeKind == NodeKind.SUBCOMPOSITION,
-            text = NodeKind.SUBCOMPOSITION.tag,
+            selected = filteredNodeKind == NodeKind.COMPOSITION,
+            text = NodeKind.COMPOSITION.tag,
             onSelected = {
-                onSelectedOption(NodeKind.SUBCOMPOSITION)
+                onSelectedOption(NodeKind.COMPOSITION)
             }
         )
     }
@@ -291,10 +327,16 @@ fun FilterOption(
 enum class NodeKind(val tag: String) {
     ALL("All"),
     RECOMPOSE_SCOPE("RecomposeScope"),
-    LAYOUT_NODE("LayoutNode"),
-    SUBCOMPOSITION("Subcomposition")
+    COMPOSE_NODE("ComposeNode"),
+    COMPOSITION("Composition")
 }
 
-sealed interface GroupOrigin
-data object SystemOrigin : GroupOrigin
-data object AppOrigin : GroupOrigin
+sealed interface ComposeTag
+data object SystemGroup : ComposeTag
+data object ProjectGroup : ComposeTag
+data object RecomposeScopeGroup : ComposeTag
+data object ComposeNodeGroup : ComposeTag
+data object CompositionGroup : ComposeTag
+data object WrapperGroup : ComposeTag
+data object EmptyGroup : ComposeTag
+data object SlotNode : ComposeTag

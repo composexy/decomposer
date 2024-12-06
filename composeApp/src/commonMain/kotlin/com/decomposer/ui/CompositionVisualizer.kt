@@ -742,7 +742,7 @@ private class GroupNode(
         }
         if (group.children.isEmpty()) {
             tags.add(LeafGroup)
-            if (group.children.isEmpty()) {
+            if (group.data.isEmpty()) {
                 tags.add(EmptyGroup)
             }
         }

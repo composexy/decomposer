@@ -452,9 +452,13 @@ private fun GroupAttributes(
     contexts: Contexts,
     group: Group
 ) {
+    val keyInfo = when(val key = group.attributes.key) {
+        is IntKey -> key.value
+        is ObjectKey -> key.value
+    }
     with(contexts) {
         Column(modifier) {
-            DefaultPanelText("Key: ${group.attributes.key}")
+            DefaultPanelText("Key: $keyInfo")
             DefaultPanelText("Source info: ${group.attributes.sourceInformation}")
         }
     }

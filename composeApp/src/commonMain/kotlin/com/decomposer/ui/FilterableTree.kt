@@ -11,22 +11,30 @@ import kotlin.reflect.KClass
 class FilterableTree(
     private val root: TreeNode
 ) {
-    private val filterCache = mutableMapOf<KClass<*>, FilterableTree>()
+    private val filterCache = mutableMapOf<Set<KClass<*>>, FilterableTree>()
 
-    fun filterSubTree(clazz: KClass<*>): FilterableTree {
-        val cachedTree = filterCache[clazz]
+    fun foldAll() {
+        root.setExpandedForAll(false)
+    }
+
+    fun expandAll() {
+        root.setExpandedForAll(true)
+    }
+
+    fun filterSubTree(classes: Set<KClass<*>>): FilterableTree {
+        val cachedTree = filterCache[classes]
         if (cachedTree != null) {
             return cachedTree
         }
 
         fun filterNode(node: TreeNode, level: Int): List<TreeNode> {
-            val filteredChildren = if (node.hasTag(clazz) || node === root) {
+            val filteredChildren = if (classes.all { node.hasTag(it) } || node === root) {
                 node.children.flatMap { filterNode(it, level + 1) }
             } else {
                 node.children.flatMap { filterNode(it, level) }
             }
 
-            if (node.hasTag(clazz)) {
+            if (classes.all { node.hasTag(it) }) {
                 return listOf(
                     FilteredNode(
                         wrapped = node,
@@ -45,7 +53,7 @@ class FilterableTree(
             filteredNodes.isEmpty() -> EMPTY_TREE
             filteredNodes.first().level == 0 -> {
                 FilterableTree(filteredNodes.first()).also {
-                    filterCache[clazz] = it
+                    filterCache[classes] = it
                 }
             }
             else -> {
@@ -55,7 +63,7 @@ class FilterableTree(
                     level = 0
                 )
                 FilterableTree(newRoot).also {
-                    filterCache[clazz] = it
+                    filterCache[classes] = it
                 }
             }
         }
@@ -110,6 +118,8 @@ interface TreeNode {
 
     @Composable
     fun TreeNodeRow()
+
+    fun setExpandedForAll(expanded: Boolean)
 }
 
 abstract class BaseTreeNode : TreeNode {
@@ -137,4 +147,11 @@ abstract class BaseTreeNode : TreeNode {
     }
 
     override var expanded: Boolean by mutableStateOf(false)
+
+    override fun setExpandedForAll(expanded: Boolean) {
+        this.expanded = expanded
+        this.children.forEach {
+            it.setExpandedForAll(expanded)
+        }
+    }
 }

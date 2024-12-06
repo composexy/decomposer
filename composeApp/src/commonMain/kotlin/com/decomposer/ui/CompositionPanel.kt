@@ -22,8 +22,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.Checkbox
 import androidx.compose.material.RadioButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +46,7 @@ import decomposer.composeapp.generated.resources.refresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import kotlin.reflect.KClass
 
 @Composable
 fun CompositionPanel(
@@ -57,6 +60,30 @@ fun CompositionPanel(
 
     var filteredNodeKind: NodeKind by remember {
         mutableStateOf(NodeKind.ALL)
+    }
+
+    var filterSystem: Boolean by remember {
+        mutableStateOf(true)
+    }
+
+    val filteredCompositionTree: FilterableTree by remember {
+        derivedStateOf {
+            val filters = mutableSetOf<KClass<*>>().also {
+                if (filterSystem) {
+                    it.add(System::class)
+                }
+                when (filteredNodeKind) {
+                    NodeKind.RECOMPOSE_SCOPE -> it.add(RecomposeScope::class)
+                    NodeKind.LAYOUT_NODE -> it.add(LayoutNode::class)
+                    NodeKind.SUBCOMPOSITION -> it.add(SubcomposeState::class)
+                    else -> { }
+                }
+            }
+            when (filteredNodeKind) {
+                NodeKind.ALL -> compositionTree
+                else -> compositionTree.filterSubTree(filters)
+            }
+        }
     }
 
     val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
@@ -73,7 +100,7 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
-                        val fullTree = compositionRoots.buildCompositionTree(
+                        compositionTree = compositionRoots.buildCompositionTree(
                             showContextPopup = {
                                 onShowPopup(it)
                             },
@@ -81,19 +108,21 @@ fun CompositionPanel(
 
                             }
                         )
-                        compositionTree = when (filteredNodeKind) {
-                            NodeKind.ALL -> fullTree
-                            NodeKind.RECOMPOSE_SCOPE -> fullTree.filterSubTree(RecomposeScope::class)
-                            NodeKind.LAYOUT_NODE -> fullTree.filterSubTree(LayoutNode::class)
-                            NodeKind.SUBCOMPOSITION -> fullTree.filterSubTree(SubcomposeState::class)
-                        }
                     }
                 },
-                onSelectedOption = {
-                    filteredNodeKind = it
-                }
+                onSelectedOption = { filteredNodeKind = it },
+                onFilterSystemChange = { filterSystem = it },
+                filterSystem = filterSystem
             )
         }
+        Expander(
+            onFoldAll = {
+                compositionTree.foldAll()
+            },
+            onExpandAll = {
+                compositionTree.foldAll()
+            }
+        )
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -110,7 +139,7 @@ fun CompositionPanel(
                     state = verticalScrollState,
                     contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                 ) {
-                    val nodes = compositionTree.flattenNodes
+                    val nodes = filteredCompositionTree.flattenNodes
                     items(nodes.size) {
                         nodes[it].TreeNodeRow()
                     }
@@ -134,11 +163,19 @@ fun CompositionPanel(
 fun CompositionPanelBar(
     modifier: Modifier,
     filteredNodeKind: NodeKind,
+    filterSystem: Boolean,
     onRefresh: () -> Unit,
-    onSelectedOption: (NodeKind) -> Unit
+    onSelectedOption: (NodeKind) -> Unit,
+    onFilterSystemChange: (Boolean) -> Unit
 ) {
     Row(modifier = modifier) {
         CompositionRefresh(onRefresh)
+        FilterSystem(
+            checked = filterSystem,
+            onCheckedChanged = {
+                onFilterSystemChange(it)
+            }
+        )
         FilterOption(
             selected = filteredNodeKind == NodeKind.ALL,
             text = NodeKind.ALL.tag,
@@ -195,6 +232,36 @@ fun CompositionRefresh(onRefresh: () -> Unit) {
 }
 
 @Composable
+fun FilterSystem(
+    checked: Boolean,
+    onCheckedChanged: (Boolean) -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .wrapContentSize()
+            .toggleable(
+                value = checked,
+                onValueChange = { onCheckedChanged(!checked) },
+                role = Role.Checkbox
+            )
+            .hoverable(interactionSource)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = null,
+            modifier = Modifier.padding(4.dp)
+        )
+        DefaultPanelText(
+            text = "Filter system",
+        )
+    }
+}
+
+@Composable
 fun FilterOption(
     selected: Boolean,
     text: String,
@@ -231,3 +298,7 @@ enum class NodeKind(val tag: String) {
     LAYOUT_NODE("LayoutNode"),
     SUBCOMPOSITION("Subcomposition")
 }
+
+sealed interface GroupOrigin
+data object System : GroupOrigin
+data object App : GroupOrigin

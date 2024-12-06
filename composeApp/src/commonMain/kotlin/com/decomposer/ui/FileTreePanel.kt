@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,19 +63,27 @@ fun FileTreePanel(
         val verticalScrollState = rememberLazyListState()
         val horizontalScrollState = rememberScrollState()
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .horizontalScroll(horizontalScrollState)
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = verticalScrollState,
-                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+            Expander(
+                onFoldAll = { fileTree.foldAll() },
+                onExpandAll = { fileTree.foldAll() }
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .horizontalScroll(horizontalScrollState)
             ) {
-                val nodes = fileTree.flattenNodes
-                items(nodes.size) {
-                    nodes[it].TreeNodeRow()
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = verticalScrollState,
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                ) {
+                    val nodes = fileTree.flattenNodes
+                    items(nodes.size) {
+                        nodes[it].TreeNodeRow()
+                    }
                 }
             }
         }

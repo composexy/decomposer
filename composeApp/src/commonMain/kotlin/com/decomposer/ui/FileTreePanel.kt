@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
-import decomposer.composeapp.generated.resources.document
+import decomposer.composeapp.generated.resources.file
 import decomposer.composeapp.generated.resources.folder_close
 import decomposer.composeapp.generated.resources.folder_open
 import org.jetbrains.compose.resources.painterResource
@@ -196,7 +196,7 @@ class FileTreeNode(
                 }
                 else -> {
                     Image(
-                        painter = painterResource(Res.drawable.document),
+                        painter = painterResource(Res.drawable.file),
                         contentDescription = name,
                         modifier = Modifier.size(32.dp),
                     )

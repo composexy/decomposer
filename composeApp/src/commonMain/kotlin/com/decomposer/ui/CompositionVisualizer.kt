@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
@@ -55,9 +56,11 @@ import com.decomposer.runtime.connection.model.SubcomposeState
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.data
 import decomposer.composeapp.generated.resources.empty_group
+import decomposer.composeapp.generated.resources.expand_data
 import decomposer.composeapp.generated.resources.expand_down
 import decomposer.composeapp.generated.resources.expand_right
-import decomposer.composeapp.generated.resources.show
+import decomposer.composeapp.generated.resources.fold_data
+import decomposer.composeapp.generated.resources.group_attributes
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -444,6 +447,20 @@ private fun ExpandedDataDefault(
 }
 
 @Composable
+private fun GroupAttributes(
+    modifier: Modifier,
+    contexts: Contexts,
+    group: Group
+) {
+    with(contexts) {
+        Column(modifier) {
+            DefaultPanelText("Key: ${group.attributes.key}")
+            DefaultPanelText("Source info: ${group.attributes.sourceInformation}")
+        }
+    }
+}
+
+@Composable
 private fun ExpandedRememberObserverHolder(
     modifier: Modifier,
     contexts: Contexts,
@@ -479,7 +496,11 @@ private fun DataIcon(modifier: Modifier, data: Data) {
 }
 
 @Composable
-private fun ShowDataIcon(modifier: Modifier, onClick: () -> Unit) {
+private fun ShowDataIcon(
+    modifier: Modifier,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -488,13 +509,42 @@ private fun ShowDataIcon(modifier: Modifier, onClick: () -> Unit) {
             .padding(4.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
-            .clickable {
-                onClick()
-            }
+            .clickable { onClick() }
+    ) {
+        if (expanded) {
+            Image(
+                painter = painterResource(Res.drawable.fold_data),
+                contentDescription = "Fold data",
+                modifier = Modifier.size(32.dp),
+            )
+        } else {
+            Image(
+                painter = painterResource(Res.drawable.expand_data),
+                contentDescription = "Expand data",
+                modifier = Modifier.size(32.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupAttributesIcon(
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = modifier
+            .wrapContentSize()
+            .padding(4.dp)
+            .hoverable(interactionSource)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable { onClick() }
     ) {
         Image(
-            painter = painterResource(Res.drawable.show),
-            contentDescription = "Navigate",
+            painter = painterResource(Res.drawable.group_attributes),
+            contentDescription = "Group attributes",
             modifier = Modifier.size(32.dp),
         )
     }
@@ -654,12 +704,20 @@ private class GroupNode(
                     level = level,
                     node = this@GroupNode
                 ) {
-                    showData = !showData
+                    navigate("", 0, 0)
                 }
                 if (group.data.isNotEmpty()) {
-                    ShowDataIcon(Modifier.align(Alignment.CenterVertically)) {
+                    ShowDataIcon(
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                        expanded = showData
+                    ) {
                         showData = !showData
                     }
+                }
+                GroupAttributesIcon(
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                ) {
+                    popupGroup(group)
                 }
             }
             if (showData) {
@@ -669,15 +727,29 @@ private class GroupNode(
                         level = level + 1,
                         data = it,
                         expanded = false,
-                        onClick = { popup(dataPopup(it)) }
+                        onClick = { popupData(it) }
                     )
                 }
             }
         }
     }
 
-    private fun dataPopup(data: Data): @Composable () -> Unit {
-        return {
+    private fun popupGroup(group: Group) = with(contexts) {
+        popup @Composable {
+            Box(
+                modifier = Modifier.wrapContentWidth().wrapContentHeight()
+            ) {
+                GroupAttributes(
+                    modifier = Modifier.wrapContentWidth().wrapContentHeight(),
+                    contexts = contexts,
+                    group = group
+                )
+            }
+        }
+    }
+
+    private fun popupData(data: Data) = with(contexts) {
+        popup @Composable {
             val verticalScrollState = rememberScrollState()
 
             Box(

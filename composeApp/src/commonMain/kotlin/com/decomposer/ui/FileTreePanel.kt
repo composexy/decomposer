@@ -82,7 +82,7 @@ fun FileTreePanel(
                 ) {
                     val nodes = fileTree.flattenNodes
                     items(nodes.size) {
-                        nodes[it].TreeNodeRow()
+                        nodes[it].TreeNode()
                     }
                 }
             }
@@ -120,12 +120,9 @@ class FileTreeNode(
     private val isFolder = expandable
 
     @Composable
-    override fun TreeNodeRow() {
+    override fun TreeNode() {
         Row(
-            modifier = Modifier
-                .wrapContentHeight()
-                .fillMaxWidth()
-                .padding(start = 24.dp * level)
+            modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
             val interactionSource = remember { MutableInteractionSource() }
 

@@ -66,15 +66,11 @@ import org.jetbrains.compose.resources.painterResource
 
 @Composable
 private fun GroupItem(
-    level: Int,
     node: BaseTreeNode,
     onClick: () -> Unit = { }
 ) {
     Row(
-        modifier = Modifier
-            .wrapContentHeight()
-            .fillMaxWidth()
-            .padding(start = 24.dp * level)
+        modifier = Modifier.wrapContentHeight().fillMaxWidth()
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         GroupIcon(Modifier.align(Alignment.CenterVertically), node)
@@ -100,7 +96,6 @@ private fun GroupItem(
 @Composable
 private fun DataItem(
     modifier: Modifier = Modifier,
-    level: Int,
     data: Data,
     expanded: Boolean,
     onClick: () -> Unit,
@@ -110,10 +105,7 @@ private fun DataItem(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier
-                .wrapContentHeight()
-                .fillMaxWidth()
-                .padding(start = 24.dp * level)
+            modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
             if (expanded) {
                 expandedContent()
@@ -205,7 +197,6 @@ private fun ExpandedState(modifier: Modifier, contexts: Contexts, state: Compose
             DefaultPanelText(text = "Value:")
             DataItem(
                 modifier = Modifier.padding(vertical = 4.dp),
-                level = 0,
                 data = state.value,
                 expanded = false,
                 onClick = {}
@@ -222,7 +213,6 @@ private fun ExpandedState(modifier: Modifier, contexts: Contexts, state: Compose
                 statesByHash[it]?.let { dependency ->
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = dependency,
                         expanded = false,
                         onClick = {}
@@ -246,7 +236,6 @@ private fun ExpandedComposableLambdaImpl(
                 HorizontalSplitter()
                 DataItem(
                     modifier = Modifier.padding(vertical = 4.dp),
-                    level = 0,
                     data = it,
                     expanded = false,
                     onClick = {}
@@ -260,7 +249,6 @@ private fun ExpandedComposableLambdaImpl(
                     DefaultPanelText(text = "Scope:")
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = scope,
                         expanded = false,
                         onClick = {}
@@ -276,7 +264,6 @@ private fun ExpandedComposableLambdaImpl(
                 scopes.forEach {
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = it,
                         expanded = false,
                         onClick = {}
@@ -330,7 +317,6 @@ private fun ExpandedLayoutNode(
                     DefaultPanelText(text = "Lookahead root:")
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = node,
                         expanded = false,
                         onClick = {}
@@ -344,7 +330,6 @@ private fun ExpandedLayoutNode(
                     DefaultPanelText(text = "Parent:")
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = node,
                         expanded = false,
                         onClick = {}
@@ -361,7 +346,6 @@ private fun ExpandedLayoutNode(
                 children.forEach { child ->
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = child,
                         expanded = false,
                         onClick = {}
@@ -375,7 +359,6 @@ private fun ExpandedLayoutNode(
             layoutNode.coordinators.forEach { coordinator ->
                 DataItem(
                     modifier = Modifier.padding(vertical = 4.dp),
-                    level = 0,
                     data = coordinator,
                     expanded = false,
                     onClick = {}
@@ -383,7 +366,6 @@ private fun ExpandedLayoutNode(
                 while (coordinator.tailNodeHash != layoutNode.nodes[currentNodeIndex].hashCode) {
                     DataItem(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        level = 0,
                         data = layoutNode.nodes[currentNodeIndex++],
                         expanded = false,
                         onClick = {}
@@ -421,7 +403,6 @@ private fun ExpandedRecomposeScope(
                     }
                     DataItem(
                         modifier = Modifier.padding(4.dp),
-                        level = 0,
                         data = it,
                         expanded = expanded,
                         onClick = { expanded = !expanded }
@@ -481,7 +462,6 @@ private fun ExpandedRememberObserverHolder(
             DefaultPanelText(text = "Wrapped:")
             DataItem(
                 modifier = Modifier.padding(4.dp),
-                level = 0,
                 data = rememberObserverHolder.wrapped,
                 expanded = false,
                 onClick = { }
@@ -613,8 +593,8 @@ private class RootsNode(
 
     @OptIn(ExperimentalLayoutApi::class)
     @Composable
-    override fun TreeNodeRow() = with(contexts) {
-        GroupItem(level, this@RootsNode) {
+    override fun TreeNode() = with(contexts) {
+        GroupItem(this@RootsNode) {
             popup @Composable {
                 val verticalScrollState = rememberScrollState()
                 Box(
@@ -641,7 +621,6 @@ private class RootsNode(
                                 }
                                 DataItem(
                                     modifier = Modifier.padding(4.dp),
-                                    level = 0,
                                     data = it,
                                     expanded = expanded,
                                     onClick = { expanded = !expanded }
@@ -682,11 +661,8 @@ private class CompositionNode(
     override val tags: Set<Any> = setOf(CompositionGroup)
 
     @Composable
-    override fun TreeNodeRow()  {
-        GroupItem(
-            level = level,
-            node = this@CompositionNode
-        )
+    override fun TreeNode()  {
+        GroupItem(node = this@CompositionNode)
     }
 }
 
@@ -764,17 +740,14 @@ private class GroupNode(
     }
 
     @Composable
-    override fun TreeNodeRow() = with(contexts) {
+    override fun TreeNode() = with(contexts) {
         Column(
             modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                GroupItem(
-                    level = level,
-                    node = this@GroupNode
-                ) {
+                GroupItem(node = this@GroupNode) {
                     navigate("", 0, 0)
                 }
                 if (group.data.isNotEmpty()) {
@@ -842,11 +815,8 @@ private class SubcompositionsNode(
     override val tags: Set<Any> = setOf(CompositionGroup)
 
     @Composable
-    override fun TreeNodeRow() {
-        GroupItem(
-            level = level,
-            node = this@SubcompositionsNode
-        )
+    override fun TreeNode() {
+        GroupItem(node = this@SubcompositionsNode)
     }
 }
 
@@ -860,10 +830,9 @@ private class DataNode(
     override val tags: Set<Any> = setOf(SlotNode)
 
     @Composable
-    override fun TreeNodeRow() {
+    override fun TreeNode() {
         DataItem(
             modifier = Modifier.padding(vertical = 4.dp),
-            level = level,
             data = data,
             expanded = false,
             onClick = { popupData(data) }

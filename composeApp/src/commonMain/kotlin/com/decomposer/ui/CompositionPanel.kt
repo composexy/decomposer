@@ -29,6 +29,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,10 @@ fun CompositionPanel(
         mutableStateOf(false)
     }
 
+    var keepLevel: Boolean by remember {
+        mutableStateOf(false)
+    }
+
     val subtree: FilterableTree by remember {
         derivedStateOf {
             val tree = if (hideWrapper) coreTree else fullTree
@@ -121,9 +126,11 @@ fun CompositionPanel(
                 hideWrapper = hideWrapper,
                 hideEmpty = hideEmpty,
                 hideLeaf = hideLeaf,
+                keepLevel = keepLevel,
                 onHideWrapperCheckedChanged = { hideWrapper = it },
                 onHideEmptyCheckedChanged = { hideEmpty = it },
-                onHideLeafCheckedChanged = { hideLeaf = it }
+                onHideLeafCheckedChanged = { hideLeaf = it },
+                onKeepLevelChanged = { keepLevel = it }
             )
         }
         Row(
@@ -165,7 +172,7 @@ fun CompositionPanel(
                 ) {
                     val nodes = subtree.flattenNodes
                     items(nodes.size) {
-                        nodes[it].TreeNodeRow()
+                        nodes[it].TreeNodeLeveled()
                     }
                 }
             }
@@ -204,6 +211,10 @@ fun CompositionPanel(
         } else {
             fullTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
         }
+    }
+
+    SideEffect {
+        fullTree.keepLevel = keepLevel
     }
 }
 
@@ -278,9 +289,11 @@ fun CompositionPanelBar(
     hideWrapper: Boolean,
     hideEmpty: Boolean,
     hideLeaf: Boolean,
+    keepLevel: Boolean,
     onHideWrapperCheckedChanged: (Boolean) -> Unit,
     onHideEmptyCheckedChanged: (Boolean) -> Unit,
-    onHideLeafCheckedChanged: (Boolean) -> Unit
+    onHideLeafCheckedChanged: (Boolean) -> Unit,
+    onKeepLevelChanged: (Boolean) -> Unit
 ) {
     Row(modifier = modifier) {
         CompositionRefresh(onRefresh)
@@ -298,6 +311,11 @@ fun CompositionPanelBar(
             text = "Hide leaf groups",
             checked = hideLeaf,
             onCheckedChanged = { onHideLeafCheckedChanged(it) }
+        )
+        ComposeCheckBox(
+            text = "Keep subtree level",
+            checked = keepLevel,
+            onCheckedChanged = { onKeepLevelChanged(it) }
         )
     }
 }

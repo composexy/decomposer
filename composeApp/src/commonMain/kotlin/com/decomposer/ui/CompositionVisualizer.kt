@@ -696,61 +696,71 @@ private class GroupNode(
     override val level: Int
 ) : BaseComposeTreeNode() {
     override val name = group.name
-    override val children: List<TreeNode> = run {
-        val children = mutableListOf<TreeNode>()
-        children.addAll(
-            group.data.map {
-                DataNode(
-                    data = it,
-                    level = level + 1,
-                    contexts = contexts
-                )
-            }
-        )
-        children.addAll(
-            group.children.map {
-                GroupNode(
-                    group = it,
-                    level = level + 1,
-                    contexts = contexts
-                )
-            }
-        )
-        val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
-        if (group.sourceKey == "SubcomposeLayout") {
-            children.addAll(
-                subcomposeStates.map {
-                    SubcompositionsNode(
-                        subcomposeState = it,
+
+    private val _tags = mutableSetOf<Any>()
+    private val _children = mutableListOf<TreeNode>()
+    override val children: List<TreeNode>
+        get() = _children
+    override val tags: Set<Any>
+        get() = _tags
+
+    init {
+        contexts.call(group) {
+            _children.addAll(
+                group.data.map {
+                    DataNode(
+                        data = it,
                         level = level + 1,
                         contexts = contexts
                     )
                 }
             )
-        }
-        children
-    }
+            _children.addAll(
+                group.children.map {
+                    GroupNode(
+                        group = it,
+                        level = level + 1,
+                        contexts = contexts
+                    )
+                }
+            )
+            val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
+            if (group.sourceKey == "SubcomposeLayout") {
+                _children.addAll(
+                    subcomposeStates.map {
+                        SubcompositionsNode(
+                            subcomposeState = it,
+                            level = level + 1,
+                            contexts = contexts
+                        )
+                    }
+                )
+            }
 
-    override val tags: Set<Any> = run {
-        val tags = mutableSetOf<ComposeTag>()
-        group.data.forEach {
-            when(it) {
-                is RecomposeScope -> tags.add(RecomposeScopeGroup)
-                is LayoutNode -> tags.add(ComposeNodeGroup)
+            if (isWrapperGroup) {
+                _tags.add(WrapperGroup)
+            } else {
+                _tags.add(CoreGroup)
+            }
+            group.data.forEach {
+                when(it) {
+                    is RecomposeScope -> _tags.add(RecomposeScopeGroup)
+                    is LayoutNode -> _tags.add(ComposeNodeGroup)
+                    else -> { }
+                }
+            }
+            if (group.children.isEmpty()) {
+                _tags.add(LeafGroup)
+                if (group.data.isEmpty()) {
+                    _tags.add(EmptyGroup)
+                }
+            }
+            when(group.sourceKey) {
+                "SubcomposeLayout" -> _tags.add(CompositionGroup)
+                "ReusableComposeNode", "ComposeNode", "Layout" -> _tags.add(ComposeNodeGroup)
                 else -> { }
             }
         }
-        if (group.children.isEmpty()) {
-            tags.add(LeafGroup)
-            if (group.data.isEmpty()) {
-                tags.add(EmptyGroup)
-            }
-        }
-        when(group.sourceKey) {
-            "SubcomposeLayout" -> tags.add(CompositionGroup)
-            "ReusableComposeNode", "ComposeNode" -> tags.add(ComposeNodeGroup)
-        }
-        tags
     }
 
     @Composable
@@ -972,8 +982,65 @@ private class Contexts(
     val modifiersByBash: Map<Int, ModifierNode>,
     val recomposeScopesByHash: Map<Int, RecomposeScope>,
     val popup: (@Composable () -> Unit) -> Unit,
-    val navigate: (String, Int, Int) -> Unit
-)
+    val navigate: (String, Int, Int) -> Unit,
+    val callStack: CallStack = CallStack()
+) {
+    fun <R> call(group: Group, block: CallScope.(Group) -> R): R = try {
+        callStack.push(group)
+        callStack.block(group)
+    } finally {
+        callStack.pop()
+    }
+}
+
+private class CallStack : CallScope {
+    private val stack = mutableListOf<Group>()
+
+    override val caller: Group?
+        get() {
+            return if (stack.size > 1) {
+                stack[stack.size - 3]
+            } else null
+        }
+
+    private var _isWrapperGroup: Boolean = true
+    override val isWrapperGroup: Boolean
+        get() = _isWrapperGroup
+
+    fun push(group: Group) {
+        stack.add(group).also {
+            val wasWrapperGroup = isWrapperGroup
+            if (wasWrapperGroup) {
+                if (group.isComposeViewContent) {
+                    _isWrapperGroup = false
+                }
+            }
+        }
+    }
+
+    fun pop(): Group {
+        return stack.removeLast().also {
+            val wasWrapperGroup = isWrapperGroup
+            if (!wasWrapperGroup) {
+                if (it.isComposeViewContent) {
+                    _isWrapperGroup = true
+                }
+            }
+        }
+    }
+
+    private val Group.isComposeViewContent: Boolean
+        get() {
+            val sourceKey = this.sourceKey
+            val sourceFile = this.sourceFile
+            return sourceKey == "Content" && sourceFile == "ComposeView.android.kt"
+        }
+}
+
+private interface CallScope {
+    val caller: Group?
+    val isWrapperGroup: Boolean
+}
 
 private val Group.name: String
     get() {
@@ -1020,6 +1087,18 @@ private val Group.sourceKey: String?
                 }
             val endIndex = sourceInfo.indexOf(')')
             if (endIndex > 2 && startIndex >= 0)
+                sourceInfo.substring(startIndex, endIndex)
+            else null
+        } else null
+    }
+
+private val Group.sourceFile: String?
+    get() {
+        val sourceInfo = this.attributes.sourceInformation
+        return if (sourceInfo != null) {
+            val startIndex = sourceInfo.indexOf(':')
+            val endIndex = sourceInfo.indexOf('#')
+            if (startIndex in 0 until endIndex)
                 sourceInfo.substring(startIndex, endIndex)
             else null
         } else null

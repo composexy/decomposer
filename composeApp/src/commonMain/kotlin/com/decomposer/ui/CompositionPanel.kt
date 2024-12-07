@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -30,7 +29,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,8 +57,14 @@ fun CompositionPanel(
     session: Session,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
-    var compositionTree: FilterableTree by remember {
+    var fullTree: FilterableTree by remember {
         mutableStateOf(FilterableTree.EMPTY_TREE)
+    }
+
+    val coreTree: FilterableTree by remember {
+        derivedStateOf {
+            fullTree.subtree(CoreGroup::class)
+        }
     }
 
     var selectedTreeKind: TreeKind by remember {
@@ -81,11 +85,12 @@ fun CompositionPanel(
 
     val subtree: FilterableTree by remember {
         derivedStateOf {
+            val tree = if (hideWrapper) coreTree else fullTree
             when (selectedTreeKind) {
-                TreeKind.FULL -> compositionTree
-                TreeKind.RECOMPOSE_SCOPE -> compositionTree.subtree(RecomposeScopeGroup::class)
-                TreeKind.COMPOSE_NODE -> compositionTree.subtree(ComposeNodeGroup::class)
-                TreeKind.COMPOSITION -> compositionTree.subtree(CompositionGroup::class)
+                TreeKind.FULL -> tree
+                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(RecomposeScopeGroup::class)
+                TreeKind.COMPOSE_NODE -> tree.subtree(ComposeNodeGroup::class)
+                TreeKind.COMPOSITION -> tree.subtree(CompositionGroup::class)
             }
         }
     }
@@ -103,7 +108,7 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
-                        compositionTree = compositionRoots.buildCompositionTree(
+                        fullTree = compositionRoots.buildCompositionTree(
                             showContextPopup = {
                                 onShowPopup(it)
                             },
@@ -126,18 +131,18 @@ fun CompositionPanel(
         ) {
             TreeExpander(
                 onFoldAll = {
-                    compositionTree.root.setExpandedRecursive(false)
+                    fullTree.root.setExpandedRecursive(false)
                 },
                 onExpandAll = {
-                    compositionTree.root.setExpandedRecursive(true)
+                    fullTree.root.setExpandedRecursive(true)
                 }
             )
             DataExpander(
                 onFoldData = {
-                    compositionTree.root.addExcludesRecursive(setOf(SlotNode::class))
+                    fullTree.root.addExcludesRecursive(setOf(SlotNode::class))
                 },
                 onExpandData = {
-                    compositionTree.root.removeExcludesRecursive(setOf(SlotNode::class))
+                    fullTree.root.removeExcludesRecursive(setOf(SlotNode::class))
                 }
             )
         }
@@ -185,27 +190,19 @@ fun CompositionPanel(
         )
     }
 
-    LaunchedEffect(compositionTree, hideLeaf) {
+    LaunchedEffect(fullTree, hideLeaf) {
         if (hideLeaf) {
-            compositionTree.root.addExcludesRecursive(setOf(LeafGroup::class))
+            fullTree.root.addExcludesRecursive(setOf(LeafGroup::class))
         } else {
-            compositionTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
+            fullTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
         }
     }
 
-    LaunchedEffect(compositionTree, hideWrapper) {
-        if (hideWrapper) {
-            compositionTree.root.addExcludesRecursive(setOf(WrapperGroup::class))
-        } else {
-            compositionTree.root.removeExcludesRecursive(setOf(WrapperGroup::class))
-        }
-    }
-
-    LaunchedEffect(compositionTree, hideEmpty) {
+    LaunchedEffect(fullTree, hideEmpty) {
         if (hideEmpty) {
-            compositionTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
+            fullTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
         } else {
-            compositionTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+            fullTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
         }
     }
 }
@@ -372,6 +369,7 @@ data object RecomposeScopeGroup : ComposeTag
 data object ComposeNodeGroup : ComposeTag
 data object CompositionGroup : ComposeTag
 data object WrapperGroup : ComposeTag
+data object CoreGroup : ComposeTag
 data object EmptyGroup : ComposeTag
 data object LeafGroup : ComposeTag
 data object SlotNode : ComposeTag

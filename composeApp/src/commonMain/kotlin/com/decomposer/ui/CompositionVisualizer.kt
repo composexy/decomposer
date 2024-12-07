@@ -672,7 +672,6 @@ private class GroupNode(
     override val level: Int
 ) : BaseComposeTreeNode() {
     override val name = group.name
-
     private val _tags = mutableSetOf<Any>()
     private val _children = mutableListOf<TreeNode>()
     override val children: List<TreeNode>

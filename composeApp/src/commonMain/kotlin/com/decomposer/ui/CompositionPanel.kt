@@ -58,39 +58,28 @@ fun CompositionPanel(
     session: Session,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
-    var fullTree: FilterableTree by remember {
-        mutableStateOf(FilterableTree.EMPTY_TREE)
-    }
+    var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
 
-    val coreTree: FilterableTree by remember {
-        derivedStateOf {
-            fullTree.subtree(CoreGroup::class)
-        }
-    }
-
-    var selectedTreeKind: TreeKind by remember {
-        mutableStateOf(TreeKind.FULL)
+    val core: FilterableTree by remember {
+        derivedStateOf { full.subtree(CoreGroup::class) }
     }
 
     var hideWrapper: Boolean by remember {
         mutableStateOf(false)
     }
 
-    var hideEmpty: Boolean by remember {
-        mutableStateOf(true)
+    val tree: FilterableTree by remember {
+        derivedStateOf { if (hideWrapper) core else full }
     }
 
-    var hideLeaf: Boolean by remember {
-        mutableStateOf(false)
-    }
+    var selectedTreeKind: TreeKind by remember { mutableStateOf(TreeKind.FULL) }
 
-    var keepLevel: Boolean by remember {
-        mutableStateOf(false)
-    }
+    var hideEmpty: Boolean by remember { mutableStateOf(true) }
+    var hideLeaf: Boolean by remember { mutableStateOf(false) }
+    var keepLevel: Boolean by remember { mutableStateOf(false) }
 
     val subtree: FilterableTree by remember {
         derivedStateOf {
-            val tree = if (hideWrapper) coreTree else fullTree
             when (selectedTreeKind) {
                 TreeKind.FULL -> tree
                 TreeKind.RECOMPOSE_SCOPE -> tree.subtree(RecomposeScopeGroup::class)
@@ -113,7 +102,7 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
-                        fullTree = compositionRoots.buildCompositionTree(
+                        full = compositionRoots.buildCompositionTree(
                             showContextPopup = {
                                 onShowPopup(it)
                             },
@@ -138,18 +127,18 @@ fun CompositionPanel(
         ) {
             TreeExpander(
                 onFoldAll = {
-                    fullTree.root.setExpandedRecursive(false)
+                    tree.root.setExpandedRecursive(false)
                 },
                 onExpandAll = {
-                    fullTree.root.setExpandedRecursive(true)
+                    tree.root.setExpandedRecursive(true)
                 }
             )
             DataExpander(
                 onFoldData = {
-                    fullTree.root.addExcludesRecursive(setOf(SlotNode::class))
+                    tree.root.addExcludesRecursive(setOf(SlotNode::class))
                 },
                 onExpandData = {
-                    fullTree.root.removeExcludesRecursive(setOf(SlotNode::class))
+                    tree.root.removeExcludesRecursive(setOf(SlotNode::class))
                 }
             )
         }
@@ -172,7 +161,7 @@ fun CompositionPanel(
                 ) {
                     val nodes = subtree.flattenNodes
                     items(nodes.size) {
-                        nodes[it].TreeNodeLeveled()
+                        nodes[it].TreeNodeIndented()
                     }
                 }
             }
@@ -197,24 +186,24 @@ fun CompositionPanel(
         )
     }
 
-    LaunchedEffect(fullTree, hideLeaf) {
+    LaunchedEffect(tree, hideLeaf) {
         if (hideLeaf) {
-            fullTree.root.addExcludesRecursive(setOf(LeafGroup::class))
+            tree.root.addExcludesRecursive(setOf(LeafGroup::class))
         } else {
-            fullTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
+            tree.root.removeExcludesRecursive(setOf(LeafGroup::class))
         }
     }
 
-    LaunchedEffect(fullTree, hideEmpty) {
+    LaunchedEffect(tree, hideEmpty) {
         if (hideEmpty) {
-            fullTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
+            tree.root.addExcludesRecursive(setOf(EmptyGroup::class))
         } else {
-            fullTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+            tree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
         }
     }
 
     SideEffect {
-        fullTree.keepLevel = keepLevel
+        tree.keepLevel = keepLevel
     }
 }
 
@@ -324,7 +313,7 @@ fun CompositionPanelBar(
 fun CompositionRefresh(onRefresh: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        Modifier
+        modifier = Modifier
             .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .hoverable(interactionSource)
@@ -352,7 +341,7 @@ fun ComposeCheckBox(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        Modifier
+        modifier = Modifier
             .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .hoverable(interactionSource)

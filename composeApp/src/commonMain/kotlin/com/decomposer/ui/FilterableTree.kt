@@ -79,7 +79,6 @@ class FilterableTree(
     ): BaseTreeNode() {
         override val name = wrapped.name
         override val tags = wrapped.tags
-        override var expanded by mutableStateOf(wrapped.expanded)
 
         @Composable
         override fun TreeNode() {
@@ -87,7 +86,7 @@ class FilterableTree(
         }
 
         @Composable
-        override fun TreeNodeLeveled() {
+        override fun TreeNodeIndented() {
             val padding = levelWidth * if (keepLevel) {
                 wrapped.level
             } else {
@@ -141,7 +140,7 @@ interface TreeNode : Comparable<TreeNode> {
     @Composable
     fun TreeNode()
     @Composable
-    fun TreeNodeLeveled()
+    fun TreeNodeIndented()
     fun setExpandedRecursive(expanded: Boolean)
     fun addExcludesRecursive(excludes: Set<KClass<*>>)
     fun removeExcludesRecursive(excludes: Set<KClass<*>>)
@@ -198,7 +197,7 @@ abstract class BaseTreeNode : TreeNode {
     }
 
     @Composable
-    override fun TreeNodeLeveled() {
+    override fun TreeNodeIndented() {
         Box(
             modifier = Modifier.fillMaxWidth()
                 .wrapContentHeight()

@@ -15,10 +15,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.reflect.KClass
 
-class FilterableTree(
-    val root: TreeNode
-) {
-    var keepLevel: Boolean by mutableStateOf(true)
+class FilterableTree(val root: TreeNode) {
     private val subtreeCache = mutableMapOf<KClass<*>, FilterableTree>()
 
     fun subtree(clazz: KClass<*>): FilterableTree {
@@ -36,7 +33,7 @@ class FilterableTree(
 
             if (node.hasTag(clazz)) {
                 return listOf(
-                    FilteredNode(
+                    SubtreeNode(
                         wrapped = node,
                         children = filteredChildren,
                         level = level
@@ -57,7 +54,7 @@ class FilterableTree(
                 }
             }
             else -> {
-                val newRoot = FilteredNode(
+                val newRoot = SubtreeNode(
                     wrapped = root,
                     children = filteredNodes,
                     level = 0
@@ -72,21 +69,17 @@ class FilterableTree(
     val flattenNodes: List<TreeNode>
         get() = root.flattenedChildren
 
-    inner class FilteredNode(
+    inner class SubtreeNode(
         private val wrapped: TreeNode,
         override val children: List<TreeNode>,
         override val level: Int
-    ): BaseTreeNode() {
-        override val name = wrapped.name
-        override val tags = wrapped.tags
-
-        @Composable
-        override fun TreeNode() {
-            wrapped.TreeNode()
+    ): TreeNode by wrapped {
+        override val flattenedChildren: List<TreeNode> by derivedStateOf {
+            flattenChildren()
         }
 
         @Composable
-        override fun TreeNodeIndented() {
+        override fun TreeNodeIndented(keepLevel: Boolean) {
             val padding = levelWidth * if (keepLevel) {
                 wrapped.level
             } else {
@@ -100,8 +93,6 @@ class FilterableTree(
                 wrapped.TreeNode()
             }
         }
-
-        override fun compareTo(other: TreeNode): Int = wrapped.compareTo(other)
     }
 
     companion object {
@@ -140,14 +131,28 @@ interface TreeNode : Comparable<TreeNode> {
     @Composable
     fun TreeNode()
     @Composable
-    fun TreeNodeIndented()
+    fun TreeNodeIndented(keepLevel: Boolean)
     fun setExpandedRecursive(expanded: Boolean)
     fun addExcludesRecursive(excludes: Set<KClass<*>>)
     fun removeExcludesRecursive(excludes: Set<KClass<*>>)
 }
 
-abstract class BaseTreeNode : TreeNode {
+fun TreeNode.flattenChildren(): List<TreeNode> {
+    val result = mutableListOf<TreeNode>()
+    val excluded = tags.any { excludes.contains(it::class) }
+    if (!excluded) {
+        result.add(this)
+        if (expanded) {
+            val sortedChildren = this.children.sortedBy { this }
+            sortedChildren.forEach {
+                result.addAll(it.flattenedChildren)
+            }
+        }
+    }
+    return result
+}
 
+abstract class BaseTreeNode : TreeNode {
     override var excludes: Set<KClass<*>> by mutableStateOf(emptySet())
     override val levelWidth: Dp = 24.dp
 
@@ -159,18 +164,7 @@ abstract class BaseTreeNode : TreeNode {
     }
 
     override val flattenedChildren: List<TreeNode> by derivedStateOf {
-        val result = mutableListOf<TreeNode>()
-        val excluded = tags.any { excludes.contains(it::class) }
-        if (!excluded) {
-            result.add(this)
-            if (expanded) {
-                val sortedChildren = this.children.sortedBy { this }
-                sortedChildren.forEach {
-                    result.addAll(it.flattenedChildren)
-                }
-            }
-        }
-        result
+        flattenChildren()
     }
 
     override var expanded: Boolean by mutableStateOf(false)
@@ -197,7 +191,7 @@ abstract class BaseTreeNode : TreeNode {
     }
 
     @Composable
-    override fun TreeNodeIndented() {
+    override fun TreeNodeIndented(keepLevel: Boolean) {
         Box(
             modifier = Modifier.fillMaxWidth()
                 .wrapContentHeight()

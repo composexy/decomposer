@@ -339,6 +339,6 @@ internal abstract class CompositionExtractor(
         private const val COMPOSITION_CONTEXT_IMPL = "androidx.compose.runtime.ComposerImpl.CompositionContextImpl"
         private const val COMPOUND_HASH_KEY = "compoundHashKey"
         private const val TAG = "CompositionExtractor"
-        private const val DEBUG = true
+        private const val DEBUG = false
     }
 }

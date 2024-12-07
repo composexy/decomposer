@@ -127,18 +127,18 @@ fun CompositionPanel(
         ) {
             TreeExpander(
                 onFoldAll = {
-                    tree.root.setExpandedRecursive(false)
+                    full.root.setExpandedRecursive(false)
                 },
                 onExpandAll = {
-                    tree.root.setExpandedRecursive(true)
+                    full.root.setExpandedRecursive(true)
                 }
             )
             DataExpander(
                 onFoldData = {
-                    tree.root.addExcludesRecursive(setOf(SlotNode::class))
+                    full.root.addExcludesRecursive(setOf(SlotNode::class))
                 },
                 onExpandData = {
-                    tree.root.removeExcludesRecursive(setOf(SlotNode::class))
+                    full.root.removeExcludesRecursive(setOf(SlotNode::class))
                 }
             )
         }
@@ -161,7 +161,7 @@ fun CompositionPanel(
                 ) {
                     val nodes = subtree.flattenNodes
                     items(nodes.size) {
-                        nodes[it].TreeNodeIndented()
+                        nodes[it].TreeNodeIndented(keepLevel)
                     }
                 }
             }
@@ -186,24 +186,20 @@ fun CompositionPanel(
         )
     }
 
-    LaunchedEffect(tree, hideLeaf) {
+    LaunchedEffect(full, hideLeaf) {
         if (hideLeaf) {
-            tree.root.addExcludesRecursive(setOf(LeafGroup::class))
+            full.root.addExcludesRecursive(setOf(LeafGroup::class))
         } else {
-            tree.root.removeExcludesRecursive(setOf(LeafGroup::class))
+            full.root.removeExcludesRecursive(setOf(LeafGroup::class))
         }
     }
 
-    LaunchedEffect(tree, hideEmpty) {
+    LaunchedEffect(full, hideEmpty) {
         if (hideEmpty) {
-            tree.root.addExcludesRecursive(setOf(EmptyGroup::class))
+            full.root.addExcludesRecursive(setOf(EmptyGroup::class))
         } else {
-            tree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+            full.root.removeExcludesRecursive(setOf(EmptyGroup::class))
         }
-    }
-
-    SideEffect {
-        tree.keepLevel = keepLevel
     }
 }
 

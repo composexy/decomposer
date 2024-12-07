@@ -29,6 +29,8 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -114,30 +116,9 @@ fun CompositionPanel(
                 hideWrapper = hideWrapper,
                 hideEmpty = hideEmpty,
                 hideLeaf = hideLeaf,
-                onHideWrapperCheckedChanged = {
-                    hideWrapper = it
-                    if (hideWrapper) {
-                        compositionTree.root.addExcludesRecursive(setOf(WrapperGroup::class))
-                    } else {
-                        compositionTree.root.removeExcludesRecursive(setOf(WrapperGroup::class))
-                    }
-                },
-                onHideEmptyCheckedChanged = {
-                    hideEmpty = it
-                    if (hideEmpty) {
-                        compositionTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
-                    } else {
-                        compositionTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
-                    }
-                },
-                onHideLeafCheckedChanged = {
-                    hideLeaf = it
-                    if (hideLeaf) {
-                        compositionTree.root.addExcludesRecursive(setOf(LeafGroup::class))
-                    } else {
-                        compositionTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
-                    }
-                }
+                onHideWrapperCheckedChanged = { hideWrapper = it },
+                onHideEmptyCheckedChanged = { hideEmpty = it },
+                onHideLeafCheckedChanged = { hideLeaf = it }
             )
         }
         Row(
@@ -196,10 +177,36 @@ fun CompositionPanel(
         }
 
         SubTreeSelector(
-            modifier = Modifier.wrapContentSize().padding(vertical = 12.dp).align(Alignment.CenterHorizontally),
+            modifier = Modifier.wrapContentSize()
+                .padding(vertical = 12.dp)
+                .align(Alignment.CenterHorizontally),
             selectedTreeKind = selectedTreeKind,
             onSelectedOption = { selectedTreeKind = it }
         )
+    }
+
+    LaunchedEffect(compositionTree, hideLeaf) {
+        if (hideLeaf) {
+            compositionTree.root.addExcludesRecursive(setOf(LeafGroup::class))
+        } else {
+            compositionTree.root.removeExcludesRecursive(setOf(LeafGroup::class))
+        }
+    }
+
+    LaunchedEffect(compositionTree, hideWrapper) {
+        if (hideWrapper) {
+            compositionTree.root.addExcludesRecursive(setOf(WrapperGroup::class))
+        } else {
+            compositionTree.root.removeExcludesRecursive(setOf(WrapperGroup::class))
+        }
+    }
+
+    LaunchedEffect(compositionTree, hideEmpty) {
+        if (hideEmpty) {
+            compositionTree.root.addExcludesRecursive(setOf(EmptyGroup::class))
+        } else {
+            compositionTree.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+        }
     }
 }
 

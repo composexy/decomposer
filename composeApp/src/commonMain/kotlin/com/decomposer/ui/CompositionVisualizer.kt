@@ -999,7 +999,7 @@ private class CallStack : CallScope {
     override val caller: Group?
         get() {
             return if (stack.size > 1) {
-                stack[stack.size - 3]
+                stack[stack.size - 2]
             } else null
         }
 
@@ -1099,7 +1099,7 @@ private val Group.sourceFile: String?
             val startIndex = sourceInfo.indexOf(':')
             val endIndex = sourceInfo.indexOf('#')
             if (startIndex in 0 until endIndex)
-                sourceInfo.substring(startIndex, endIndex)
+                sourceInfo.substring(startIndex + 1, endIndex)
             else null
         } else null
     }

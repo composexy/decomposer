@@ -29,7 +29,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +50,7 @@ import decomposer.composeapp.generated.resources.refresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import kotlin.reflect.KClass
 
 @Composable
 fun CompositionPanel(
@@ -61,7 +61,7 @@ fun CompositionPanel(
     var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
 
     val core: FilterableTree by remember {
-        derivedStateOf { full.subtree(CoreGroup::class) }
+        derivedStateOf { full.subtree(CoreGroup::class.withSlots()) }
     }
 
     var hideWrapper: Boolean by remember {
@@ -82,18 +82,16 @@ fun CompositionPanel(
         derivedStateOf {
             when (selectedTreeKind) {
                 TreeKind.FULL -> tree
-                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(RecomposeScopeGroup::class)
-                TreeKind.COMPOSE_NODE -> tree.subtree(ComposeNodeGroup::class)
-                TreeKind.COMPOSITION -> tree.subtree(CompositionGroup::class)
+                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(RecomposeScopeGroup::class.withSlots())
+                TreeKind.COMPOSE_NODE -> tree.subtree(ComposeNodeGroup::class.withSlots())
+                TreeKind.COMPOSITION -> tree.subtree(CompositionGroup::class.withSlots())
             }
         }
     }
 
     val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
-    Column(
-        modifier = modifier
-    ) {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().wrapContentHeight()
         ) {
@@ -358,6 +356,10 @@ fun ComposeCheckBox(
             modifier = Modifier.padding(start = 4.dp)
         )
     }
+}
+
+private fun KClass<*>.withSlots(): List<KClass<*>> {
+    return listOf(this, SlotNode::class)
 }
 
 enum class TreeKind(val tag: String) {

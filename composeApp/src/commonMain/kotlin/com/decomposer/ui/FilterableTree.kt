@@ -16,41 +16,22 @@ import androidx.compose.ui.unit.dp
 import kotlin.reflect.KClass
 
 class FilterableTree(val root: TreeNode) {
-    private val subtreeCache = mutableMapOf<KClass<*>, FilterableTree>()
+    private val subtreeCache = mutableMapOf<Filter, FilterableTree>()
 
-    fun subtree(clazz: KClass<*>): FilterableTree {
-        val cachedTree = subtreeCache[clazz]
+    fun subtree(include: List<KClass<*>>): FilterableTree {
+        val filter = Filter(include)
+        val cachedTree = subtreeCache[filter]
         if (cachedTree != null) {
             return cachedTree
         }
 
-        fun filterNode(node: TreeNode, level: Int): List<TreeNode> {
-            val filteredChildren = if (node.hasTag(clazz) || node === root) {
-                node.children.flatMap { filterNode(it, level + 1) }
-            } else {
-                node.children.flatMap { filterNode(it, level) }
-            }
-
-            if (node.hasTag(clazz)) {
-                return listOf(
-                    SubtreeNode(
-                        wrapped = node,
-                        children = filteredChildren,
-                        level = level
-                    )
-                )
-            }
-
-            return filteredChildren
-        }
-
-        val filteredNodes = filterNode(root, 0)
+        val filteredNodes = filterNode(root, filter, 0)
 
         return when {
             filteredNodes.isEmpty() -> EMPTY_TREE
             filteredNodes.first().level == 0 -> {
                 FilterableTree(filteredNodes.first()).also {
-                    subtreeCache[clazz] = it
+                    subtreeCache[filter] = it
                 }
             }
             else -> {
@@ -60,16 +41,41 @@ class FilterableTree(val root: TreeNode) {
                     level = 0
                 )
                 FilterableTree(newRoot).also {
-                    subtreeCache[clazz] = it
+                    subtreeCache[filter] = it
                 }
             }
         }
     }
 
+    private fun filterNode(node: TreeNode, filter: Filter, level: Int): List<TreeNode> {
+        val matches = matches(filter, node)
+        val filteredChildren = if (matches || node === root) {
+            node.children.flatMap { filterNode(it, filter, level + 1) }
+        } else {
+            node.children.flatMap { filterNode(it, filter, level) }
+        }
+
+        if (matches) {
+            return listOf(
+                SubtreeNode(
+                    wrapped = node,
+                    children = filteredChildren,
+                    level = level
+                )
+            )
+        }
+
+        return filteredChildren
+    }
+
+    private fun matches(filter: Filter, node: TreeNode): Boolean {
+        return filter.include.any { node.hasTag(it) }
+    }
+
     val flattenNodes: List<TreeNode>
         get() = root.flattenedChildren
 
-    inner class SubtreeNode(
+    class SubtreeNode(
         private val wrapped: TreeNode,
         override val children: List<TreeNode>,
         override val level: Int
@@ -115,6 +121,10 @@ class FilterableTree(val root: TreeNode) {
         val EMPTY_TREE = FilterableTree(EmptyNode)
     }
 }
+
+private data class Filter(
+    val include: List<KClass<*>>
+)
 
 @Stable
 interface TreeNode : Comparable<TreeNode> {

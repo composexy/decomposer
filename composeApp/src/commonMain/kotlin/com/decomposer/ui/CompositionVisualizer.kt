@@ -1012,17 +1012,20 @@ private interface CallScope {
 
 private val Group.name: String
     get() {
+        val sourceInfo = this.attributes.sourceInformation
         val key = this.attributes.key
         val intKeyValue = if (key is IntKey) {
             key.value
         } else null
         val sourceKey = this.sourceKey
+        val isLambda = sourceInfo != null && sourceKey == null
+        val lambdaPrefix = if (isLambda) "\u03BB " else ""
         val wellKnownKey = this.wellKnownKey
         val intKey = if (key is IntKey) {
-            "Group(${key.value})"
+            "${lambdaPrefix}Group(${key.value})"
         } else null
         val objectKey = if (key is ObjectKey) {
-            "Group(${key.value})"
+            "${lambdaPrefix}Group(${key.value})"
         } else null
         return when {
             sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import com.decomposer.ir.Declaration
 import com.decomposer.ir.Function
+import com.decomposer.ir.FunctionExpression
 import com.decomposer.ir.IrProcessor
 import com.decomposer.ir.KotlinFile
 import com.decomposer.ir.TopLevelTable
@@ -330,17 +331,10 @@ class NavigationContext(
         if (irProcessor.originalFile(filePath).isEmpty) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             irProcessor.processVirtualFileIr(virtualFileIr)
-            irProcessor.originalFile(filePath) // composed or original should yield same result
         }
+        // composed or original should yield same result
         val kotlinFile = irProcessor.originalFile(filePath)
-        val functions = mutableListOf<TopLevelTable>().also {
-            it.addAll(kotlinFile.topLevelClasses)
-            kotlinFile.topLevelDeclarations?.let { topLevel ->
-                it.add(topLevel)
-            }
-        }.flatMap {
-            it.declarations.data
-        }.filterIsInstance<Function>()
+        val functions = kotlinFile.functions + kotlinFile.lambdas.map { it.function }
         val matches = functions.filter {
             invocationLocations.all { location ->
                 val startOffset = it.base.base.coordinate.startOffset

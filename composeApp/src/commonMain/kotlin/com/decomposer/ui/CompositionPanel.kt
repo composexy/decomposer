@@ -186,6 +186,8 @@ fun CompositionPanel(
                 )
             }
 
+            HorizontalSplitter()
+
             SubTreeSelector(
                 modifier = Modifier.wrapContentSize()
                     .padding(vertical = 12.dp)

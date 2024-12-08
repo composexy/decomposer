@@ -963,11 +963,22 @@ private class Contexts(
 
 private class CallStack : CallScope {
     private val stack = mutableListOf<Group>()
+    private val sourceInformationStack = mutableListOf<SourceInformation?>()
 
     override val caller: Group?
         get() {
             return if (stack.size > 1) {
                 stack[stack.size - 2]
+            } else null
+        }
+
+    override val sourceInformation: SourceInformation?
+        get() = sourceInformationStack.last()
+
+    override val parentSourceInformation: SourceInformation?
+        get() {
+            return if (sourceInformationStack.size > 1) {
+                sourceInformationStack[sourceInformationStack.size - 2]
             } else null
         }
 
@@ -983,6 +994,7 @@ private class CallStack : CallScope {
                     _isWrapperGroup = false
                 }
             }
+            sourceInformationStack.add(group.parseSourceInformation)
         }
     }
 
@@ -994,6 +1006,7 @@ private class CallStack : CallScope {
                     _isWrapperGroup = true
                 }
             }
+            sourceInformationStack.removeLast()
         }
     }
 
@@ -1008,7 +1021,78 @@ private class CallStack : CallScope {
 private interface CallScope {
     val caller: Group?
     val isWrapperGroup: Boolean
+    val sourceInformation: SourceInformation?
+    val parentSourceInformation: SourceInformation?
 }
+
+private class SourceInformation(
+    val fileName: String?,
+    val packageHash: String?,
+    val isLambda: Boolean,
+    val isCall: Boolean,
+    val isInline: Boolean,
+    val sourceName: String?,
+    val invocations: List<Location>,
+)
+
+private class Location(
+    val lineNumber: Int,
+    val startOffset: Int,
+    val endOffset: Int
+)
+
+private val Group.parseSourceInformation: SourceInformation?
+    get() {
+        val sourceInfo = this.attributes.sourceInformation ?: return null
+        val sourceKey = this.sourceKey
+        val isCall = sourceInfo.startsWith("C")
+        val isInline = sourceInfo.startsWith("CC")
+        val isLambda = sourceKey == null
+        val fileName = this.sourceFile
+        val packageHash = this.packageHash
+        val locationStart = sourceInfo.indexOfLast { it == ')' }
+        val locationEnd = when {
+            sourceInfo.indexOf(':') == -1 -> sourceInfo.length
+            else -> sourceInfo.indexOf(':')
+        }
+        val locationParts = sourceInfo.substring(locationStart, locationEnd).split(",")
+        val invocations = locationParts.map {
+            if (it.startsWith('*')) it.substring(1)
+            else it
+        }.mapNotNull {
+            val startOffsetStart = it.indexOf('@') + 1
+            val lineNumberEnd = startOffsetStart - 1
+            val lengthStart = it.indexOf('L') + 1
+            val startOffsetEnd = if (lengthStart == 0) {
+                it.length
+            } else {
+                lengthStart - 1
+            }
+            val lineNumber = it.substring(0, lineNumberEnd).toIntOrNull()
+            val startOffset = it.substring(startOffsetStart, startOffsetEnd).toIntOrNull()
+            val length = if (lengthStart > 0) {
+                it.substring(lengthStart).toIntOrNull()
+            } else null
+            if (lineNumber != null && startOffset != null && length != null) {
+                Location(
+                    lineNumber = lineNumber,
+                    startOffset = startOffset,
+                    endOffset = startOffset + length
+                )
+            } else {
+                null
+            }
+        }
+        return SourceInformation(
+            fileName = fileName,
+            packageHash = packageHash,
+            isLambda = isLambda,
+            isCall = isCall,
+            isInline = isInline,
+            sourceName = sourceKey,
+            invocations = invocations
+        )
+    }
 
 private val Group.name: String
     get() {
@@ -1067,10 +1151,21 @@ private val Group.sourceFile: String?
     get() {
         val sourceInfo = this.attributes.sourceInformation
         return if (sourceInfo != null) {
-            val startIndex = sourceInfo.indexOf(':')
+            val startIndex = sourceInfo.indexOf(':') + 1
             val endIndex = sourceInfo.indexOf('#')
             if (startIndex in 0 until endIndex)
-                sourceInfo.substring(startIndex + 1, endIndex)
+                sourceInfo.substring(startIndex, endIndex)
+            else null
+        } else null
+    }
+
+private val Group.packageHash: String?
+    get() {
+        val sourceInfo = this.attributes.sourceInformation
+        return if (sourceInfo != null) {
+            val startIndex = sourceInfo.indexOf('#') + 1
+            if (startIndex in sourceInfo.indices)
+                sourceInfo.substring(startIndex)
             else null
         } else null
     }

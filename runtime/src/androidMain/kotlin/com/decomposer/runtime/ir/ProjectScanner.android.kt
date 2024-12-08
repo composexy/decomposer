@@ -3,6 +3,7 @@ package com.decomposer.runtime.ir
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.decomposer.runtime.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,28 +20,36 @@ import java.util.zip.ZipFile
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
-internal class AndroidProjectScanner(private val context: Context): ProjectScanner {
+internal class AndroidProjectScanner(
+    private val context: Context
+) : ProjectScanner, Logger by AndroidLogger {
     private val uncommitedFilePaths = mutableSetOf<String>()
+    private val uncommitedPackageNamesByPath = mutableMapOf<String, String>()
     private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()
     private val uncommitedOriginalIrFiles = mutableMapOf<String, List<String>>()
-    private val uncommitedComposedIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
-    private val uncommitedOriginalIrTopLevelClasses = mutableMapOf<String, MutableSet<List<String>>>()
+    private val uncommitedComposedIrTopLevelClasses =
+        mutableMapOf<String, MutableSet<List<String>>>()
+    private val uncommitedOriginalIrTopLevelClasses =
+        mutableMapOf<String, MutableSet<List<String>>>()
     private val uncommitedComposedIrDump = mutableMapOf<String, List<String>>()
     private val uncommitedOriginalIrDump = mutableMapOf<String, List<String>>()
 
-    private var projectStructure: Set<String>? = null
+    private var projectStructure: Pair<Set<String>, Map<String, String>>? = null
     private var projectFiles: Map<String, VirtualFileIr>? = null
 
-    private val projectStructureWaiters = mutableListOf<Continuation<Set<String>>>()
+    private val projectStructureWaiters =
+        mutableListOf<Continuation<Pair<Set<String>, Map<String, String>>>>()
     private val irWaitersByPath = mutableMapOf<String, Continuation<VirtualFileIr>>()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
-    override suspend fun fetchProjectSnapshot(): Set<String> = suspendCoroutine { continuation ->
-        val structure = projectStructure
-        if (structure != null) {
-            continuation.resumeWith(Result.success(structure))
-        } else {
-            projectStructureWaiters.add(continuation)
+    override suspend fun fetchProjectSnapshot(): Pair<Set<String>, Map<String, String>> {
+        return suspendCoroutine { continuation ->
+            val structure = projectStructure
+            if (structure != null) {
+                continuation.resumeWith(Result.success(structure))
+            } else {
+                projectStructureWaiters.add(continuation)
+            }
         }
     }
 
@@ -58,6 +67,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
 
     private fun clearUncommitedData() {
         uncommitedFilePaths.clear()
+        uncommitedPackageNamesByPath.clear()
         uncommitedComposedIrFiles.clear()
         uncommitedComposedIrTopLevelClasses.clear()
         uncommitedComposedIrDump.clear()
@@ -91,7 +101,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
                     val dexFile = DexFileFactory.loadDexFile(virtualDexFile, opCode)
                     dexFile.classes.forEach { processDexClass(it) }
                     if (!virtualDexFile.delete()) {
-                        Log.w(TAG, "Cannot delete temporary file ${virtualDexFile.name}")
+                        log(Logger.Level.WARNING, TAG, "Cannot delete temporary file ${virtualDexFile.name}")
                     }
                 }
 
@@ -99,7 +109,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
                 resumeProjectStructureWaiters()
                 resumeIrWaiters()
             } catch (ex: Exception) {
-                Log.e(TAG, ex.stackTraceToString())
+                log(Logger.Level.WARNING, TAG, ex.stackTraceToString())
             } finally {
                 zipFile.close()
                 scanDir.deleteRecursively()
@@ -109,9 +119,14 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
     }
 
     private fun commitProjectData() {
-        projectStructure = mutableSetOf<String>().also {
-            it.addAll(uncommitedFilePaths)
-        }
+        projectStructure = Pair<Set<String>, Map<String, String>>(
+            first = mutableSetOf<String>().also {
+                it.addAll(uncommitedFilePaths)
+            },
+            second = mutableMapOf<String, String>().also {
+                it.putAll(uncommitedPackageNamesByPath)
+            }
+        )
         projectFiles = mutableMapOf<String, VirtualFileIr>().also {
             it.putAll(uncommitedFilePaths.associateWith { filePath ->
                 VirtualFileIr(
@@ -135,20 +150,22 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
             }
             val composed = type == POST_COMPOSE_IR_SIGNATURE
             var filePath: String? = null
+            var packageName: String? = null
             var dump: List<String> = emptyList()
             var ir: List<String>? = null
             var isFileFacade: Boolean? = null
             annotation.elements.forEach {
                 when (it.name) {
-                    "filePath" -> filePath = extractFilePath(it.value)
+                    "filePath" -> filePath = extractString(it.value)
+                    "packageName" -> packageName = extractString(it.value)
                     "isFileFacade" -> isFileFacade = extractIsFileFacade(it.value)
                     "standardDump" -> dump = extractStringArray(it.value) ?: emptyList()
                     "data" -> ir = extractStringArray(it.value)
-                    else -> Log.w(TAG, "Unexpected field ${it.name} on ${annotation.type}")
+                    else -> log(Logger.Level.WARNING, TAG, "Unexpected field ${it.name} on ${annotation.type}")
                 }
             }
             if (ir != null && filePath != null && isFileFacade != null) {
-                processAnnotation(ir!!, dump, filePath!!, isFileFacade!!, composed)
+                processAnnotation(ir!!, dump, filePath!!, packageName!!, isFileFacade!!, composed)
             }
         }
     }
@@ -157,10 +174,19 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         ir: List<String>,
         dump: List<String>,
         filePath: String,
+        packageName: String,
         fileFacade: Boolean,
         composed: Boolean
     ) {
         uncommitedFilePaths.add(filePath)
+        val existingPackage = uncommitedPackageNamesByPath[filePath]
+        if (existingPackage != null) {
+            if (packageName != existingPackage) {
+                log(Logger.Level.ERROR, TAG, "Package name different: $packageName, $existingPackage")
+            }
+        } else {
+            uncommitedPackageNamesByPath[filePath] = packageName
+        }
         when {
             fileFacade && composed -> uncommitedComposedIrFiles[filePath] = ir
             fileFacade && !composed -> uncommitedOriginalIrFiles[filePath] = ir
@@ -189,7 +215,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
         } else null
     }
 
-    private fun extractFilePath(value: EncodedValue): String? {
+    private fun extractString(value: EncodedValue): String? {
         return if (value.valueType == ValueType.STRING) {
             value as StringEncodedValue
             value.value
@@ -218,7 +244,7 @@ internal class AndroidProjectScanner(private val context: Context): ProjectScann
                 it.resumeWith(Result.success(structure))
             }
         } else {
-            Log.w(TAG, "Cannot find project structure!")
+            log(Logger.Level.WARNING, TAG, "Cannot find project structure!")
         }
         projectStructureWaiters.clear()
     }

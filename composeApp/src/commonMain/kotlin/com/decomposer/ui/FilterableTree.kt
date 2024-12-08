@@ -141,7 +141,7 @@ interface TreeNode : Comparable<TreeNode> {
     @Composable
     fun TreeNode()
     @Composable
-    fun TreeNodeIndented(keepLevel: Boolean)
+    fun TreeNodeIndented(keepLevel: Boolean = true)
     fun setExpandedRecursive(expanded: Boolean)
     fun addExcludesRecursive(excludes: Set<KClass<*>>)
     fun removeExcludesRecursive(excludes: Set<KClass<*>>)

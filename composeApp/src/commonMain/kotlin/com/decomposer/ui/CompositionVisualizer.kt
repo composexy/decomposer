@@ -29,6 +29,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,11 +63,15 @@ import decomposer.composeapp.generated.resources.expand_down
 import decomposer.composeapp.generated.resources.expand_right
 import decomposer.composeapp.generated.resources.fold_data
 import decomposer.composeapp.generated.resources.group_attributes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
 private fun GroupItem(
     node: BaseTreeNode,
+    clickable: Boolean = false,
     onClick: () -> Unit = { }
 ) {
     Row(
@@ -79,9 +84,15 @@ private fun GroupItem(
             modifier = Modifier
                 .align(Alignment.CenterVertically)
                 .clipToBounds()
-                .hoverable(interactionSource)
-                .pointerHoverIcon(PointerIcon.Hand)
-                .clickable { onClick() },
+                .run {
+                    if (clickable) {
+                        this.hoverable(interactionSource)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable { onClick() }
+                    } else {
+                        this
+                    }
+                },
             softWrap = true,
             overflow = TextOverflow.Ellipsis,
             maxLines = 1,
@@ -540,10 +551,12 @@ private fun GroupAttributesIcon(
 }
 
 fun CompositionRoots.buildCompositionTree(
+    navigationContext: NavigationContext?,
     showContextPopup: (@Composable () -> Unit) -> Unit,
     sourceNavigation: (String, Int, Int) -> Unit
 ): FilterableTree {
     val contexts = this.buildContexts(
+        navigationContext = navigationContext,
         popup = showContextPopup,
         navigate = sourceNavigation
     )
@@ -594,7 +607,7 @@ private class RootsNode(
     @OptIn(ExperimentalLayoutApi::class)
     @Composable
     override fun TreeNode() = with(contexts) {
-        GroupItem(this@RootsNode) {
+        GroupItem(this@RootsNode, clickable = true) {
             popup @Composable {
                 val verticalScrollState = rememberScrollState()
                 Box(
@@ -679,75 +692,104 @@ private class GroupNode(
     override val tags: Set<Any>
         get() = _tags
 
+    var canNavigate: Boolean = false
+    var sourceInformation: SourceInformation? = null
+
     init {
-        contexts.call(group) {
-            _children.addAll(
-                group.data.map {
-                    DataNode(
-                        data = it,
-                        level = level + 1,
-                        contexts = contexts
-                    )
+        with(contexts) {
+            call(group) {
+                this@GroupNode.sourceInformation = sourceInformation
+                val packageHash = sourceInformation?.packageHash
+                canNavigate = if (packageHash == null || navigationContext == null) {
+                    false
+                } else {
+                    navigationContext.canNavigate(packageHash)
                 }
-            )
-            _children.addAll(
-                group.children.map {
-                    GroupNode(
-                        group = it,
-                        level = level + 1,
-                        contexts = contexts
-                    )
-                }
-            )
-            val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
-            if (group.sourceKey == "SubcomposeLayout") {
                 _children.addAll(
-                    subcomposeStates.map {
-                        SubcompositionsNode(
-                            subcomposeState = it,
+                    group.data.map {
+                        DataNode(
+                            data = it,
                             level = level + 1,
                             contexts = contexts
                         )
                     }
                 )
-            }
+                _children.addAll(
+                    group.children.map {
+                        GroupNode(
+                            group = it,
+                            level = level + 1,
+                            contexts = contexts
+                        )
+                    }
+                )
+                val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
+                if (group.sourceKey == "SubcomposeLayout") {
+                    _children.addAll(
+                        subcomposeStates.map {
+                            SubcompositionsNode(
+                                subcomposeState = it,
+                                level = level + 1,
+                                contexts = contexts
+                            )
+                        }
+                    )
+                }
 
-            if (isWrapperGroup) {
-                _tags.add(WrapperGroup)
-            } else {
-                _tags.add(CoreGroup)
-            }
-            group.data.forEach {
-                when(it) {
-                    is RecomposeScope -> _tags.add(RecomposeScopeGroup)
-                    is LayoutNode -> _tags.add(ComposeNodeGroup)
+                if (isWrapperGroup) {
+                    _tags.add(WrapperGroup)
+                } else {
+                    _tags.add(CoreGroup)
+                }
+                group.data.forEach {
+                    when(it) {
+                        is RecomposeScope -> _tags.add(RecomposeScopeGroup)
+                        is LayoutNode -> _tags.add(ComposeNodeGroup)
+                        else -> { }
+                    }
+                }
+                if (group.children.isEmpty()) {
+                    _tags.add(LeafGroup)
+                    if (group.data.isEmpty()) {
+                        _tags.add(EmptyGroup)
+                    }
+                }
+                when(group.sourceKey) {
+                    "SubcomposeLayout" -> _tags.add(CompositionGroup)
+                    "ReusableComposeNode", "ComposeNode", "Layout" -> _tags.add(ComposeNodeGroup)
                     else -> { }
                 }
-            }
-            if (group.children.isEmpty()) {
-                _tags.add(LeafGroup)
-                if (group.data.isEmpty()) {
-                    _tags.add(EmptyGroup)
-                }
-            }
-            when(group.sourceKey) {
-                "SubcomposeLayout" -> _tags.add(CompositionGroup)
-                "ReusableComposeNode", "ComposeNode", "Layout" -> _tags.add(ComposeNodeGroup)
-                else -> { }
             }
         }
     }
 
     @Composable
     override fun TreeNode() = with(contexts) {
+        val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
         Column(
             modifier = Modifier.wrapContentHeight().fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                GroupItem(node = this@GroupNode) {
-                    navigate("", 0, 0)
+                GroupItem(node = this@GroupNode, clickable = canNavigate) {
+                    coroutineScope.launch {
+                        val navigationContext = navigationContext
+                        val sourceInfo = sourceInformation
+                        val packageHash = sourceInfo?.packageHash
+                        if (canNavigate && navigationContext != null && packageHash != null) {
+                            val filePath = navigationContext.filePath(packageHash)
+                            val coordinates = navigationContext.getCoordinates(
+                                packageHash = packageHash,
+                                invocationLocations = sourceInfo.invocations.flatMap {
+                                    listOf(it.startOffset, it.endOffset)
+                                }
+                            )
+                            if (filePath != null && coordinates != null) {
+                                navigate(filePath, coordinates.first, coordinates.second)
+                            }
+                        }
+                    }
                 }
                 if (group.data.isNotEmpty()) {
                     val dataExpanded: Boolean by remember {
@@ -906,6 +948,7 @@ private class DataNode(
 }
 
 private fun CompositionRoots.buildContexts(
+    navigationContext: NavigationContext?,
     popup: (@Composable () -> Unit) -> Unit,
     navigate: (String, Int, Int) -> Unit
 ): Contexts {
@@ -939,6 +982,7 @@ private fun CompositionRoots.buildContexts(
         layoutNodesByHash = layoutNodesByHash,
         modifiersByBash = modifiersByHash,
         recomposeScopesByHash = recomposeScopesByHash,
+        navigationContext = navigationContext,
         popup = popup,
         navigate = navigate
     )
@@ -949,6 +993,7 @@ private class Contexts(
     val layoutNodesByHash: Map<Int, LayoutNode>,
     val modifiersByBash: Map<Int, ModifierNode>,
     val recomposeScopesByHash: Map<Int, RecomposeScope>,
+    val navigationContext: NavigationContext?,
     val popup: (@Composable () -> Unit) -> Unit,
     val navigate: (String, Int, Int) -> Unit,
     val callStack: CallStack = CallStack()

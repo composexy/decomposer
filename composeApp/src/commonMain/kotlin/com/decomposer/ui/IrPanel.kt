@@ -47,12 +47,9 @@ import java.nio.file.Paths
 fun IrPanel(
     modifier: Modifier = Modifier,
     session: Session,
+    irProcessor: IrProcessor,
     filePath: String?
 ) {
-    val irProcessor: IrProcessor = remember {
-        IrProcessor()
-    }
-
     var compose by remember {
         mutableStateOf(true)
     }

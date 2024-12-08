@@ -11,6 +11,6 @@ internal data class VirtualFileIr(
 )
 
 internal interface ProjectScanner {
-    suspend fun fetchProjectSnapshot(): Set<String>
+    suspend fun fetchProjectSnapshot(): Pair<Set<String>, Map<String, String>>
     suspend fun fetchIr(filePath: String): VirtualFileIr
 }

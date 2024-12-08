@@ -145,7 +145,11 @@ internal abstract class AbstractOkHttpClient(
 
     private fun processProjectSnapshot(webSocket: WebSocket) {
         coroutineScope.launch {
-            val projectSnapshot = ProjectSnapshot(projectScanner.fetchProjectSnapshot())
+            val scannedResult = projectScanner.fetchProjectSnapshot()
+            val projectSnapshot = ProjectSnapshot(
+                fileTree = scannedResult.first,
+                packagesByPath = scannedResult.second
+            )
             val response = ProjectSnapshotResponse(projectSnapshot)
             val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             webSocket.send(serialized)

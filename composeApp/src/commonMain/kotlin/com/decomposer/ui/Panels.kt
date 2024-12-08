@@ -18,15 +18,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,11 +40,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import com.decomposer.ir.Declaration
+import com.decomposer.ir.Function
+import com.decomposer.ir.IrProcessor
+import com.decomposer.ir.KotlinFile
+import com.decomposer.ir.TopLevelTable
+import com.decomposer.ir.isEmpty
+import com.decomposer.runtime.connection.model.ProjectSnapshot
+import com.decomposer.server.Session
 import com.decomposer.server.SessionState
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.expand_all
 import decomposer.composeapp.generated.resources.fold_all
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import kotlin.math.absoluteValue
 
 @Composable
 fun Panels(
@@ -89,6 +101,17 @@ fun Panels(
             }
         }
         is SessionState.Connected -> {
+            var navigationContext: NavigationContext? by remember {
+                mutableStateOf(null)
+            }
+            var irProcessor: IrProcessor by remember {
+                mutableStateOf(IrProcessor())
+            }
+            var projectSnapshot: ProjectSnapshot by remember {
+                mutableStateOf(ProjectSnapshot(emptySet(), emptyMap()))
+            }
+            val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
+
             Column(
                 modifier = modifier
             ) {
@@ -106,7 +129,7 @@ fun Panels(
                         if (panelsState.fileTreeVisible) {
                             FileTreePanel(
                                 modifier = Modifier.weight(0.16f),
-                                session = sessionState.session,
+                                projectSnapshot = projectSnapshot,
                                 onClickFileEntry = {
                                     panelsState.selectedIrFilePath = it
                                 }
@@ -119,6 +142,7 @@ fun Panels(
                             IrPanel(
                                 modifier = Modifier.weight(0.42f),
                                 session = sessionState.session,
+                                irProcessor = irProcessor,
                                 filePath = panelsState.selectedIrFilePath
                             )
                         }
@@ -129,6 +153,7 @@ fun Panels(
                             CompositionPanel(
                                 modifier = Modifier.weight(0.42f),
                                 session = sessionState.session,
+                                navigationContext = navigationContext,
                                 onShowPopup = {
                                     panelsState.currentPopup = it
                                 }
@@ -156,6 +181,18 @@ fun Panels(
                             }
                         }
                     }
+                }
+            }
+
+            LaunchedEffect(sessionState.session) {
+                irProcessor = IrProcessor()
+                projectSnapshot = sessionState.session.getProjectSnapshot()
+                coroutineScope.launch {
+                    navigationContext = buildNavigationContext(
+                        sessionState.session,
+                        projectSnapshot,
+                        irProcessor
+                    )
                 }
             }
         }
@@ -239,6 +276,77 @@ fun TreeExpander(
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onFoldAll() }
+            )
+        }
+    }
+}
+
+private fun buildNavigationContext(
+    session: Session,
+    projectSnapshot: ProjectSnapshot,
+    irProcessor: IrProcessor
+): NavigationContext {
+    val packagesByPath = projectSnapshot.packagesByPath
+    val pathsByPackageHash = packagesByPath.map {
+        val packageName = it.value
+        val path = it.key
+        val hash = packageName.fold(0) { hash, char ->
+            hash * 31 + char.code
+        }.absoluteValue
+        hash to path
+    }.toMap()
+    return NavigationContext(
+        pathsByPackageHash = pathsByPackageHash,
+        irProcessor = irProcessor,
+        session = session
+    )
+}
+
+class NavigationContext(
+    private val pathsByPackageHash: Map<Int, String>,
+    private val irProcessor: IrProcessor,
+    private val session: Session
+) {
+    fun canNavigate(packageHash: String): Boolean {
+        val hash = packageHash.toInt(36)
+        return pathsByPackageHash.containsKey(hash)
+    }
+
+    fun filePath(packageHash: String): String? {
+        val hash = packageHash.toInt(36)
+        return pathsByPackageHash[hash]
+    }
+
+    suspend fun getCoordinates(
+        invocationLocations: List<Int>,
+        packageHash: String
+    ): Pair<Int, Int>? {
+        val filePath = pathsByPackageHash[packageHash.toInt(36)] ?: return null
+        if (irProcessor.originalFile(filePath).isEmpty) {
+            val virtualFileIr = session.getVirtualFileIr(filePath)
+            irProcessor.processVirtualFileIr(virtualFileIr)
+            irProcessor.originalFile(filePath) // composed or original should yield same result
+        }
+        val kotlinFile = irProcessor.originalFile(filePath)
+        val functions = mutableListOf<TopLevelTable>().also {
+            it.addAll(kotlinFile.topLevelClasses)
+            kotlinFile.topLevelDeclarations?.let { topLevel ->
+                it.add(topLevel)
+            }
+        }.flatMap {
+            it.declarations.data
+        }.filterIsInstance<Function>()
+        val target = functions.firstOrNull {
+            invocationLocations.all { location ->
+                val startOffset = it.base.base.coordinate.startOffset
+                val endOffset = it.base.base.coordinate.endOffset
+                location in startOffset..endOffset
+            }
+        }
+        return target?.let {
+            Pair(
+                it.base.base.coordinate.startOffset,
+                it.base.base.coordinate.endOffset
             )
         }
     }

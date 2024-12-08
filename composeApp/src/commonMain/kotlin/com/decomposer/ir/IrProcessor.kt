@@ -141,8 +141,13 @@ class KotlinFile(
     val filePath: String,
     val topLevelDeclarations : TopLevelTable?,
     val topLevelClasses : List<TopLevelTable>,
-    val standardIrDump:  String
+    val standardIrDump : String
 )
+
+val KotlinFile.isEmpty: Boolean
+    get() {
+        return topLevelClasses.isEmpty() && topLevelDeclarations == null
+    }
 
 class SimpleType(
     val symbol: Symbol,

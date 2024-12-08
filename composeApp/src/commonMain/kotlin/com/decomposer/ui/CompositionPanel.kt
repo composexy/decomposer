@@ -56,6 +56,7 @@ import kotlin.reflect.KClass
 fun CompositionPanel(
     modifier: Modifier = Modifier,
     session: Session,
+    navigationContext: NavigationContext?,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
     var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
@@ -101,11 +102,10 @@ fun CompositionPanel(
                     coroutineScope.launch {
                         val compositionRoots = session.getCompositionData()
                         full = compositionRoots.buildCompositionTree(
-                            showContextPopup = {
-                                onShowPopup(it)
-                            },
+                            navigationContext = navigationContext,
+                            showContextPopup = { onShowPopup(it) },
                             sourceNavigation = { path, start, end ->
-
+                                println("$path, $start, $end")
                             }
                         )
                     }

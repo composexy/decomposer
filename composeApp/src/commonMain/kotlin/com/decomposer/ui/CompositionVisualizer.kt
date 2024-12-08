@@ -998,11 +998,11 @@ private class Contexts(
     val navigate: (String, Int, Int) -> Unit,
     val callStack: CallStack = CallStack()
 ) {
-    fun <R> call(group: Group, block: CallScope.(Group) -> R): R = try {
+    fun <R> call(group: Group, block: CallScope.(Group) -> R): R {
         callStack.push(group)
-        callStack.block(group)
-    } finally {
+        val result = callStack.block(group)
         callStack.pop()
+        return result
     }
 }
 
@@ -1095,12 +1095,22 @@ private val Group.parseSourceInformation: SourceInformation?
         val isLambda = sourceKey == null
         val fileName = this.sourceFile
         val packageHash = this.packageHash
-        val locationStart = sourceInfo.indexOfLast { it == ')' }
-        val locationEnd = when {
-            sourceInfo.indexOf(':') == -1 -> sourceInfo.length
-            else -> sourceInfo.indexOf(':')
+        val indexOfLastParentheses = sourceInfo.indexOfLast { it == ')' }
+        val locationStart = when {
+            indexOfLastParentheses != -1 -> indexOfLastParentheses + 1
+            isInline -> 2
+            else -> 1
         }
-        val locationParts = sourceInfo.substring(locationStart, locationEnd).split(",")
+        val indexOfFirstColon = sourceInfo.indexOf(':')
+        val locationEnd = when {
+            indexOfFirstColon == -1 -> sourceInfo.length
+            else -> indexOfFirstColon
+        }
+        val locationParts = if (locationStart < locationEnd) {
+            sourceInfo.substring(locationStart, locationEnd).split(",")
+        } else {
+            emptyList()
+        }
         val invocations = locationParts.map {
             if (it.startsWith('*')) it.substring(1)
             else it
@@ -1208,8 +1218,8 @@ private val Group.packageHash: String?
     get() {
         val sourceInfo = this.attributes.sourceInformation
         return if (sourceInfo != null) {
-            val startIndex = sourceInfo.indexOf('#') + 1
-            if (startIndex in sourceInfo.indices)
+            val startIndex = sourceInfo.indexOfLast { it == '#' } + 1
+            if (startIndex in 1 until sourceInfo.length)
                 sourceInfo.substring(startIndex)
             else null
         } else null

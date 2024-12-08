@@ -64,7 +64,6 @@ import decomposer.composeapp.generated.resources.expand_right
 import decomposer.composeapp.generated.resources.fold_data
 import decomposer.composeapp.generated.resources.group_attributes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 
@@ -700,10 +699,11 @@ private class GroupNode(
             call(group) {
                 this@GroupNode.sourceInformation = sourceInformation
                 val packageHash = sourceInformation?.packageHash
-                canNavigate = if (packageHash == null || navigationContext == null) {
+                val fileName = sourceInformation?.fileName
+                canNavigate = if (packageHash == null || navigationContext == null || fileName == null) {
                     false
                 } else {
-                    navigationContext.canNavigate(packageHash)
+                    navigationContext.canNavigate(PackageHashWithFileName(packageHash, fileName))
                 }
                 _children.addAll(
                     group.data.map {
@@ -777,10 +777,15 @@ private class GroupNode(
                         val navigationContext = navigationContext
                         val sourceInfo = sourceInformation
                         val packageHash = sourceInfo?.packageHash
-                        if (canNavigate && navigationContext != null && packageHash != null) {
-                            val filePath = navigationContext.filePath(packageHash)
-                            val coordinates = navigationContext.getCoordinates(
+                        val fileName = sourceInfo?.fileName
+                        if (canNavigate && navigationContext != null && packageHash != null && fileName != null) {
+                            val packageHashWithFileName = PackageHashWithFileName(
                                 packageHash = packageHash,
+                                fileName = fileName
+                            )
+                            val filePath = navigationContext.filePath(packageHashWithFileName)
+                            val coordinates = navigationContext.getCoordinates(
+                                packageHashWithFileName = packageHashWithFileName,
                                 invocationLocations = sourceInfo.invocations.flatMap {
                                     listOf(it.startOffset, it.endOffset)
                                 }

@@ -55,6 +55,7 @@ import decomposer.composeapp.generated.resources.fold_all
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import java.nio.file.Paths
 import kotlin.math.absoluteValue
 
 @Composable
@@ -292,8 +293,9 @@ private fun buildNavigationContext(
         val path = it.key
         val hash = packageName.fold(0) { hash, char ->
             hash * 31 + char.code
-        }.absoluteValue
-        hash to path
+        }.absoluteValue.toString(36)
+        val fileName = Paths.get(path).fileName.toString()
+        PackageHashWithFileName(hash, fileName)  to path
     }.toMap()
     return NavigationContext(
         pathsByPackageHash = pathsByPackageHash,
@@ -302,26 +304,29 @@ private fun buildNavigationContext(
     )
 }
 
+data class PackageHashWithFileName(
+    val packageHash: String,
+    val fileName: String
+)
+
 class NavigationContext(
-    private val pathsByPackageHash: Map<Int, String>,
+    private val pathsByPackageHash: Map<PackageHashWithFileName, String>,
     private val irProcessor: IrProcessor,
     private val session: Session
 ) {
-    fun canNavigate(packageHash: String): Boolean {
-        val hash = packageHash.toInt(36)
-        return pathsByPackageHash.containsKey(hash)
+    fun canNavigate(packageHashWithFileName: PackageHashWithFileName): Boolean {
+        return pathsByPackageHash.containsKey(packageHashWithFileName)
     }
 
-    fun filePath(packageHash: String): String? {
-        val hash = packageHash.toInt(36)
-        return pathsByPackageHash[hash]
+    fun filePath(packageHashWithFileName: PackageHashWithFileName): String? {
+        return pathsByPackageHash[packageHashWithFileName]
     }
 
     suspend fun getCoordinates(
         invocationLocations: List<Int>,
-        packageHash: String
+        packageHashWithFileName: PackageHashWithFileName
     ): Pair<Int, Int>? {
-        val filePath = pathsByPackageHash[packageHash.toInt(36)] ?: return null
+        val filePath = pathsByPackageHash[packageHashWithFileName] ?: return null
         if (irProcessor.originalFile(filePath).isEmpty) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             irProcessor.processVirtualFileIr(virtualFileIr)
@@ -336,14 +341,15 @@ class NavigationContext(
         }.flatMap {
             it.declarations.data
         }.filterIsInstance<Function>()
-        val target = functions.firstOrNull {
+        val matches = functions.filter {
             invocationLocations.all { location ->
                 val startOffset = it.base.base.coordinate.startOffset
                 val endOffset = it.base.base.coordinate.endOffset
                 location in startOffset..endOffset
             }
         }
-        return target?.let {
+        val best = matches.maxByOrNull { it.base.base.coordinate.startOffset }
+        return best?.let {
             Pair(
                 it.base.base.coordinate.startOffset,
                 it.base.base.coordinate.endOffset

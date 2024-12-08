@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,45 +57,55 @@ fun FileTreePanel(
         mutableStateOf(FilterableTree.EMPTY_TREE)
     }
 
-    Box(
-        modifier = modifier
-    ) {
-        val verticalScrollState = rememberLazyListState()
-        val horizontalScrollState = rememberScrollState()
+    var loading: Boolean by remember {
+        mutableStateOf(true)
+    }
 
-        Column(
-            modifier = Modifier.fillMaxSize()
+    if (!loading) {
+        Box(
+            modifier = modifier
         ) {
-            TreeExpander(
-                onFoldAll = { fileTree.root.setExpandedRecursive(false) },
-                onExpandAll = { fileTree.root.setExpandedRecursive(true) }
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .horizontalScroll(horizontalScrollState)
+            val verticalScrollState = rememberLazyListState()
+            val horizontalScrollState = rememberScrollState()
+
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = verticalScrollState,
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                TreeExpander(
+                    onFoldAll = { fileTree.root.setExpandedRecursive(false) },
+                    onExpandAll = { fileTree.root.setExpandedRecursive(true) }
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(horizontalScrollState)
                 ) {
-                    val nodes = fileTree.flattenNodes
-                    items(nodes.size) {
-                        nodes[it].TreeNodeIndented()
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = verticalScrollState,
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                    ) {
+                        val nodes = fileTree.flattenNodes
+                        items(nodes.size) {
+                            nodes[it].TreeNodeIndented()
+                        }
                     }
                 }
             }
+
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
+
+            HorizontalScrollbar(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                adapter = rememberScrollbarAdapter(horizontalScrollState)
+            )
         }
-
-        VerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            adapter = rememberScrollbarAdapter(verticalScrollState)
-        )
-
-        HorizontalScrollbar(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            adapter = rememberScrollbarAdapter(horizontalScrollState)
+    } else {
+        LinearProgressIndicator(
+            modifier = modifier.fillMaxWidth()
         )
     }
 
@@ -102,6 +113,7 @@ fun FileTreePanel(
         fileTree = projectSnapshot.buildFileTree {
             projectSnapshot.findMatching(it)?.let(onClickFileEntry)
         }
+        loading = false
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.Checkbox
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -59,6 +60,10 @@ fun CompositionPanel(
     navigationContext: NavigationContext?,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
+    var loading: Boolean by remember {
+        mutableStateOf(true)
+    }
+
     var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
 
     val core: FilterableTree by remember {
@@ -92,23 +97,30 @@ fun CompositionPanel(
 
     val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
+    fun loadCompositionTree() {
+        coroutineScope.launch {
+            loading = true
+            val compositionRoots = session.getCompositionData()
+            full = compositionRoots.buildCompositionTree(
+                navigationContext = navigationContext,
+                showContextPopup = { onShowPopup(it) },
+                sourceNavigation = { path, start, end ->
+                    println("$path, $start, $end")
+                }
+            )
+            loading = false
+        }
+    }
+
     Column(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().wrapContentHeight()
         ) {
             CompositionPanelBar(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
+                loading = loading,
                 onRefresh = {
-                    coroutineScope.launch {
-                        val compositionRoots = session.getCompositionData()
-                        full = compositionRoots.buildCompositionTree(
-                            navigationContext = navigationContext,
-                            showContextPopup = { onShowPopup(it) },
-                            sourceNavigation = { path, start, end ->
-                                println("$path, $start, $end")
-                            }
-                        )
-                    }
+                    coroutineScope.launch { loadCompositionTree() }
                 },
                 hideWrapper = hideWrapper,
                 hideEmpty = hideEmpty,
@@ -120,68 +132,70 @@ fun CompositionPanel(
                 onKeepLevelChanged = { keepLevel = it }
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TreeExpander(
-                onFoldAll = {
-                    full.root.setExpandedRecursive(false)
-                },
-                onExpandAll = {
-                    full.root.setExpandedRecursive(true)
-                }
-            )
-            DataExpander(
-                onFoldData = {
-                    full.root.addExcludesRecursive(setOf(SlotNode::class))
-                },
-                onExpandData = {
-                    full.root.removeExcludesRecursive(setOf(SlotNode::class))
-                }
-            )
-        }
-
-        Box(
-            modifier = Modifier.fillMaxWidth().weight(1.0f)
-        ) {
-            val verticalScrollState = rememberLazyListState()
-            val horizontalScrollState = rememberScrollState()
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .horizontalScroll(horizontalScrollState)
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = verticalScrollState,
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
-                ) {
-                    val nodes = subtree.flattenNodes
-                    items(nodes.size) {
-                        nodes[it].TreeNodeIndented(keepLevel)
+        if (!loading) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                TreeExpander(
+                    onFoldAll = {
+                        full.root.setExpandedRecursive(false)
+                    },
+                    onExpandAll = {
+                        full.root.setExpandedRecursive(true)
                     }
-                }
+                )
+                DataExpander(
+                    onFoldData = {
+                        full.root.addExcludesRecursive(setOf(SlotNode::class))
+                    },
+                    onExpandData = {
+                        full.root.removeExcludesRecursive(setOf(SlotNode::class))
+                    }
+                )
             }
 
-            VerticalScrollbar(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                adapter = rememberScrollbarAdapter(verticalScrollState)
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1.0f)
+            ) {
+                val verticalScrollState = rememberLazyListState()
+                val horizontalScrollState = rememberScrollState()
 
-            HorizontalScrollbar(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                adapter = rememberScrollbarAdapter(horizontalScrollState)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(horizontalScrollState)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = verticalScrollState,
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                    ) {
+                        val nodes = subtree.flattenNodes
+                        items(nodes.size) {
+                            nodes[it].TreeNodeIndented(keepLevel)
+                        }
+                    }
+                }
+
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    adapter = rememberScrollbarAdapter(verticalScrollState)
+                )
+
+                HorizontalScrollbar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    adapter = rememberScrollbarAdapter(horizontalScrollState)
+                )
+            }
+
+            SubTreeSelector(
+                modifier = Modifier.wrapContentSize()
+                    .padding(vertical = 12.dp)
+                    .align(Alignment.CenterHorizontally),
+                selectedTreeKind = selectedTreeKind,
+                onSelectedOption = { selectedTreeKind = it }
             )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
-
-        SubTreeSelector(
-            modifier = Modifier.wrapContentSize()
-                .padding(vertical = 12.dp)
-                .align(Alignment.CenterHorizontally),
-            selectedTreeKind = selectedTreeKind,
-            onSelectedOption = { selectedTreeKind = it }
-        )
     }
 
     LaunchedEffect(full, hideLeaf) {
@@ -198,6 +212,10 @@ fun CompositionPanel(
         } else {
             full.root.removeExcludesRecursive(setOf(EmptyGroup::class))
         }
+    }
+
+    LaunchedEffect(session) {
+        loadCompositionTree()
     }
 }
 
@@ -268,6 +286,7 @@ fun DataExpander(
 @Composable
 fun CompositionPanelBar(
     modifier: Modifier,
+    loading: Boolean,
     onRefresh: () -> Unit,
     hideWrapper: Boolean,
     hideEmpty: Boolean,
@@ -279,7 +298,7 @@ fun CompositionPanelBar(
     onKeepLevelChanged: (Boolean) -> Unit
 ) {
     Row(modifier = modifier) {
-        CompositionRefresh(onRefresh)
+        CompositionRefresh(loading, onRefresh)
         ComposeCheckBox(
             text = "Hide wrapper groups",
             checked = hideWrapper,
@@ -304,15 +323,21 @@ fun CompositionPanelBar(
 }
 
 @Composable
-fun CompositionRefresh(onRefresh: () -> Unit) {
+fun CompositionRefresh(loading: Boolean, onRefresh: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .hoverable(interactionSource)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .clickable { onRefresh() },
+            .run {
+                if (!loading) {
+                    this.hoverable(interactionSource)
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable { onRefresh() }
+                } else {
+                    this
+                }
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(

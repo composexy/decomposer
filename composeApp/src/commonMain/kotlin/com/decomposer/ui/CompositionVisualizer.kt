@@ -1039,7 +1039,15 @@ private class CallStack : CallScope {
                     _isWrapperGroup = false
                 }
             }
-            sourceInformationStack.add(group.parseSourceInformation)
+
+            val sourceInformation = try {
+                group.parseSourceInformation
+            } catch (ex: Exception) {
+                println("Unexpected format: ${group.attributes.sourceInformation}")
+                null
+            }
+
+            sourceInformationStack.add(sourceInformation)
         }
     }
 

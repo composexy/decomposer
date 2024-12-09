@@ -5,6 +5,7 @@ import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,18 +30,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
+import kotlinx.serialization.json.Json
 import java.nio.file.Paths
 
 @Composable
@@ -48,7 +55,8 @@ fun IrPanel(
     modifier: Modifier = Modifier,
     session: Session,
     irProcessor: IrProcessor,
-    filePath: String?
+    filePath: String?,
+    onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
     var compose by remember {
         mutableStateOf(true)
@@ -105,7 +113,9 @@ fun IrPanel(
         }
     }
 
-    LaunchedEffect(filePath, compose, session.sessionId) {
+    val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
+
+    LaunchedEffect(filePath, compose, session.sessionId, theme) {
         if (filePath != null) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             if (!virtualFileIr.isEmpty) {
@@ -115,8 +125,12 @@ fun IrPanel(
                 } else {
                     irProcessor.originalFile(filePath)
                 }
-                val visualData = IrVisualBuilder(kotlinFile).visualize()
-                kotlinLikeIr = visualData.annotatedString
+                val irVisualBuilder = IrVisualBuilder(kotlinFile, theme = theme) {
+                    onShowPopup @Composable {
+                        IrDescription(it.description)
+                    }
+                }
+                kotlinLikeIr = irVisualBuilder.visualize().annotatedString
                 standardIr = kotlinFile.standardIrDump
             } else {
                 kotlinLikeIr = null
@@ -124,6 +138,11 @@ fun IrPanel(
             }
         }
     }
+}
+
+@Composable
+private fun IrDescription(text: String) {
+    DefaultPanelText(text)
 }
 
 private val VirtualFileIr.isEmpty: Boolean
@@ -134,6 +153,7 @@ private val VirtualFileIr.isEmpty: Boolean
                 this.originalTopLevelIrClasses.isEmpty()
     }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CodeContent(
     filePath: String?,
@@ -171,15 +191,30 @@ fun CodeContent(
                 )
                 SelectionContainer {
                     if (kotlinLike) {
+                        var description: Description? by remember {
+                            mutableStateOf(null)
+                        }
+
+                        var textLayoutResult: TextLayoutResult? by remember {
+                            mutableStateOf(null)
+                        }
+
                         Text(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = 12.dp)
+                                .onPointerEvent(PointerEventType.Move) { event ->
+                                    val position = event.changes.first().position
+                                    textLayoutResult?.let { layout ->
+                                        description = descriptionAt(position, layout, kotlinLikeIr)
+                                    }
+                                },
                             text = kotlinLikeIr,
                             fontFamily = Fonts.jetbrainsMono(),
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Light,
-                            lineHeight = 36.sp
+                            lineHeight = 36.sp,
+                            onTextLayout = { textLayoutResult = it }
                         )
                     } else {
                         Text(
@@ -206,6 +241,22 @@ fun CodeContent(
                 adapter = rememberScrollbarAdapter(horizontalScrollState)
             )
         }
+    }
+}
+
+private fun descriptionAt(
+    position: Offset,
+    textLayoutResult: TextLayoutResult,
+    kotlinLikeIr: AnnotatedString
+): Description? {
+    val offset = textLayoutResult.getOffsetForPosition(position)
+    val annotation = kotlinLikeIr.getStringAnnotations(
+        tag = IrVisualBuilder.TAG_DESCRIPTION,
+        start = offset,
+        end = offset
+    ).firstOrNull()
+    return annotation?.item?.let {
+        Json.decodeFromString<Description>(it)
     }
 }
 

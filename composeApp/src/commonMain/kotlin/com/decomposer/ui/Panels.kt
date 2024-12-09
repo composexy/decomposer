@@ -145,7 +145,10 @@ fun Panels(
                                 modifier = Modifier.weight(0.42f),
                                 session = sessionState.session,
                                 irProcessor = irProcessor,
-                                filePath = panelsState.selectedIrFilePath
+                                filePath = panelsState.selectedIrFilePath,
+                                onShowPopup = {
+                                    panelsState.currentPopup = it
+                                }
                             )
                         }
                         if (panelsState.compositionViewerVisible) {

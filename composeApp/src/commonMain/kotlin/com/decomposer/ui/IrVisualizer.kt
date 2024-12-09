@@ -221,7 +221,6 @@ class IrVisualBuilder(
         sortedDeclarations.forEach {
             withTable(it.value) { visualizeDeclaration(it.key) }
         }
-        highlights.forEach { highlight(it.first, it.second) }
     }
 
     private fun visualizeDeclaration(declaration: Declaration) {
@@ -949,12 +948,22 @@ class IrVisualBuilder(
     private fun visualizeFunction(declaration: Function) {
         val startOffset = declaration.base.base.coordinate.startOffset
         val endOffset = declaration.base.base.coordinate.endOffset
-        withSourceLocation(SourceLocation(startOffset, endOffset)) {
-            if (declaration.overriden.isNotEmpty()) {
-                keyword(Keyword.OVERRIDE)
-                space()
+        val highlighting = highlights.firstOrNull {
+            it.first == startOffset && it.second == endOffset
+        } != null
+        val block = {
+            withSourceLocation(SourceLocation(startOffset, endOffset)) {
+                if (declaration.overriden.isNotEmpty()) {
+                    keyword(Keyword.OVERRIDE)
+                    space()
+                }
+                visualizeFunctionBase(declaration.base)
             }
-            visualizeFunctionBase(declaration.base)
+        }
+        if (highlighting) {
+            highlight { block() }
+        } else {
+            block()
         }
     }
 
@@ -1549,12 +1558,8 @@ class IrVisualBuilder(
 
     private fun symbol(text: String) = simple(text)
 
-    private fun highlight(startOffset: Int, endOffset: Int) {
-        annotatedStringBuilder.addStyle(
-            start = startOffset,
-            end = endOffset,
-            style = theme.code.highlight
-        )
+    private fun highlight(block: () -> Unit) {
+        withStyle(style = theme.code.highlight, block)
     }
 
     private fun withStyle(style: SpanStyle, block: () -> Unit) {

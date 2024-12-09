@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -44,7 +43,6 @@ import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
-import kotlinx.serialization.json.Json
 import java.nio.file.Paths
 
 @Composable
@@ -161,18 +159,15 @@ fun CodeContent(
     kotlinLike: Boolean,
     highlight: Pair<Int, Int>?
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         filePath?.let {
             DefaultPanelText(
                 text = Paths.get(it).fileName.toString(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+
+        Box(modifier = Modifier.fillMaxSize()) {
             val verticalScrollState = rememberScrollState()
             val horizontalScrollState = rememberScrollState()
 
@@ -247,22 +242,6 @@ fun CodeContent(
                 adapter = rememberScrollbarAdapter(horizontalScrollState)
             )
         }
-    }
-}
-
-private fun descriptionAt(
-    position: Offset,
-    textLayoutResult: TextLayoutResult,
-    kotlinLikeIr: AnnotatedString
-): Description? {
-    val offset = textLayoutResult.getOffsetForPosition(position)
-    val annotation = kotlinLikeIr.getStringAnnotations(
-        tag = IrVisualBuilder.TAG_DESCRIPTION,
-        start = offset,
-        end = offset
-    ).firstOrNull()
-    return annotation?.item?.let {
-        Json.decodeFromString<Description>(it)
     }
 }
 

@@ -208,8 +208,8 @@ fun CodeContent(
                             highlight?.let { highlight ->
                                 val annotation = kotlinLikeIr.getStringAnnotations(
                                     tag = IrVisualBuilder.TAG_SOURCE_LOCATION,
-                                    start = highlight.first,
-                                    end = highlight.second
+                                    start = 0,
+                                    end = kotlinLikeIr.text.length
                                 ).firstOrNull {
                                     val location = Json.decodeFromString<SourceLocation>(it.item)
                                     highlight.first == location.sourceStartOffset

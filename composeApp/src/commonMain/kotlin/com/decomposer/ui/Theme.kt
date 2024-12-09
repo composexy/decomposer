@@ -13,14 +13,8 @@ import androidx.compose.ui.text.SpanStyle
 @Immutable
 data class Theme(
     val materialColors: Colors,
-    val colors: ExtendedColors,
     val code: CodeStyle
 ) {
-    @Immutable
-    class ExtendedColors(
-        val codeGuide: Color
-    )
-
     @Immutable
     data class CodeStyle(
         val simple: SpanStyle,
@@ -28,7 +22,8 @@ data class Theme(
         val keyword: SpanStyle,
         val punctuation: SpanStyle,
         val annotation: SpanStyle,
-        val comment: SpanStyle
+        val comment: SpanStyle,
+        val highlight: SpanStyle
     )
 
     companion object {
@@ -37,16 +32,14 @@ data class Theme(
                 background = Color(0xFF2B2B2B),
                 surface = Color(0xFF3C3F41)
             ),
-            colors = ExtendedColors(
-                codeGuide = Color(0xFF4E5254)
-            ),
             code = CodeStyle(
                 simple = SpanStyle(Color(0xFFC9D7E6)),
                 value = SpanStyle(Color(0xFF6897BB)),
                 keyword = SpanStyle(Color(0xFFCC7832)),
                 punctuation = SpanStyle(Color(0xFFA1C17E)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
-                comment = SpanStyle(Color(0xFF808080))
+                comment = SpanStyle(Color(0xFF808080)),
+                highlight = SpanStyle(Color(0xFF569CD6))
             )
         )
 
@@ -55,16 +48,14 @@ data class Theme(
                 background = Color(0xFFF5F5F5),
                 surface = Color(0xFFFFFFFF)
             ),
-            colors = ExtendedColors(
-                codeGuide = Color(0xFF8E9294)
-            ),
             code = CodeStyle(
                 simple = SpanStyle(Color(0xFF000000)),
                 value = SpanStyle(Color(0xFF4A86E8)),
                 keyword = SpanStyle(Color(0xFF000080)),
                 punctuation = SpanStyle(Color(0xFFA1A1A1)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
-                comment = SpanStyle(Color(0xFF808080))
+                comment = SpanStyle(Color(0xFF808080)),
+                highlight = SpanStyle(Color(0xFF569CD6))
             )
         )
     }

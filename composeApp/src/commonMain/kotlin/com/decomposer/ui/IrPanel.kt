@@ -30,13 +30,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
@@ -56,6 +53,7 @@ fun IrPanel(
     session: Session,
     irProcessor: IrProcessor,
     filePath: String?,
+    highlight: Pair<Int, Int>?,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
     var compose by remember {
@@ -108,14 +106,14 @@ fun IrPanel(
                         }
                     )
                 }
-                CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike)
+                CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike, highlight)
             }
         }
     }
 
     val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
 
-    LaunchedEffect(filePath, compose, session.sessionId, theme) {
+    LaunchedEffect(filePath, compose, session.sessionId, highlight) {
         if (filePath != null) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             if (!virtualFileIr.isEmpty) {
@@ -125,10 +123,12 @@ fun IrPanel(
                 } else {
                     irProcessor.originalFile(filePath)
                 }
-                val irVisualBuilder = IrVisualBuilder(kotlinFile, theme = theme) {
-                    onShowPopup @Composable {
-                        IrDescription(it.description)
-                    }
+                val irVisualBuilder = IrVisualBuilder(
+                    kotlinFile = kotlinFile,
+                    theme = theme,
+                    highlights = highlight?.let { listOf(it) } ?: emptyList()
+                ) {
+                    onShowPopup @Composable { IrDescription(it.description) }
                 }
                 kotlinLikeIr = irVisualBuilder.visualize().annotatedString
                 standardIr = kotlinFile.standardIrDump
@@ -153,13 +153,13 @@ private val VirtualFileIr.isEmpty: Boolean
                 this.originalTopLevelIrClasses.isEmpty()
     }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CodeContent(
     filePath: String?,
     kotlinLikeIr: AnnotatedString,
     standardIr: String,
-    kotlinLike: Boolean
+    kotlinLike: Boolean,
+    highlight: Pair<Int, Int>?
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
@@ -191,10 +191,6 @@ fun CodeContent(
                 )
                 SelectionContainer {
                     if (kotlinLike) {
-                        var description: Description? by remember {
-                            mutableStateOf(null)
-                        }
-
                         var textLayoutResult: TextLayoutResult? by remember {
                             mutableStateOf(null)
                         }
@@ -202,13 +198,7 @@ fun CodeContent(
                         Text(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 12.dp)
-                                .onPointerEvent(PointerEventType.Move) { event ->
-                                    val position = event.changes.first().position
-                                    textLayoutResult?.let { layout ->
-                                        description = descriptionAt(position, layout, kotlinLikeIr)
-                                    }
-                                },
+                                .padding(horizontal = 12.dp),
                             text = kotlinLikeIr,
                             fontFamily = Fonts.jetbrainsMono(),
                             fontSize = 24.sp,
@@ -216,6 +206,22 @@ fun CodeContent(
                             lineHeight = 36.sp,
                             onTextLayout = { textLayoutResult = it }
                         )
+
+                        LaunchedEffect(highlight, kotlinLikeIr, textLayoutResult) {
+                            val layoutResult = textLayoutResult ?: return@LaunchedEffect
+                            highlight?.let {
+                                val annotation = kotlinLikeIr.getStringAnnotations(
+                                    tag = IrVisualBuilder.TAG_SOURCE_LOCATION,
+                                    start = highlight.first,
+                                    end = highlight.second
+                                ).firstOrNull()
+
+                                if (annotation != null) {
+                                    val top = layoutResult.getBoundingBox(annotation.start).top
+                                    verticalScrollState.animateScrollTo(top.toInt())
+                                }
+                            }
+                        }
                     } else {
                         Text(
                             modifier = Modifier

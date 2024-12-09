@@ -106,12 +106,19 @@ fun Panels(
             var navigationContext: NavigationContext? by remember {
                 mutableStateOf(null)
             }
+
             var irProcessor: IrProcessor by remember {
                 mutableStateOf(IrProcessor())
             }
+
             var projectSnapshot: ProjectSnapshot by remember {
                 mutableStateOf(ProjectSnapshot(emptySet(), emptyMap()))
             }
+
+            var highlight: Pair<Int, Int>? by remember {
+                mutableStateOf(null)
+            }
+
             val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
             Column(
@@ -132,9 +139,7 @@ fun Panels(
                             FileTreePanel(
                                 modifier = Modifier.weight(0.16f),
                                 projectSnapshot = projectSnapshot,
-                                onClickFileEntry = {
-                                    panelsState.selectedIrFilePath = it
-                                }
+                                onClickFileEntry = { panelsState.selectedIrFilePath = it }
                             )
                         }
                         if (panelsState.irViewerVisible) {
@@ -142,13 +147,14 @@ fun Panels(
                                 VerticalSplitter()
                             }
                             IrPanel(
-                                modifier = Modifier.weight(0.42f),
+                                modifier = Modifier.weight(0.42f).clickable {
+                                    highlight = null
+                                },
                                 session = sessionState.session,
                                 irProcessor = irProcessor,
                                 filePath = panelsState.selectedIrFilePath,
-                                onShowPopup = {
-                                    panelsState.currentPopup = it
-                                }
+                                hightlight = highlight,
+                                onShowPopup = { panelsState.currentPopup = it },
                             )
                         }
                         if (panelsState.compositionViewerVisible) {
@@ -159,8 +165,13 @@ fun Panels(
                                 modifier = Modifier.weight(0.42f),
                                 session = sessionState.session,
                                 navigationContext = navigationContext,
-                                onShowPopup = {
-                                    panelsState.currentPopup = it
+                                onShowPopup = { panelsState.currentPopup = it },
+                                onCodeNavigate = { filePath, startOffset, endOffset ->
+                                    panelsState.fileTreeVisible = false
+                                    panelsState.irViewerVisible = true
+                                    panelsState.currentPopup = null
+                                    highlight = Pair(startOffset, endOffset)
+                                    panelsState.selectedIrFilePath = filePath
                                 }
                             )
                         }
@@ -168,9 +179,7 @@ fun Panels(
                     panelsState.currentPopup?.let {
                         Popup(
                             alignment = Alignment.Center,
-                            onDismissRequest = {
-                                panelsState.currentPopup = null
-                            }
+                            onDismissRequest = { panelsState.currentPopup = null }
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
@@ -178,11 +187,7 @@ fun Panels(
                                 color = Color.DarkGray,
                                 elevation = 4.dp
                             ) {
-                                Box(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    it()
-                                }
+                                Box(modifier = Modifier.padding(16.dp)) { it() }
                             }
                         }
                     }

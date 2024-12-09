@@ -184,6 +184,7 @@ class IrVisualBuilder(
     private val kotlinFile: KotlinFile,
     private val indentSize: Int = 2,
     private val theme: Theme = Theme.dark,
+    private val highlights: List<Pair<Int, Int>> = emptyList(),
     private val onClickDescription: (Description) -> Unit,
 ) {
     private var used = false
@@ -220,6 +221,7 @@ class IrVisualBuilder(
         sortedDeclarations.forEach {
             withTable(it.value) { visualizeDeclaration(it.key) }
         }
+        highlights.forEach { highlight(it.first, it.second) }
     }
 
     private fun visualizeDeclaration(declaration: Declaration) {
@@ -1546,6 +1548,14 @@ class IrVisualBuilder(
     private fun function(text: String) = simple(text)
 
     private fun symbol(text: String) = simple(text)
+
+    private fun highlight(startOffset: Int, endOffset: Int) {
+        annotatedStringBuilder.addStyle(
+            start = startOffset,
+            end = endOffset,
+            style = theme.code.highlight
+        )
+    }
 
     private fun withStyle(style: SpanStyle, block: () -> Unit) {
         annotatedStringBuilder.pushStyle(style)

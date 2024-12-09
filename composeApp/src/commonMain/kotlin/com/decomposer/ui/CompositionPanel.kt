@@ -27,6 +27,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.Checkbox
 import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.LocalContentColor
+import androidx.compose.material.Text
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -44,7 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.expand_data
@@ -188,7 +191,9 @@ fun CompositionPanel(
                     ) {
                         val nodes = subtree.flattenNodes
                         items(nodes.size) {
-                            nodes[it].TreeNodeIndented(keepLevel)
+                            RowWithLineNumber(it, nodes.size) {
+                                nodes[it].TreeNodeIndented(keepLevel)
+                            }
                         }
                     }
                 }
@@ -237,6 +242,41 @@ fun CompositionPanel(
     LaunchedEffect(session) {
         loadCompositionTree()
     }
+}
+
+@Composable
+private fun RowWithLineNumber(
+    lineNumber: Int,
+    lines: Int,
+    content: @Composable () -> Unit
+) {
+    val maxNumber = remember(lines) {
+        (0 until lines.toString().length).joinToString(separator = "") { "9" }
+    }
+    Row(
+        modifier = Modifier.wrapContentHeight().fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier.padding(end = 8.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            LineNumber(maxNumber, color = Color.Transparent)
+            LineNumber(lineNumber.toString(), color = Color.Gray)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun LineNumber(text: String, color: Color) {
+    Text(
+        text = text,
+        fontFamily = Fonts.jetbrainsMono(),
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Thin,
+        lineHeight = 36.sp,
+        color = color
+    )
 }
 
 @Composable

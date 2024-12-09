@@ -9,6 +9,8 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,16 +68,30 @@ fun CompositionPanel(
 
     var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
 
-    val core: FilterableTree by remember {
-        derivedStateOf { full.subtree(CoreGroup::class.withSlots()) }
+    val content: FilterableTree by remember {
+        derivedStateOf { full.subtree(ContentGroup::class.withSlots() + UserGroup::class) }
     }
 
-    var hideWrapper: Boolean by remember {
+    val user: FilterableTree by remember {
+        derivedStateOf { full.subtree(UserGroup::class.withSlots()) }
+    }
+
+    var contentGroupsOnly: Boolean by remember {
+        mutableStateOf(false)
+    }
+
+    var userGroupsOnly: Boolean by remember {
         mutableStateOf(false)
     }
 
     val tree: FilterableTree by remember {
-        derivedStateOf { if (hideWrapper) core else full }
+        derivedStateOf {
+            when {
+                userGroupsOnly -> user
+                contentGroupsOnly -> content
+                else -> full
+            }
+        }
     }
 
     var selectedTreeKind: TreeKind by remember { mutableStateOf(TreeKind.FULL) }
@@ -122,11 +138,13 @@ fun CompositionPanel(
                 onRefresh = {
                     coroutineScope.launch { loadCompositionTree() }
                 },
-                hideWrapper = hideWrapper,
+                contentGroupsOnly = contentGroupsOnly,
+                userGroupsOnly = userGroupsOnly,
                 hideEmpty = hideEmpty,
                 hideLeaf = hideLeaf,
                 keepLevel = keepLevel,
-                onHideWrapperCheckedChanged = { hideWrapper = it },
+                onContentGroupsOnlyChanged = { contentGroupsOnly = it },
+                onUserGroupsOnlyChanged = { userGroupsOnly = it },
                 onHideEmptyCheckedChanged = { hideEmpty = it },
                 onHideLeafCheckedChanged = { hideLeaf = it },
                 onKeepLevelChanged = { keepLevel = it }
@@ -285,26 +303,34 @@ fun DataExpander(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CompositionPanelBar(
     modifier: Modifier,
     loading: Boolean,
     onRefresh: () -> Unit,
-    hideWrapper: Boolean,
+    contentGroupsOnly: Boolean,
+    userGroupsOnly: Boolean,
     hideEmpty: Boolean,
     hideLeaf: Boolean,
     keepLevel: Boolean,
-    onHideWrapperCheckedChanged: (Boolean) -> Unit,
+    onContentGroupsOnlyChanged: (Boolean) -> Unit,
+    onUserGroupsOnlyChanged: (Boolean) -> Unit,
     onHideEmptyCheckedChanged: (Boolean) -> Unit,
     onHideLeafCheckedChanged: (Boolean) -> Unit,
     onKeepLevelChanged: (Boolean) -> Unit
 ) {
-    Row(modifier = modifier) {
+    FlowRow(modifier = modifier) {
         CompositionRefresh(loading, onRefresh)
         ComposeCheckBox(
-            text = "Hide wrapper groups",
-            checked = hideWrapper,
-            onCheckedChanged = { onHideWrapperCheckedChanged(it) }
+            text = "Content group only",
+            checked = contentGroupsOnly,
+            onCheckedChanged = { onContentGroupsOnlyChanged(it) }
+        )
+        ComposeCheckBox(
+            text = "User groups only",
+            checked = userGroupsOnly,
+            onCheckedChanged = { onUserGroupsOnlyChanged(it) }
         )
         ComposeCheckBox(
             text = "Hide empty groups",
@@ -400,8 +426,12 @@ sealed interface ComposeTag
 data object RecomposeScopeGroup : ComposeTag
 data object ComposeNodeGroup : ComposeTag
 data object CompositionGroup : ComposeTag
+// Groups wrapping AbstractComposeView content.
 data object WrapperGroup : ComposeTag
-data object CoreGroup : ComposeTag
+// Groups wrapping User defined groups.
+data object ContentGroup : ComposeTag
+// User defined groups. a.k.a group defined by setContent { }.
+data object UserGroup : ComposeTag
 data object EmptyGroup : ComposeTag
 data object LeafGroup : ComposeTag
 data object SlotNode : ComposeTag

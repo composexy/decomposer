@@ -153,7 +153,7 @@ fun TreeNode.flattenChildren(): List<TreeNode> {
     if (!excluded) {
         result.add(this)
         if (expanded) {
-            val sortedChildren = this.children.sortedBy { this }
+            val sortedChildren = this.children.sortedBy { it }
             sortedChildren.forEach {
                 result.addAll(it.flattenedChildren)
             }

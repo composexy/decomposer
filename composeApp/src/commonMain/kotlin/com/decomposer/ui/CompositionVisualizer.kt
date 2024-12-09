@@ -25,7 +25,6 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.LocalTextStyle
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -587,7 +586,7 @@ private sealed class BaseComposeTreeNode : BaseTreeNode() {
         if (selfOrder != otherOrder) {
             return selfOrder - otherOrder
         }
-        return this.name.compareTo(other.name)
+        return 0
     }
 
     private fun sortOrderOf(node: BaseComposeTreeNode): Int {
@@ -749,11 +748,12 @@ private class GroupNode(
                     )
                 }
 
-                if (isWrapperGroup) {
-                    _tags.add(WrapperGroup)
-                } else {
-                    _tags.add(CoreGroup)
+                when {
+                    isWrapperGroup -> _tags.add(WrapperGroup)
+                    isContentGroup -> _tags.add(ContentGroup)
+                    isUserGroup -> _tags.add(UserGroup)
                 }
+
                 group.data.forEach {
                     when(it) {
                         is RecomposeScope -> _tags.add(RecomposeScopeGroup)
@@ -1014,7 +1014,7 @@ private class Contexts(
     val navigationContext: NavigationContext?,
     val popup: (@Composable () -> Unit) -> Unit,
     val navigate: (String, Int, Int) -> Unit,
-    val callStack: CallStack = CallStack()
+    val callStack: CallStack = CallStack(navigationContext)
 ) {
     fun <R> call(group: Group, block: CallScope.(Group) -> R): R {
         callStack.push(group)
@@ -1024,7 +1024,7 @@ private class Contexts(
     }
 }
 
-private class CallStack : CallScope {
+private class CallStack(private val navigationContext: NavigationContext?) : CallScope {
     private val stack = mutableListOf<Group>()
     private val sourceInformationStack = mutableListOf<SourceInformation?>()
 
@@ -1048,13 +1048,29 @@ private class CallStack : CallScope {
     private var _isWrapperGroup: Boolean = true
     override val isWrapperGroup: Boolean
         get() = _isWrapperGroup
+    private var _isContentGroup: Boolean = false
+    override val isContentGroup: Boolean
+        get() = _isContentGroup
+    private var _isUserGroup: Boolean = false
+    override val isUserGroup: Boolean
+        get() = _isUserGroup
+
+    private var topUserGroup: Group?  = null
 
     fun push(group: Group) {
         stack.add(group).also {
-            val wasWrapperGroup = isWrapperGroup
-            if (wasWrapperGroup) {
-                if (group.isComposeViewContent) {
+            if (isWrapperGroup) {
+                if (group.isUiContent) {
                     _isWrapperGroup = false
+                    _isContentGroup = true
+                }
+            }
+
+            if (isContentGroup) {
+                if (group.isUserGroup) {
+                    _isContentGroup = false
+                    _isUserGroup = true
+                    topUserGroup = group
                 }
             }
 
@@ -1071,9 +1087,14 @@ private class CallStack : CallScope {
 
     fun pop(): Group {
         return stack.removeLast().also {
-            val wasWrapperGroup = isWrapperGroup
-            if (!wasWrapperGroup) {
-                if (it.isComposeViewContent) {
+            if (it === topUserGroup) {
+                topUserGroup = null
+                _isUserGroup = false
+                _isContentGroup = true
+            }
+            if (!isWrapperGroup) {
+                if (it.isUiContent) {
+                    _isContentGroup = false
                     _isWrapperGroup = true
                 }
             }
@@ -1081,17 +1102,50 @@ private class CallStack : CallScope {
         }
     }
 
+    private val Group.isUserGroup: Boolean
+        get() {
+            val packageHash = this.packageHash
+            val fileName = this.sourceFile
+            return when {
+                packageHash == null || fileName == null || navigationContext == null -> false
+                else -> navigationContext.canNavigate(
+                    PackageHashWithFileName(packageHash, fileName)
+                )
+            }
+        }
+
+    private val Group.isUiContent: Boolean
+        get() {
+            return isComposeViewContent || isPopupContent || isDialogContent
+        }
+
     private val Group.isComposeViewContent: Boolean
         get() {
             val sourceKey = this.sourceKey
             val sourceFile = this.sourceFile
             return sourceKey == "Content" && sourceFile == "ComposeView.android.kt"
         }
+
+    private val Group.isPopupContent: Boolean
+        get() {
+            val sourceKey = this.sourceKey
+            val sourceFile = this.sourceFile
+            return sourceKey == "Content" && sourceFile == "AndroidPopup.android.kt"
+        }
+
+    private val Group.isDialogContent: Boolean
+        get() {
+            val sourceKey = this.sourceKey
+            val sourceFile = this.sourceFile
+            return sourceKey == "Content" && sourceFile == "AndroidDialog.android.kt"
+        }
 }
 
 private interface CallScope {
     val caller: Group?
     val isWrapperGroup: Boolean
+    val isContentGroup: Boolean
+    val isUserGroup: Boolean
     val sourceInformation: SourceInformation?
     val parentSourceInformation: SourceInformation?
 }

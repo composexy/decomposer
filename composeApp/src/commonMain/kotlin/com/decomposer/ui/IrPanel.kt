@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
+import kotlinx.serialization.json.Json
 import java.nio.file.Paths
 
 @Composable
@@ -204,12 +205,16 @@ fun CodeContent(
 
                         LaunchedEffect(highlight, kotlinLikeIr, textLayoutResult) {
                             val layoutResult = textLayoutResult ?: return@LaunchedEffect
-                            highlight?.let {
+                            highlight?.let { highlight ->
                                 val annotation = kotlinLikeIr.getStringAnnotations(
                                     tag = IrVisualBuilder.TAG_SOURCE_LOCATION,
                                     start = highlight.first,
                                     end = highlight.second
-                                ).firstOrNull()
+                                ).firstOrNull {
+                                    val location = Json.decodeFromString<SourceLocation>(it.item)
+                                    highlight.first == location.sourceStartOffset
+                                            && highlight.second == location.sourceEndOffset
+                                }
 
                                 if (annotation != null) {
                                     val top = layoutResult.getBoundingBox(annotation.start).top

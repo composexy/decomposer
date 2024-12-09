@@ -910,27 +910,37 @@ class IrVisualBuilder(
     private fun visualizeLambda(function: FunctionBase) {
         val startOffset = function.base.coordinate.startOffset
         val endOffset = function.base.coordinate.endOffset
-        withSourceLocation(SourceLocation(startOffset, endOffset)) {
-            punctuation('{')
-            if (function.valueParameters.isNotEmpty()) {
-                space()
-                function.valueParameters.forEachIndexed { index, parameter ->
-                    visualizeValueParameter(parameter)
-                    if (index != function.valueParameters.size - 1) {
-                        punctuation(',')
-                        space()
+        val highlighting = highlights.firstOrNull {
+            it.first == startOffset && it.second == endOffset
+        } != null
+        val block = {
+            withSourceLocation(SourceLocation(startOffset, endOffset)) {
+                punctuation('{')
+                if (function.valueParameters.isNotEmpty()) {
+                    space()
+                    function.valueParameters.forEachIndexed { index, parameter ->
+                        visualizeValueParameter(parameter)
+                        if (index != function.valueParameters.size - 1) {
+                            punctuation(',')
+                            space()
+                        }
+                    }
+                    space()
+                    punctuation("->")
+                }
+                newLine()
+                function.bodyIndex?.let {
+                    val body = bodies(it) as? StatementBody
+                    if (body != null) {
+                        visualizeBody(body)
                     }
                 }
-                space()
-                punctuation("->")
             }
-            newLine()
-            function.bodyIndex?.let {
-                val body = bodies(it) as? StatementBody
-                if (body != null) {
-                    visualizeBody(body)
-                }
-            }
+        }
+        if (highlighting) {
+            highlight { block() }
+        } else {
+            block()
         }
     }
 

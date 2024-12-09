@@ -40,12 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import com.decomposer.ir.Declaration
-import com.decomposer.ir.Function
-import com.decomposer.ir.FunctionExpression
 import com.decomposer.ir.IrProcessor
-import com.decomposer.ir.KotlinFile
-import com.decomposer.ir.TopLevelTable
 import com.decomposer.ir.isEmpty
 import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.server.Session

@@ -133,9 +133,7 @@ fun CompositionPanel(
     }
 
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().wrapContentHeight()
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
             CompositionPanelBar(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
                 loading = loading,

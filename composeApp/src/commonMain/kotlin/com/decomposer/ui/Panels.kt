@@ -24,6 +24,7 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,9 +63,7 @@ fun Panels(
 ) {
     when (sessionState) {
         is SessionState.Disconnected -> {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 DefaultPanelText(
                     text = """
                         Session ${sessionState.sessionId} was disconnected!
@@ -74,9 +73,7 @@ fun Panels(
             }
         }
         SessionState.Idle -> {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 DefaultPanelText(
                     text = """
                         Waiting for server to boot!
@@ -86,9 +83,7 @@ fun Panels(
             }
         }
         is SessionState.Started -> {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 DefaultPanelText(
                     text = """
                         Server boot up at port ${sessionState.port}!
@@ -116,17 +111,13 @@ fun Panels(
 
             val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
-            Column(
-                modifier = modifier
-            ) {
+            Column(modifier = modifier) {
                 ToolBar(
                     modifier = Modifier.wrapContentHeight().fillMaxWidth(),
                     panelsState = panelsState
                 )
                 HorizontalSplitter()
-                Box(
-                    modifier = modifier.fillMaxSize()
-                ) {
+                Box(modifier = modifier.fillMaxSize()) {
                     Row(
                         modifier = Modifier.fillMaxSize()
                     ) {
@@ -203,6 +194,12 @@ fun Panels(
                     )
                 }
             }
+        }
+    }
+
+    LaunchedEffect(sessionState) {
+        if (sessionState is SessionState.Disconnected) {
+            panelsState.clear()
         }
     }
 }
@@ -364,4 +361,12 @@ class PanelsState {
     var compositionViewerVisible by mutableStateOf(false)
     var selectedIrFilePath: String? by mutableStateOf(null)
     var currentPopup: (@Composable () -> Unit)? by mutableStateOf(null)
+
+    fun clear() {
+        fileTreeVisible = true
+        irViewerVisible = true
+        compositionViewerVisible = false
+        selectedIrFilePath = null
+        currentPopup = null
+    }
 }

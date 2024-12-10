@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeightIn
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -24,9 +22,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
@@ -314,7 +310,7 @@ private fun ExpandedComposableLambdaImpl(
                 textAlign = TextAlign.Start
             )
             recomposeScope?.let { scope ->
-                DataItem(data = scope, expanded = false, showIcon = false) {
+                DataItem(data = scope, expanded = false, showIcon = false, onClick = {
                     window(
                         "RecomposeScope@${scope.hashCode}" to @Composable {
                             ExpandedRecomposeScope(
@@ -324,7 +320,7 @@ private fun ExpandedComposableLambdaImpl(
                             )
                         }
                     )
-                }
+                })
             }
             val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
                 recomposeScopesByHash[it]
@@ -335,7 +331,7 @@ private fun ExpandedComposableLambdaImpl(
             )
             if (scopes.isNotEmpty()) {
                 scopes.forEach { scope ->
-                    DataItem(data = scope, expanded = false, showIcon = false) {
+                    DataItem(data = scope, expanded = false, showIcon = false, onClick = {
                         window(
                             "RecomposeScope@${scope.hashCode}" to @Composable {
                                 ExpandedRecomposeScope(
@@ -345,7 +341,7 @@ private fun ExpandedComposableLambdaImpl(
                                 )
                             }
                         )
-                    }
+                    })
                 }
             }
         }

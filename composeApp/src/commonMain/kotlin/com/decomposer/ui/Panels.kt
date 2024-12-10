@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,11 +40,13 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
+import androidx.compose.ui.window.rememberWindowState
 import com.decomposer.ir.IrProcessor
 import com.decomposer.ir.isEmpty
 import com.decomposer.runtime.connection.model.ProjectSnapshot
@@ -189,15 +192,19 @@ fun Panels(
                     panelsState.currentWindows.forEach { window ->
                         val title = window.first
                         val content = window.second
-                        Window(
-                            onCloseRequest = { panelsState.removeWindow(window) },
-                            title = title,
-                            state = WindowState(width = 1920.dp, height = 1080.dp),
-                            icon = painterResource(Res.drawable.ic_launcher)
-                        ) {
-                            DecomposerTheme {
-                                Surface(modifier = Modifier.fillMaxSize()) {
-                                    content()
+                        key(window) {
+                            Window(
+                                onCloseRequest = { panelsState.removeWindow(window) },
+                                title = title,
+                                state = rememberWindowState(
+                                    size = DpSize(1920.dp, 1080.dp)
+                                ),
+                                icon = painterResource(Res.drawable.ic_launcher)
+                            ) {
+                                DecomposerTheme {
+                                    Surface(modifier = Modifier.fillMaxSize()) {
+                                        content()
+                                    }
                                 }
                             }
                         }
@@ -397,10 +404,11 @@ class PanelsState {
     }
 
     fun addWindow(window: Pair<String, (@Composable () -> Unit)>) {
-        if (currentWindows.size >= 3) {
+        if (currentWindows.size >= 5) {
             currentWindows.removeFirst()
         }
         currentWindows.add(window)
+        println("Added window $window, size=${currentWindows.size}")
     }
 
     fun removeWindow(window: Pair<String, (@Composable () -> Unit)>) {

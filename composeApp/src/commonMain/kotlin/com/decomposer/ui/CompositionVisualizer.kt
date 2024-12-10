@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
@@ -438,25 +440,25 @@ private fun ExpandedStatesTable(
     states: List<ComposeState>,
     contexts: Contexts
 ) {
-    val verticalScrollState = rememberScrollState()
+    val verticalScrollState = rememberLazyListState()
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .verticalScroll(verticalScrollState)
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            state = verticalScrollState
         ) {
-            states.forEach {
+            items(states.size) {
                 var expanded: Boolean by remember {
                     mutableStateOf(false)
                 }
-                StateItem(
-                    modifier = Modifier.padding(4.dp),
-                    state = it,
-                    expanded = expanded,
-                    contexts = contexts,
-                    onClick = { expanded = !expanded }
-                )
+                RowWithLineNumber(it, states.size) {
+                    StateItem(
+                        modifier = Modifier.padding(4.dp),
+                        state = states[it],
+                        expanded = expanded,
+                        contexts = contexts,
+                        onClick = { expanded = !expanded }
+                    )
+                }
             }
         }
 

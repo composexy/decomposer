@@ -246,7 +246,7 @@ fun CompositionPanel(
 }
 
 @Composable
-private fun RowWithLineNumber(
+fun RowWithLineNumber(
     lineNumber: Int,
     lines: Int,
     content: @Composable () -> Unit

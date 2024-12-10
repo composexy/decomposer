@@ -329,7 +329,7 @@ internal abstract class CompositionExtractor(
 
     companion object {
         private val EMPTY_ROOT = CompositionRoot(null, emptyList())
-        private const val COMPOSITION_CONTEXT_HOLDER = "androidx.compose.runtime.CompositionContextHolder"
+        private const val COMPOSITION_CONTEXT_HOLDER = "androidx.compose.runtime.ComposerImpl.CompositionContextHolder"
         private const val REMEMBER_OBSERVER_HOLDER = "androidx.compose.runtime.RememberObserverHolder"
         private const val COMPOSABLE_LAMBDA_IMPL = "androidx.compose.runtime.internal.ComposableLambdaImpl"
         private const val SUBCOMPOSE_LAYOUT_STATE = "androidx.compose.ui.layout.SubcomposeLayoutState"

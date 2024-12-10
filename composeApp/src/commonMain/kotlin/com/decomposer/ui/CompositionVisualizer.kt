@@ -127,7 +127,8 @@ private fun DataItem(
     modifier: Modifier = Modifier,
     data: Data,
     expanded: Boolean,
-    onClick: () -> Unit,
+    clickable: Boolean = true,
+    onClick: () -> Unit = {},
     showIcon: Boolean = true,
     expandedContent: @Composable () -> Unit = {}
 ) {
@@ -143,9 +144,15 @@ private fun DataItem(
                     modifier = Modifier
                         .align(Alignment.CenterVertically)
                         .clipToBounds()
-                        .hoverable(interactionSource)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .clickable { onClick() }
+                        .run {
+                            if (clickable) {
+                                this.hoverable(interactionSource)
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .clickable { onClick() }
+                            } else {
+                                this
+                            }
+                        }
                         .requiredWidthIn(80.dp, 5000.dp),
                     softWrap = true,
                     maxLines = 1,
@@ -327,7 +334,7 @@ private fun ExpandedCompositionContextHolder(
 ) {
     with(contexts) {
         Column(modifier = modifier) {
-            DefaultPanelText(text = "Reference:")
+            DefaultPanelText(text = "Reference:", textAlign = TextAlign.Start)
             ExpandedContext(
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
                 contexts = contexts,
@@ -345,7 +352,8 @@ private fun ExpandedContext(
 ) {
     DefaultPanelText(
         modifier = modifier,
-        text = "CompoundHashKey: ${context.compoundHashKey}"
+        text = "CompoundHashKey: ${context.compoundHashKey}",
+        textAlign = TextAlign.Start
     )
 }
 
@@ -555,8 +563,15 @@ private fun ExpandedDataDefault(
 ) {
     with(contexts) {
         Column(modifier) {
-            DefaultPanelText("${data.typeName ?: ""}@${data.hashCode}")
-            DefaultPanelText("toString: ${data.toString}")
+            DefaultPanelText(
+                text = "${data.typeName ?: "<anonymous>"}@${data.hashCode}",
+                textAlign = TextAlign.Start
+            )
+            DefaultPanelText(
+                text = "toString: ${data.toString}",
+                maxLines = Int.MAX_VALUE,
+                textAlign = TextAlign.Start
+            )
         }
     }
 }
@@ -573,8 +588,12 @@ private fun GroupAttributes(
     }
     with(contexts) {
         Column(modifier) {
-            DefaultPanelText("Key: $keyInfo")
-            DefaultPanelText("Source info: ${group.attributes.sourceInformation}")
+            DefaultPanelText(text = "Key: $keyInfo", textAlign = TextAlign.Start)
+            DefaultPanelText(
+                text = "Source info: ${group.attributes.sourceInformation}",
+                maxLines = Int.MAX_VALUE,
+                textAlign = TextAlign.Start
+            )
         }
     }
 }
@@ -587,12 +606,12 @@ private fun ExpandedRememberObserverHolder(
 ) {
     with(contexts) {
         Column(modifier = modifier) {
-            DefaultPanelText(text = "Wrapped:")
+            DefaultPanelText(text = "RememberObserverHolder:", textAlign = TextAlign.Start)
             DataItem(
-                modifier = Modifier.padding(4.dp),
                 data = rememberObserverHolder.wrapped,
                 expanded = false,
-                onClick = { }
+                showIcon = false,
+                clickable = false
             )
         }
     }
@@ -954,22 +973,16 @@ private class DataNode(
         DataItem(
             data = data,
             expanded = false,
-            onClick = { popupData(data) }
+            onClick = { showDetail(data) }
         )
     }
 
-    private fun popupData(data: Data) = with(contexts) {
-        popup @Composable {
+    private fun showDetail(data: Data) = with(contexts) {
+        val composable = @Composable {
             val verticalScrollState = rememberScrollState()
 
-            Box(
-                modifier = Modifier
-                    .requiredWidth(800.dp)
-                    .requiredHeightIn(400.dp, 1000.dp)
-            ) {
-                Box(
-                    modifier = Modifier.wrapContentHeight().verticalScroll(verticalScrollState)
-                ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().verticalScroll(verticalScrollState)) {
                     when (data) {
                         is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
                             modifier = Modifier.fillMaxWidth().wrapContentHeight(),
@@ -1021,6 +1034,14 @@ private class DataNode(
                     adapter = rememberScrollbarAdapter(verticalScrollState)
                 )
             }
+        }
+
+        when (data) {
+            is LayoutNode -> window("LayoutNode" to composable)
+            is RecomposeScope -> window("RecomposeScope" to composable)
+            is ComposeState -> window("State" to composable)
+            is ComposableLambdaImpl -> window("ComposableLambda" to composable)
+            else -> popup(composable)
         }
     }
 }

@@ -176,6 +176,7 @@ fun Panels(
                             onDismissRequest = { panelsState.currentPopup = null }
                         ) {
                             Surface(
+                                modifier = Modifier.size(width = 1280.dp, height = 720.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colors.onSurface),
                                 color = Color.DarkGray,
@@ -257,6 +258,7 @@ fun rememberPanelsState(): PanelsState {
 @Composable
 fun DefaultPanelText(
     text: String,
+    maxLines: Int = 1,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.Center
 ) {
@@ -269,7 +271,7 @@ fun DefaultPanelText(
         fontWeight = FontWeight.Light,
         lineHeight = 36.sp,
         overflow = TextOverflow.Ellipsis,
-        maxLines = 1
+        maxLines = maxLines
     )
 }
 

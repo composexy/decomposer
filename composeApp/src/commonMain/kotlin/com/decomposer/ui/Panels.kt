@@ -257,12 +257,13 @@ fun rememberPanelsState(): PanelsState {
 @Composable
 fun DefaultPanelText(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Center
 ) {
     Text(
         modifier = modifier,
         text = text,
-        textAlign = TextAlign.Center,
+        textAlign = textAlign,
         fontFamily = Fonts.jetbrainsMono(),
         fontSize = 24.sp,
         fontWeight = FontWeight.Light,

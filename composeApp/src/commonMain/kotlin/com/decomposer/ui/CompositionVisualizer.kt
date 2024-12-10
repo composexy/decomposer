@@ -2,6 +2,7 @@ package com.decomposer.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -36,10 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -121,15 +124,16 @@ private fun DataItem(
     data: Data,
     expanded: Boolean,
     onClick: () -> Unit,
+    showIcon: Boolean = true,
     expandedContent: @Composable () -> Unit = {}
 ) {
-    Box(
-        modifier = modifier
-    ) {
+    Box(modifier = modifier) {
         Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
                 val interactionSource = remember { MutableInteractionSource() }
-                DataIcon(Modifier.align(Alignment.CenterVertically), data)
+                if (showIcon) {
+                    DataIcon(Modifier.align(Alignment.CenterVertically), data)
+                }
                 Text(
                     text = data.toString,
                     modifier = Modifier
@@ -215,28 +219,38 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
 private fun StateDetail(modifier: Modifier, contexts: Contexts, state: ComposeState) {
     with(contexts) {
         Column(modifier = modifier) {
-            DefaultPanelText(text = "Value:")
-            DataItem(
-                modifier = Modifier.padding(vertical = 4.dp),
-                data = state.value,
-                expanded = false,
-                onClick = {}
+            DefaultPanelText(
+                modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
+                text = "Value: ${state.value.toString}",
+                textAlign = TextAlign.Start
             )
-            HorizontalSplitter()
             val readers = mutableListOf<String>()
             if (state.readInComposition == true) readers.add("Composition")
             if (state.readInSnapshotStateObserver == true) readers.add("SnapshotStateObserver")
             if (state.readInSnapshotFlow == true) readers.add("SnapshotFlow")
-            DefaultPanelText(text = "Readers: ${readers.joinToString(", ")}")
-            HorizontalSplitter()
-            DefaultPanelText("Dependencies:")
+            DefaultPanelText(
+                modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
+                text = "Readers: ${readers.joinToString(", ")}",
+                textAlign = TextAlign.Start
+            )
+            val hasDependencies = state.dependencyHashes.isNotEmpty()
+            if (hasDependencies) {
+                HorizontalSplitter()
+            }
+            DefaultPanelText(
+                modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
+                text = "Dependencies: ${if (!hasDependencies) "None" else ""}",
+                textAlign = TextAlign.Start
+            )
             state.dependencyHashes.forEach {
                 statesByHash[it]?.let { dependency ->
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = dependency,
+                    StateItem(
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        state = dependency,
                         expanded = false,
-                        onClick = {}
+                        clickable = false,
+                        onClick = {},
+                        contexts = contexts
                     )
                 }
             }
@@ -458,19 +472,26 @@ private fun StateItem(
     modifier: Modifier = Modifier,
     state: ComposeState,
     expanded: Boolean,
-    onClick: () -> Unit,
     contexts: Contexts,
+    clickable: Boolean = true,
+    onClick: () -> Unit = {},
 ) {
     Box(modifier = modifier) {
-        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(8.dp)) {
+        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             val interactionSource = remember { MutableInteractionSource() }
             Text(
                 text = state.toString,
                 modifier = Modifier
                     .clipToBounds()
-                    .hoverable(interactionSource)
-                    .pointerHoverIcon(PointerIcon.Hand)
-                    .clickable { onClick() }
+                    .run {
+                        if (clickable) {
+                            this.hoverable(interactionSource)
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable { onClick() }
+                        } else {
+                            this
+                        }
+                    }
                     .basicMarquee(velocity = 160.dp),
                 softWrap = true,
                 maxLines = 1,
@@ -482,7 +503,10 @@ private fun StateItem(
             )
             if (expanded) {
                 StateDetail(
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(start = 48.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .wrapContentHeight()
+                        .background(Color(0x08FFFFFF))
+                        .padding(horizontal = 48.dp),
                     contexts = contexts,
                     state = state
                 )

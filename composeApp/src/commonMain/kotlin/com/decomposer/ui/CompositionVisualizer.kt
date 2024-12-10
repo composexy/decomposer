@@ -1,5 +1,6 @@
 package com.decomposer.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -32,10 +33,10 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -78,12 +79,13 @@ import org.jetbrains.compose.resources.painterResource
 
 @Composable
 private fun GroupItem(
+    modifier: Modifier = Modifier,
     node: BaseTreeNode,
     clickable: Boolean = false,
     onClick: () -> Unit = { }
 ) {
     Row(
-        modifier = Modifier.wrapContentHeight().fillMaxWidth()
+        modifier = modifier.wrapContentHeight().fillMaxWidth()
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         GroupIcon(Modifier.align(Alignment.CenterVertically), node)
@@ -218,7 +220,12 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
 }
 
 @Composable
-private fun StateDetail(modifier: Modifier, contexts: Contexts, state: ComposeState) {
+private fun StateDetail(
+    modifier: Modifier,
+    contexts: Contexts,
+    state: ComposeState,
+    onClickDependency: (ComposeState) -> Unit = {}
+) {
     with(contexts) {
         Column(modifier = modifier) {
             DefaultPanelText(
@@ -250,10 +257,11 @@ private fun StateDetail(modifier: Modifier, contexts: Contexts, state: ComposeSt
                         modifier = Modifier.padding(vertical = 2.dp),
                         state = dependency,
                         expanded = false,
-                        clickable = false,
-                        onClick = {},
+                        clickable = true,
                         contexts = contexts
-                    )
+                    ) {
+                        onClickDependency(dependency)
+                    }
                 }
             }
         }
@@ -441,23 +449,35 @@ private fun ExpandedStatesTable(
     contexts: Contexts
 ) {
     val verticalScrollState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val expandedMap: SnapshotStateMap<Int, Boolean> = remember {
+        mutableStateMapOf()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             state = verticalScrollState
         ) {
             items(states.size) {
-                var expanded: Boolean by remember {
-                    mutableStateOf(false)
-                }
-                RowWithLineNumber(it, states.size) {
+                RowWithLineNumber(lineNumber = it, lines = states.size) {
                     StateItem(
                         modifier = Modifier.padding(4.dp),
                         state = states[it],
-                        expanded = expanded,
+                        expanded = expandedMap[it] ?: false,
                         contexts = contexts,
-                        onClick = { expanded = !expanded }
-                    )
+                        onClickDependency = { dependency ->
+                            val index = states.indexOf(dependency)
+                            if (index != -1) {
+                                coroutineScope.launch {
+                                    verticalScrollState.animateScrollToItem(index)
+                                    expandedMap[index] = true
+                                }
+                            }
+                        }
+                    ) {
+                        expandedMap[it] = !(expandedMap[it] ?: false)
+                    }
                 }
             }
         }
@@ -476,10 +496,11 @@ private fun StateItem(
     expanded: Boolean,
     contexts: Contexts,
     clickable: Boolean = true,
+    onClickDependency: (ComposeState) -> Unit = {},
     onClick: () -> Unit = {},
 ) {
     Box(modifier = modifier) {
-        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
+        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth().animateContentSize()) {
             val interactionSource = remember { MutableInteractionSource() }
             Text(
                 text = state.toString,
@@ -510,7 +531,8 @@ private fun StateItem(
                         .background(Color(0x08FFFFFF))
                         .padding(horizontal = 48.dp),
                     contexts = contexts,
-                    state = state
+                    state = state,
+                    onClickDependency = onClickDependency
                 )
             }
         }
@@ -598,7 +620,6 @@ private fun ShowDataIcon(
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-
     Box(
         modifier = modifier
             .wrapContentSize()
@@ -703,7 +724,7 @@ private class RootsNode(
 
     @Composable
     override fun TreeNode() = with(contexts) {
-        GroupItem(this@RootsNode, clickable = true) {
+        GroupItem(node = this@RootsNode, clickable = true) {
             window("App States" to @Composable { ExpandedRoots(compositionRoots, contexts) })
         }
     }
@@ -931,7 +952,6 @@ private class DataNode(
     @Composable
     override fun TreeNode() {
         DataItem(
-            modifier = Modifier.padding(vertical = 4.dp),
             data = data,
             expanded = false,
             onClick = { popupData(data) }

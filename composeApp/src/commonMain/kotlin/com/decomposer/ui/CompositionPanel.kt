@@ -191,9 +191,11 @@ fun CompositionPanel(
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                     ) {
                         val nodes = subtree.flattenNodes
-                        items(nodes.size) {
-                            RowWithLineNumber(it, nodes.size) {
-                                nodes[it].TreeNodeIndented(keepLevel)
+                        items(nodes.size, key = { nodes[it].hashCode() } ) {
+                            Box(modifier = Modifier.animateItem()) {
+                                RowWithLineNumber(it, nodes.size) {
+                                    nodes[it].TreeNodeIndented(keepLevel)
+                                }
                             }
                         }
                     }
@@ -255,7 +257,8 @@ fun RowWithLineNumber(
         (0 until lines.toString().length).joinToString(separator = "") { "9" }
     }
     Row(
-        modifier = Modifier.wrapContentHeight().fillMaxWidth()
+        modifier = Modifier.wrapContentHeight().fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier.padding(end = 8.dp),

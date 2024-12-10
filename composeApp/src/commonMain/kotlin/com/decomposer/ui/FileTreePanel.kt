@@ -87,7 +87,9 @@ fun FileTreePanel(
                     ) {
                         val nodes = fileTree.flattenNodes
                         items(nodes.size) {
-                            nodes[it].TreeNodeIndented()
+                            Box(modifier = Modifier.animateItem()) {
+                                nodes[it].TreeNodeIndented()
+                            }
                         }
                     }
                 }

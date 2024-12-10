@@ -2,15 +2,15 @@ package com.decomposer.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowColumn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
@@ -126,12 +126,8 @@ private fun DataItem(
     Box(
         modifier = modifier
     ) {
-        Row(
-            modifier = Modifier.wrapContentHeight().fillMaxWidth()
-        ) {
-            if (expanded) {
-                expandedContent()
-            } else {
+        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
+            Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
                 val interactionSource = remember { MutableInteractionSource() }
                 DataIcon(Modifier.align(Alignment.CenterVertically), data)
                 Text(
@@ -151,6 +147,9 @@ private fun DataItem(
                     fontWeight = FontWeight.Thin,
                     lineHeight = 36.sp
                 )
+            }
+            if (expanded) {
+                expandedContent()
             }
         }
     }
@@ -213,7 +212,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
 }
 
 @Composable
-private fun ExpandedState(modifier: Modifier, contexts: Contexts, state: ComposeState) {
+private fun StateDetail(modifier: Modifier, contexts: Contexts, state: ComposeState) {
     with(contexts) {
         Column(modifier = modifier) {
             DefaultPanelText(text = "Value:")
@@ -398,7 +397,6 @@ private fun ExpandedLayoutNode(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExpandedRecomposeScope(
     modifier: Modifier,
@@ -413,32 +411,92 @@ private fun ExpandedRecomposeScope(
                 text = "Observing states:",
                 modifier = Modifier.fillMaxWidth().wrapContentHeight()
             )
-            FlowColumn(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val states = recomposeScope.composeStateHashes.mapNotNull {
-                    statesByHash[it]
+            val states = recomposeScope.composeStateHashes.mapNotNull {
+                statesByHash[it]
+            }
+            ExpandedStatesTable(states, contexts)
+        }
+    }
+}
+
+@Composable
+private fun ExpandedStatesTable(
+    states: List<ComposeState>,
+    contexts: Contexts
+) {
+    val verticalScrollState = rememberScrollState()
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .verticalScroll(verticalScrollState)
+        ) {
+            states.forEach {
+                var expanded: Boolean by remember {
+                    mutableStateOf(false)
                 }
-                states.forEach {
-                    var expanded: Boolean by remember {
-                        mutableStateOf(false)
-                    }
-                    DataItem(
-                        modifier = Modifier.padding(4.dp),
-                        data = it,
-                        expanded = expanded,
-                        onClick = { expanded = !expanded }
-                    ) {
-                        ExpandedState(
-                            modifier = Modifier.fillMaxColumnWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            state = it
-                        )
-                    }
-                }
+                StateItem(
+                    modifier = Modifier.padding(4.dp),
+                    state = it,
+                    expanded = expanded,
+                    contexts = contexts,
+                    onClick = { expanded = !expanded }
+                )
+            }
+        }
+
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+            adapter = rememberScrollbarAdapter(verticalScrollState)
+        )
+    }
+}
+
+@Composable
+private fun StateItem(
+    modifier: Modifier = Modifier,
+    state: ComposeState,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    contexts: Contexts,
+) {
+    Box(modifier = modifier) {
+        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(8.dp)) {
+            val interactionSource = remember { MutableInteractionSource() }
+            Text(
+                text = state.toString,
+                modifier = Modifier
+                    .clipToBounds()
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onClick() }
+                    .basicMarquee(velocity = 160.dp),
+                softWrap = true,
+                maxLines = 1,
+                fontFamily = Fonts.jetbrainsMono(),
+                fontSize = 24.sp,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.Thin,
+                lineHeight = 36.sp
+            )
+            if (expanded) {
+                StateDetail(
+                    modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(start = 48.dp),
+                    contexts = contexts,
+                    state = state
+                )
             }
         }
     }
+}
+
+@Composable
+private fun ExpandedRoots(
+    rootsNode: CompositionRoots,
+    contexts: Contexts
+) {
+    ExpandedStatesTable(rootsNode.stateTable.toList(), contexts)
 }
 
 @Composable
@@ -564,11 +622,13 @@ private fun GroupAttributesIcon(
 fun CompositionRoots.buildCompositionTree(
     navigationContext: NavigationContext?,
     showContextPopup: (@Composable () -> Unit) -> Unit,
+    showContextWindow: (Pair<String, @Composable () -> Unit>) -> Unit,
     sourceNavigation: (String, Int, Int) -> Unit
 ): FilterableTree {
     val contexts = this.buildContexts(
         navigationContext = navigationContext,
         popup = showContextPopup,
+        window = showContextWindow,
         navigate = sourceNavigation
     )
     return FilterableTree(
@@ -615,56 +675,10 @@ private class RootsNode(
     }
     override val tags: Set<Any> = emptySet()
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     override fun TreeNode() = with(contexts) {
         GroupItem(this@RootsNode, clickable = true) {
-            popup @Composable {
-                val verticalScrollState = rememberScrollState()
-                Box(
-                    modifier = Modifier
-                        .requiredWidth(800.dp)
-                        .requiredHeightIn(400.dp, 1000.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight()
-                            .verticalScroll(verticalScrollState)
-                    ) {
-                        DefaultPanelText(
-                            text = "States:",
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight()
-                        )
-                        FlowColumn(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            statesByHash.values.forEach {
-                                var expanded: Boolean by remember {
-                                    mutableStateOf(false)
-                                }
-                                DataItem(
-                                    modifier = Modifier.padding(4.dp),
-                                    data = it,
-                                    expanded = expanded,
-                                    onClick = { expanded = !expanded }
-                                ) {
-                                    ExpandedState(
-                                        modifier = Modifier.fillMaxColumnWidth().wrapContentHeight(),
-                                        contexts = contexts,
-                                        state = it
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    VerticalScrollbar(
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                        adapter = rememberScrollbarAdapter(verticalScrollState)
-                    )
-                }
-            }
+            window("App States" to @Composable { ExpandedRoots(compositionRoots, contexts) })
         }
     }
 }
@@ -916,7 +930,7 @@ private class DataNode(
                             contexts = contexts,
                             composableLambdaImpl = data
                         )
-                        is ComposeState -> ExpandedState(
+                        is ComposeState -> StateDetail(
                             modifier = Modifier.fillMaxWidth().wrapContentHeight(),
                             contexts = contexts,
                             state = data
@@ -968,6 +982,7 @@ private class DataNode(
 private fun CompositionRoots.buildContexts(
     navigationContext: NavigationContext?,
     popup: (@Composable () -> Unit) -> Unit,
+    window: (Pair<String, @Composable () -> Unit>) -> Unit,
     navigate: (String, Int, Int) -> Unit
 ): Contexts {
     val statesByHash = this.stateTable.associateBy { it.hashCode }
@@ -1002,6 +1017,7 @@ private fun CompositionRoots.buildContexts(
         recomposeScopesByHash = recomposeScopesByHash,
         navigationContext = navigationContext,
         popup = popup,
+        window = window,
         navigate = navigate
     )
 }
@@ -1013,6 +1029,7 @@ private class Contexts(
     val recomposeScopesByHash: Map<Int, RecomposeScope>,
     val navigationContext: NavigationContext?,
     val popup: (@Composable () -> Unit) -> Unit,
+    val window: (Pair<String, @Composable () -> Unit>) -> Unit,
     val navigate: (String, Int, Int) -> Unit,
     val callStack: CallStack = CallStack(navigationContext)
 ) {

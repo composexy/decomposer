@@ -64,6 +64,7 @@ fun CompositionPanel(
     session: Session,
     navigationContext: NavigationContext?,
     onShowPopup: (@Composable () -> Unit) -> Unit,
+    onShowWindow: (Pair<String, @Composable () -> Unit>) -> Unit,
     onCodeNavigate: (String, Int, Int) -> Unit
 ) {
     var loading: Boolean by remember {
@@ -124,6 +125,7 @@ fun CompositionPanel(
             full = compositionRoots.buildCompositionTree(
                 navigationContext = navigationContext,
                 showContextPopup = { onShowPopup(it) },
+                showContextWindow = { onShowWindow(it) },
                 sourceNavigation = { filePath, startOffset, endOffset ->
                     onCodeNavigate(filePath, startOffset, endOffset)
                 }

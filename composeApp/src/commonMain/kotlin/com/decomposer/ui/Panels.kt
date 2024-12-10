@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowState
 import com.decomposer.ir.IrProcessor
 import com.decomposer.ir.isEmpty
 import com.decomposer.runtime.connection.model.ProjectSnapshot
@@ -49,6 +51,7 @@ import com.decomposer.server.SessionState
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.expand_all
 import decomposer.composeapp.generated.resources.fold_all
+import decomposer.composeapp.generated.resources.ic_launcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -155,10 +158,12 @@ fun Panels(
                                 session = sessionState.session,
                                 navigationContext = navigationContext,
                                 onShowPopup = { panelsState.currentPopup = it },
+                                onShowWindow = { panelsState.currentWindow = it },
                                 onCodeNavigate = { filePath, startOffset, endOffset ->
                                     panelsState.fileTreeVisible = false
                                     panelsState.irViewerVisible = true
                                     panelsState.currentPopup = null
+                                    panelsState.currentWindow = null
                                     highlight = Pair(startOffset, endOffset)
                                     panelsState.selectedIrFilePath = filePath
                                 }
@@ -177,6 +182,22 @@ fun Panels(
                                 elevation = 4.dp
                             ) {
                                 Box(modifier = Modifier.padding(16.dp)) { it() }
+                            }
+                        }
+                    }
+                    panelsState.currentWindow?.let {
+                        val title = it.first
+                        val content = it.second
+                        Window(
+                            onCloseRequest = { panelsState.currentWindow = null },
+                            title = title,
+                            state = WindowState(width = 1920.dp, height = 1080.dp),
+                            icon = painterResource(Res.drawable.ic_launcher)
+                        ) {
+                            DecomposerTheme {
+                                Surface(modifier = Modifier.fillMaxSize()) {
+                                    content()
+                                }
                             }
                         }
                     }
@@ -361,6 +382,7 @@ class PanelsState {
     var compositionViewerVisible by mutableStateOf(false)
     var selectedIrFilePath: String? by mutableStateOf(null)
     var currentPopup: (@Composable () -> Unit)? by mutableStateOf(null)
+    var currentWindow: Pair<String, (@Composable () -> Unit)>? by mutableStateOf(null)
 
     fun clear() {
         fileTreeVisible = true
@@ -368,5 +390,6 @@ class PanelsState {
         compositionViewerVisible = false
         selectedIrFilePath = null
         currentPopup = null
+        currentWindow = null
     }
 }

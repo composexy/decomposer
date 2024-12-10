@@ -76,6 +76,7 @@ import decomposer.composeapp.generated.resources.group_attributes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.kotlin.org.jline.reader.impl.DefaultExpander
 
 @Composable
 private fun GroupItem(
@@ -238,7 +239,8 @@ private fun StateDetail(
             DefaultPanelText(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
                 text = "Value: ${state.value.toString}",
-                textAlign = TextAlign.Start
+                textAlign = TextAlign.Start,
+                maxLines = Int.MAX_VALUE
             )
             val readers = mutableListOf<String>()
             if (state.readInComposition == true) readers.add("Composition")
@@ -283,43 +285,67 @@ private fun ExpandedComposableLambdaImpl(
 ) {
     with(contexts) {
         Column(modifier = modifier) {
-            DefaultPanelText(text = "Key: ${composableLambdaImpl.key}")
+            DefaultPanelText(
+                text = "Key: ${composableLambdaImpl.key}",
+                textAlign = TextAlign.Start
+            )
+            HorizontalSplitter()
             composableLambdaImpl.block?.let {
-                HorizontalSplitter()
-                DataItem(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    data = it,
-                    expanded = false,
-                    onClick = {}
+                DefaultPanelText(
+                    text = "Block:",
+                    textAlign = TextAlign.Start
+                )
+                ExpandedDataDefault(
+                    modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                    contexts = contexts,
+                    data = it
                 )
             }
             HorizontalSplitter()
-            DefaultPanelText(text = "Tracked: ${composableLambdaImpl.tracked}")
-            composableLambdaImpl.scopeHash?.let {
-                recomposeScopesByHash[it]?.let { scope ->
-                    HorizontalSplitter()
-                    DefaultPanelText(text = "Scope:")
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = scope,
-                        expanded = false,
-                        onClick = {}
+            DefaultPanelText(
+                text = "Tracked: ${composableLambdaImpl.tracked}",
+                textAlign = TextAlign.Start
+            )
+            val recomposeScope = composableLambdaImpl.scopeHash?.let {
+                recomposeScopesByHash[it]
+            }
+            DefaultPanelText(
+                text = "RecomposeScope: ${ if(recomposeScope == null) "Empty" else "" }",
+                textAlign = TextAlign.Start
+            )
+            recomposeScope?.let { scope ->
+                DataItem(data = scope, expanded = false, showIcon = false) {
+                    window(
+                        "RecomposeScope@${scope.hashCode}" to @Composable {
+                            ExpandedRecomposeScope(
+                                modifier = Modifier.fillMaxSize(),
+                                contexts = contexts,
+                                recomposeScope = scope
+                            )
+                        }
                     )
                 }
             }
             val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
                 recomposeScopesByHash[it]
             }
+            DefaultPanelText(
+                text = "RecomposeScopes: ${ if(scopes.isEmpty()) "Empty" else "" }",
+                textAlign = TextAlign.Start
+            )
             if (scopes.isNotEmpty()) {
-                HorizontalSplitter()
-                DefaultPanelText(text = "Scopes:")
-                scopes.forEach {
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = it,
-                        expanded = false,
-                        onClick = {}
-                    )
+                scopes.forEach { scope ->
+                    DataItem(data = scope, expanded = false, showIcon = false) {
+                        window(
+                            "RecomposeScope@${scope.hashCode}" to @Composable {
+                                ExpandedRecomposeScope(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contexts = contexts,
+                                    recomposeScope = scope
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -440,8 +466,9 @@ private fun ExpandedRecomposeScope(
             modifier = modifier
         ) {
             DefaultPanelText(
-                text = "Observing states:",
-                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                text = "States in scope:",
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                textAlign = TextAlign.Start
             )
             val states = recomposeScope.composeStateHashes.mapNotNull {
                 statesByHash[it]
@@ -979,60 +1006,51 @@ private class DataNode(
 
     private fun showDetail(data: Data) = with(contexts) {
         val composable = @Composable {
-            val verticalScrollState = rememberScrollState()
-
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxSize().verticalScroll(verticalScrollState)) {
-                    when (data) {
-                        is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
+                when (data) {
+                    is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        composableLambdaImpl = data
+                    )
+                    is ComposeState -> StateDetail(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        state = data
+                    )
+                    is CompositionContextHolder -> ExpandedCompositionContextHolder(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        compositionContextHolder = data
+                    )
+                    is Context -> ExpandedContext(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        context = data
+                    )
+                    is LayoutNode -> ExpandedLayoutNode(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        layoutNode = data
+                    )
+                    is RecomposeScope -> ExpandedRecomposeScope(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        recomposeScope = data
+                    )
+                    is RememberObserverHolder -> ExpandedRememberObserverHolder(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        rememberObserverHolder = data
+                    )
+                    else -> {
+                        ExpandedDataDefault(
                             modifier = Modifier.fillMaxWidth().wrapContentHeight(),
                             contexts = contexts,
-                            composableLambdaImpl = data
+                            data = data
                         )
-                        is ComposeState -> StateDetail(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            state = data
-                        )
-                        is CompositionContextHolder -> ExpandedCompositionContextHolder(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            compositionContextHolder = data
-                        )
-                        is Context -> ExpandedContext(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            context = data
-                        )
-                        is LayoutNode -> ExpandedLayoutNode(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            layoutNode = data
-                        )
-                        is RecomposeScope -> ExpandedRecomposeScope(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            recomposeScope = data
-                        )
-                        is RememberObserverHolder -> ExpandedRememberObserverHolder(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                            contexts = contexts,
-                            rememberObserverHolder = data
-                        )
-                        else -> {
-                            ExpandedDataDefault(
-                                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                                contexts = contexts,
-                                data = data
-                            )
-                        }
                     }
                 }
-
-                VerticalScrollbar(
-                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                    adapter = rememberScrollbarAdapter(verticalScrollState)
-                )
             }
         }
 

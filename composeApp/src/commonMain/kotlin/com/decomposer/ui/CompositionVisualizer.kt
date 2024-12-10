@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
@@ -52,6 +54,7 @@ import com.decomposer.runtime.connection.model.CompositionContextHolder
 import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.Context
+import com.decomposer.runtime.connection.model.Coordinator
 import com.decomposer.runtime.connection.model.Data
 import com.decomposer.runtime.connection.model.Group
 import com.decomposer.runtime.connection.model.IntKey
@@ -72,7 +75,6 @@ import decomposer.composeapp.generated.resources.group_attributes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.kotlin.org.jline.reader.impl.DefaultExpander
 
 @Composable
 private fun GroupItem(
@@ -280,57 +282,39 @@ private fun ExpandedComposableLambdaImpl(
     composableLambdaImpl: ComposableLambdaImpl
 ) {
     with(contexts) {
-        Column(modifier = modifier) {
-            DefaultPanelText(
-                text = "Key: ${composableLambdaImpl.key}",
-                textAlign = TextAlign.Start
-            )
-            HorizontalSplitter()
-            composableLambdaImpl.block?.let {
+        val verticalScrollState = rememberScrollState()
+
+        Box(modifier = modifier.fillMaxSize()) {
+            Column(modifier = Modifier.verticalScroll(verticalScrollState)) {
                 DefaultPanelText(
-                    text = "Block:",
+                    text = "Key: ${composableLambdaImpl.key}",
                     textAlign = TextAlign.Start
                 )
-                ExpandedDataDefault(
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                    contexts = contexts,
-                    data = it
-                )
-            }
-            HorizontalSplitter()
-            DefaultPanelText(
-                text = "Tracked: ${composableLambdaImpl.tracked}",
-                textAlign = TextAlign.Start
-            )
-            val recomposeScope = composableLambdaImpl.scopeHash?.let {
-                recomposeScopesByHash[it]
-            }
-            DefaultPanelText(
-                text = "RecomposeScope: ${ if(recomposeScope == null) "Empty" else "" }",
-                textAlign = TextAlign.Start
-            )
-            recomposeScope?.let { scope ->
-                DataItem(data = scope, expanded = false, showIcon = false, onClick = {
-                    window(
-                        "RecomposeScope@${scope.hashCode}" to @Composable {
-                            ExpandedRecomposeScope(
-                                modifier = Modifier.fillMaxSize(),
-                                contexts = contexts,
-                                recomposeScope = scope
-                            )
-                        }
+                HorizontalSplitter()
+                composableLambdaImpl.block?.let {
+                    DefaultPanelText(
+                        text = "Block:",
+                        textAlign = TextAlign.Start
                     )
-                })
-            }
-            val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
-                recomposeScopesByHash[it]
-            }
-            DefaultPanelText(
-                text = "RecomposeScopes: ${ if(scopes.isEmpty()) "Empty" else "" }",
-                textAlign = TextAlign.Start
-            )
-            if (scopes.isNotEmpty()) {
-                scopes.forEach { scope ->
+                    ExpandedDataDefault(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        contexts = contexts,
+                        data = it
+                    )
+                }
+                HorizontalSplitter()
+                DefaultPanelText(
+                    text = "Tracked: ${composableLambdaImpl.tracked}",
+                    textAlign = TextAlign.Start
+                )
+                val recomposeScope = composableLambdaImpl.scopeHash?.let {
+                    recomposeScopesByHash[it]
+                }
+                DefaultPanelText(
+                    text = "RecomposeScope: ${ if(recomposeScope == null) "Empty" else "" }",
+                    textAlign = TextAlign.Start
+                )
+                recomposeScope?.let { scope ->
                     DataItem(data = scope, expanded = false, showIcon = false, onClick = {
                         window(
                             "RecomposeScope@${scope.hashCode}" to @Composable {
@@ -343,7 +327,34 @@ private fun ExpandedComposableLambdaImpl(
                         )
                     })
                 }
+                val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
+                    recomposeScopesByHash[it]
+                }
+                DefaultPanelText(
+                    text = "RecomposeScopes: ${ if(scopes.isEmpty()) "Empty" else "" }",
+                    textAlign = TextAlign.Start
+                )
+                if (scopes.isNotEmpty()) {
+                    scopes.forEach { scope ->
+                        DataItem(data = scope, expanded = false, showIcon = false, onClick = {
+                            window(
+                                "RecomposeScope@${scope.hashCode}" to @Composable {
+                                    ExpandedRecomposeScope(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contexts = contexts,
+                                        recomposeScope = scope
+                                    )
+                                }
+                            )
+                        })
+                    }
+                }
             }
+
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
         }
     }
 }
@@ -386,68 +397,175 @@ private fun ExpandedLayoutNode(
     layoutNode: LayoutNode
 ) {
     with(contexts) {
-        Column(modifier = modifier) {
-            layoutNode.lookaheadRootHash?.let {
-                layoutNodesByHash[it]?.let { node ->
+        val verticalScrollState = rememberScrollState()
+        Box(modifier = modifier) {
+            Column(modifier = modifier) {
+                val lookahead = layoutNode.lookaheadRootHash?.let {
+                    layoutNodesByHash[it]
+                }
+                if (lookahead != null) {
                     DefaultPanelText(text = "Lookahead root:")
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = node,
-                        expanded = false,
-                        onClick = {}
-                    )
+                    DataItem(data = lookahead, expanded = false, showIcon = false, onClick = {
+                        window(
+                            "LayoutNode@${lookahead.hashCode}" to @Composable {
+                                ExpandedLayoutNode(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contexts = contexts,
+                                    layoutNode = lookahead
+                                )
+                            }
+                        )
+                    })
                 }
-            }
 
-            layoutNode.parentHash?.let {
-                layoutNodesByHash[it]?.let { node ->
-                    HorizontalSplitter()
+                val parent = layoutNode.parentHash?.let {
+                    layoutNodesByHash[it]
+                }
+                if (parent != null) {
                     DefaultPanelText(text = "Parent:")
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = node,
-                        expanded = false,
-                        onClick = {}
-                    )
+                    DataItem(data = parent, expanded = false, showIcon = false, onClick = {
+                        window(
+                            "LayoutNode@${parent.hashCode}" to @Composable {
+                                ExpandedLayoutNode(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contexts = contexts,
+                                    layoutNode = parent
+                                )
+                            }
+                        )
+                    })
+                }
+
+                val children = layoutNode.childrenHashes.mapNotNull {
+                    layoutNodesByHash[it]
+                }
+                if (children.isNotEmpty()) {
+                    DefaultPanelText(text = "Children:")
+                    children.forEach { child ->
+                        DataItem(data = child, expanded = false, showIcon = false, onClick = {
+                            window(
+                                "LayoutNode@${child.hashCode}" to @Composable {
+                                    ExpandedLayoutNode(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contexts = contexts,
+                                        layoutNode = child
+                                    )
+                                }
+                            )
+                        })
+                    }
+                }
+
+                DefaultPanelText(text = "Coordinators and contained nodes:")
+                var currentNodeIndex = 0
+                layoutNode.coordinators.forEachIndexed { index, coordinator ->
+                    val tail = layoutNode.nodes.firstOrNull {
+                        it.hashCode == coordinator.tailNodeHash
+                    }
+                    RowWithLineNumber(index + 1, layoutNode.coordinators.size) {
+                        DefaultPanelText(
+                            text = "Coordinator: ${coordinator.toString}",
+                            textAlign = TextAlign.Start,
+                            clickable = true
+                        ) {
+                            window(
+                                "Coordinator@${coordinator.hashCode}" to @Composable {
+                                    ExpandedCoordinator(
+                                        modifier = modifier.fillMaxSize(),
+                                        contexts = contexts,
+                                        coordinator = coordinator,
+                                        tail = tail
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    while (tail != layoutNode.nodes[currentNodeIndex]) {
+                        Box(modifier = Modifier.padding(start = 24.dp)) {
+                            val node = layoutNode.nodes[currentNodeIndex]
+                            RowWithLineNumber(currentNodeIndex + 1, layoutNode.nodes.size) {
+                                DefaultPanelText(
+                                    text = "ModifierNode: ${node.toString}",
+                                    textAlign = TextAlign.Start,
+                                    clickable = true
+                                ) {
+                                    window(
+                                        "ModifierNode@${coordinator.hashCode}" to @Composable {
+                                            ExpandedModifierNode(
+                                                modifier = modifier.fillMaxSize(),
+                                                contexts = contexts,
+                                                node = node
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            currentNodeIndex++
+                        }
+                    }
                 }
             }
 
-            val children = layoutNode.childrenHashes.mapNotNull {
-                layoutNodesByHash[it]
-            }
-            if (children.isNotEmpty()) {
-                HorizontalSplitter()
-                DefaultPanelText(text = "Children:")
-                children.forEach { child ->
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = child,
-                        expanded = false,
-                        onClick = {}
-                    )
-                }
-            }
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
+        }
+    }
+}
 
-            HorizontalSplitter()
-            DefaultPanelText(text = "Coordinators:")
-            var currentNodeIndex = 0
-            layoutNode.coordinators.forEach { coordinator ->
-                DataItem(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    data = coordinator,
-                    expanded = false,
-                    onClick = {}
+@Composable
+private fun ExpandedCoordinator(
+    modifier: Modifier,
+    contexts: Contexts,
+    coordinator: Coordinator,
+    tail: ModifierNode?
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(
+                text = "Coordinator:",
+                textAlign = TextAlign.Start
+            )
+            DefaultPanelText(
+                text = coordinator.toString,
+                maxLines = Int.MAX_VALUE,
+                textAlign = TextAlign.Start
+            )
+            DefaultPanelText(
+                text = "Tail node: ${ if (tail == null) "None" else "" }",
+                textAlign = TextAlign.Start
+            )
+            tail?.let {
+                ExpandedModifierNode(
+                    modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                    contexts = contexts,
+                    node = tail
                 )
-                while (coordinator.tailNodeHash != layoutNode.nodes[currentNodeIndex].hashCode) {
-                    DataItem(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        data = layoutNode.nodes[currentNodeIndex++],
-                        expanded = false,
-                        onClick = {}
-                    )
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun ExpandedModifierNode(
+    modifier: Modifier,
+    contexts: Contexts,
+    node: ModifierNode
+) {
+    with(contexts) {
+        Column(modifier = modifier) {
+            DefaultPanelText(
+                text = "ModifierNode:",
+                textAlign = TextAlign.Start
+            )
+            DefaultPanelText(
+                text = node.toString,
+                maxLines = Int.MAX_VALUE,
+                textAlign = TextAlign.Start
+            )
+        }
+
     }
 }
 
@@ -491,7 +609,7 @@ private fun ExpandedStatesTable(
             state = verticalScrollState
         ) {
             items(states.size) {
-                RowWithLineNumber(lineNumber = it, lines = states.size) {
+                RowWithLineNumber(lineNumber = it + 1, lines = states.size) {
                     StateItem(
                         modifier = Modifier.padding(4.dp),
                         state = states[it],
@@ -1005,43 +1123,43 @@ private class DataNode(
             Box(modifier = Modifier.fillMaxSize()) {
                 when (data) {
                     is ComposableLambdaImpl -> ExpandedComposableLambdaImpl(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         composableLambdaImpl = data
                     )
                     is ComposeState -> StateDetail(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         state = data
                     )
                     is CompositionContextHolder -> ExpandedCompositionContextHolder(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         compositionContextHolder = data
                     )
                     is Context -> ExpandedContext(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         context = data
                     )
                     is LayoutNode -> ExpandedLayoutNode(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         layoutNode = data
                     )
                     is RecomposeScope -> ExpandedRecomposeScope(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         recomposeScope = data
                     )
                     is RememberObserverHolder -> ExpandedRememberObserverHolder(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contexts = contexts,
                         rememberObserverHolder = data
                     )
                     else -> {
                         ExpandedDataDefault(
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            modifier = Modifier.fillMaxSize(),
                             contexts = contexts,
                             data = data
                         )
@@ -1068,14 +1186,12 @@ private fun CompositionRoots.buildContexts(
 ): Contexts {
     val statesByHash = this.stateTable.associateBy { it.hashCode }
     val layoutNodesByHash = mutableMapOf<Int, LayoutNode>()
-    val modifiersByHash = mutableMapOf<Int, ModifierNode>()
     val recomposeScopesByHash = mutableMapOf<Int, RecomposeScope>()
 
     fun traverse(group: Group) {
         group.data.forEach {
             when (it) {
                 is LayoutNode -> layoutNodesByHash[it.hashCode] = it
-                is ModifierNode -> modifiersByHash[it.hashCode] = it
                 is RecomposeScope -> recomposeScopesByHash[it.hashCode] = it
                 else -> { }
             }
@@ -1094,7 +1210,6 @@ private fun CompositionRoots.buildContexts(
     return Contexts(
         statesByHash = statesByHash,
         layoutNodesByHash = layoutNodesByHash,
-        modifiersByBash = modifiersByHash,
         recomposeScopesByHash = recomposeScopesByHash,
         navigationContext = navigationContext,
         popup = popup,
@@ -1106,7 +1221,6 @@ private fun CompositionRoots.buildContexts(
 private class Contexts(
     val statesByHash: Map<Int, ComposeState>,
     val layoutNodesByHash: Map<Int, LayoutNode>,
-    val modifiersByBash: Map<Int, ModifierNode>,
     val recomposeScopesByHash: Map<Int, RecomposeScope>,
     val navigationContext: NavigationContext?,
     val popup: (@Composable () -> Unit) -> Unit,

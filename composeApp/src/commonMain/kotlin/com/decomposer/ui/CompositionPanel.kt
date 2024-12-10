@@ -193,7 +193,7 @@ fun CompositionPanel(
                         val nodes = subtree.flattenNodes
                         items(nodes.size, key = { "${nodes[it].name}@${nodes[it].hashCode()}" }) {
                             Box(modifier = Modifier.animateItem()) {
-                                RowWithLineNumber(it, nodes.size) {
+                                RowWithLineNumber(it + 1, nodes.size) {
                                     nodes[it].TreeNodeIndented(keepLevel)
                                 }
                             }

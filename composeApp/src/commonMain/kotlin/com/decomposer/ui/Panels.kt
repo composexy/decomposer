@@ -267,10 +267,20 @@ fun DefaultPanelText(
     text: String,
     maxLines: Int = 1,
     modifier: Modifier = Modifier,
-    textAlign: TextAlign = TextAlign.Center
+    textAlign: TextAlign = TextAlign.Center,
+    clickable: Boolean = false,
+    onClick: () -> Unit = { }
 ) {
     Text(
-        modifier = modifier,
+        modifier = modifier.run {
+            if (clickable) {
+                this.clickable {
+                    onClick()
+                }
+            } else {
+                this
+            }
+        },
         text = text,
         textAlign = textAlign,
         fontFamily = Fonts.jetbrainsMono(),
@@ -408,7 +418,6 @@ class PanelsState {
             currentWindows.removeFirst()
         }
         currentWindows.add(window)
-        println("Added window $window, size=${currentWindows.size}")
     }
 
     fun removeWindow(window: Pair<String, (@Composable () -> Unit)>) {

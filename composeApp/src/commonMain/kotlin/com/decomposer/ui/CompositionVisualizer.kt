@@ -598,14 +598,14 @@ private fun ExpandedRecomposeScope(
         Column(
             modifier = modifier
         ) {
-            DefaultPanelText(
-                text = "States in scope:",
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                textAlign = TextAlign.Start
-            )
             val states = recomposeScope.composeStateHashes.mapNotNull {
                 statesByHash[it]
             }
+            DefaultPanelText(
+                text = "States in scope: ${if (states.isEmpty()) "None" else ""}",
+                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                textAlign = TextAlign.Start
+            )
             ExpandedStatesTable(states, contexts)
         }
     }
@@ -1006,6 +1006,9 @@ private class GroupNode(
                     if (group.data.isEmpty()) {
                         _tags.add(EmptyGroup)
                     }
+                }
+                if (group.wellKnownKey == WellKnownKey.NODE) {
+                    _tags.add(ComposeNodeGroup)
                 }
                 when(group.sourceKey) {
                     "SubcomposeLayout" -> _tags.add(CompositionGroup)

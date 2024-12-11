@@ -265,14 +265,12 @@ fun RowWithLineNumber(
 @Composable
 private fun rememberFilter(vararg tags: ComposeTag) = remember {
     Filter { node ->
-        val selfMatch = tags.any { node.hasTag(it::class) }
         if (node.hasTag(SlotNode::class)) {
-            val parentMatch = node.parent?.let { parent ->
+            node.parent?.let { parent ->
                 tags.any { parent.hasTag(it::class) }
             } ?: false
-            parentMatch && selfMatch
         } else {
-            selfMatch
+            tags.any { node.hasTag(it::class) }
         }
     }
 }

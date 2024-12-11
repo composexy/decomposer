@@ -99,6 +99,12 @@ class FilterableTree(val root: TreeNode) {
                 wrapped.TreeNode()
             }
         }
+
+        override fun compareTo(other: TreeNode): Int {
+            return if (other is SubtreeNode) {
+                wrapped.compareTo(other.wrapped)
+            } else 0
+        }
     }
 
     companion object {

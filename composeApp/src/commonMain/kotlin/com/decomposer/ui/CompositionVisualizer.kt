@@ -101,6 +101,7 @@ private fun GroupItem(
             modifier = Modifier
                 .align(Alignment.CenterVertically)
                 .clipToBounds()
+                .wrapContentSize()
                 .run {
                     if (clickable) {
                         this.hoverable(interactionSource)
@@ -142,7 +143,7 @@ private fun DataItem(
                     text = data.toString,
                     modifier = Modifier
                         .align(Alignment.CenterVertically)
-                        .clipToBounds()
+                        .wrapContentSize()
                         .run {
                             if (clickable) {
                                 this.hoverable(interactionSource)
@@ -151,8 +152,7 @@ private fun DataItem(
                             } else {
                                 this
                             }
-                        }
-                        .requiredWidthIn(80.dp, 5000.dp),
+                        },
                     softWrap = true,
                     maxLines = 1,
                     fontFamily = Fonts.jetbrainsMono(),
@@ -867,7 +867,7 @@ fun CompositionRoots.buildCompositionTree(
 private sealed class BaseComposeTreeNode : BaseTreeNode() {
     override fun compareTo(other: TreeNode): Int {
         if (other !is BaseComposeTreeNode){
-            return -1
+            return 0
         }
         val selfOrder = sortOrderOf(this)
         val otherOrder = sortOrderOf(other)

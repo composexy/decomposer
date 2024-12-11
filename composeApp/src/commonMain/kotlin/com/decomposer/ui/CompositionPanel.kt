@@ -3,7 +3,6 @@ package com.decomposer.ui
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
@@ -101,7 +100,6 @@ fun CompositionPanel(
     }
 
     var selectedTreeKind: TreeKind by remember { mutableStateOf(TreeKind.FULL) }
-
     var hideEmpty: Boolean by remember { mutableStateOf(true) }
     var hideLeaf: Boolean by remember { mutableStateOf(false) }
     var keepLevel: Boolean by remember { mutableStateOf(false) }
@@ -310,9 +308,7 @@ fun DataExpander(
     onExpandData: () -> Unit,
     onFoldData: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.wrapContentSize()
-    ) {
+    Row(modifier = Modifier.wrapContentSize()) {
         val interactionSource = remember { MutableInteractionSource() }
         Row(
             Modifier

@@ -113,13 +113,12 @@ fun FileTreePanel(
 
 class FileTreeNode(
     override val name: String,
-    override val children: List<TreeNode>,
+    override val children: List<FileTreeNode>,
     override val level: Int,
     override val tags: Set<Any> = emptySet(),
     val prefix: String,
     val onClickFileEntry: (String) -> Unit
 ) : BaseTreeNode() {
-
     private val isFile = !expandable
     private val isFolder = expandable
 
@@ -127,7 +126,6 @@ class FileTreeNode(
     override fun TreeNode() {
         Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             val interactionSource = remember { MutableInteractionSource() }
-
             FileIcon(Modifier.align(Alignment.CenterVertically))
             Text(
                 text = name,

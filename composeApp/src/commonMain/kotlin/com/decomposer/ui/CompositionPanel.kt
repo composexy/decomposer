@@ -56,7 +56,6 @@ import decomposer.composeapp.generated.resources.refresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
-import kotlin.reflect.KClass
 
 @Composable
 fun CompositionPanel(
@@ -73,13 +72,14 @@ fun CompositionPanel(
 
     var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
 
-    val content: FilterableTree by remember {
-        derivedStateOf { full.subtree(ContentGroup::class.withSlots() + UserGroup::class) }
-    }
+    val contentFilter: Filter = rememberFilter(UserGroup, ContentGroup)
+    val userFilter: Filter = rememberFilter(UserGroup)
+    val recomposeScopeFilter: Filter = rememberFilter(RecomposeScopeGroup)
+    val composeNodeFilter: Filter = rememberFilter(ComposeNodeGroup)
+    val compositionFilter: Filter = rememberFilter(CompositionGroup)
 
-    val user: FilterableTree by remember {
-        derivedStateOf { full.subtree(UserGroup::class.withSlots()) }
-    }
+    val user: FilterableTree by derivedStateOf { full.subtree(userFilter) }
+    val content: FilterableTree by derivedStateOf { full.subtree(contentFilter) }
 
     var contentGroupsOnly: Boolean by remember {
         mutableStateOf(false)
@@ -108,9 +108,9 @@ fun CompositionPanel(
         derivedStateOf {
             when (selectedTreeKind) {
                 TreeKind.FULL -> tree
-                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(RecomposeScopeGroup::class.withSlots())
-                TreeKind.COMPOSE_NODE -> tree.subtree(ComposeNodeGroup::class.withSlots())
-                TreeKind.COMPOSITION -> tree.subtree(CompositionGroup::class.withSlots())
+                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(recomposeScopeFilter)
+                TreeKind.COMPOSE_NODE -> tree.subtree(composeNodeFilter)
+                TreeKind.COMPOSITION -> tree.subtree(compositionFilter)
             }
         }
     }
@@ -259,6 +259,21 @@ fun RowWithLineNumber(
             LineNumber(lineNumber.toString(), color = Color.Gray)
         }
         content()
+    }
+}
+
+@Composable
+private fun rememberFilter(vararg tags: ComposeTag) = remember {
+    Filter { node ->
+        val selfMatch = tags.any { node.hasTag(it::class) }
+        if (node.hasTag(SlotNode::class)) {
+            val parentMatch = node.parent?.let { parent ->
+                tags.any { parent.hasTag(it::class) }
+            } ?: false
+            parentMatch && selfMatch
+        } else {
+            selfMatch
+        }
     }
 }
 
@@ -442,10 +457,6 @@ fun ComposeCheckBox(
             modifier = Modifier.padding(start = 4.dp)
         )
     }
-}
-
-private fun KClass<*>.withSlots(): List<KClass<*>> {
-    return listOf(this, SlotNode::class)
 }
 
 enum class TreeKind(val tag: String) {

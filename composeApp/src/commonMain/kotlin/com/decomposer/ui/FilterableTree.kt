@@ -16,10 +16,12 @@ import androidx.compose.ui.unit.dp
 import kotlin.reflect.KClass
 
 class FilterableTree(val root: TreeNode) {
+
+    init { setParents(root) }
+
     private val subtreeCache = mutableMapOf<Filter, FilterableTree>()
 
-    fun subtree(include: List<KClass<*>>): FilterableTree {
-        val filter = Filter(include)
+    fun subtree(filter: Filter): FilterableTree {
         val cachedTree = subtreeCache[filter]
         if (cachedTree != null) {
             return cachedTree
@@ -55,21 +57,26 @@ class FilterableTree(val root: TreeNode) {
             node.children.flatMap { filterNode(it, filter, level) }
         }
 
-        if (matches) {
-            return listOf(
+        return if (matches) {
+            listOf(
                 SubtreeNode(
                     wrapped = node,
                     children = filteredChildren,
                     level = level
                 )
             )
-        }
-
-        return filteredChildren
+        } else filteredChildren
     }
 
     private fun matches(filter: Filter, node: TreeNode): Boolean {
-        return filter.include.any { node.hasTag(it) }
+        return filter.predicate(node)
+    }
+
+    private fun setParents(parent: TreeNode) {
+        parent.children.forEach { child ->
+            child.parent = parent
+            setParents(child)
+        }
     }
 
     val flattenNodes: List<TreeNode>
@@ -91,11 +98,7 @@ class FilterableTree(val root: TreeNode) {
             } else {
                 level
             }
-            Box(
-                modifier = Modifier.fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(start = padding)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(start = padding)) {
                 wrapped.TreeNode()
             }
         }
@@ -110,9 +113,9 @@ class FilterableTree(val root: TreeNode) {
     companion object {
         object EmptyNode : BaseTreeNode() {
             override val name = "Empty"
-            override val children = emptyList<EmptyNode>()
+            override var parent: TreeNode? = null
+            override val children: List<TreeNode> = emptyList()
             override var expanded = false
-
             override val tags = emptySet<Any>()
             override val level = 0
 
@@ -128,13 +131,14 @@ class FilterableTree(val root: TreeNode) {
     }
 }
 
-private data class Filter(
-    val include: List<KClass<*>>
+data class Filter(
+    val predicate: (TreeNode) -> Boolean
 )
 
 @Stable
 interface TreeNode : Comparable<TreeNode> {
     val name: String
+    var parent: TreeNode?
     val children: List<TreeNode>
     val flattenedChildren: List<TreeNode>
     val expanded: Boolean
@@ -171,6 +175,7 @@ fun TreeNode.flattenChildren(): List<TreeNode> {
 abstract class BaseTreeNode : TreeNode {
     override var excludes: Set<KClass<*>> by mutableStateOf(emptySet())
     override val levelWidth: Dp = 24.dp
+    override var parent: TreeNode? = null
 
     override val expandable: Boolean
         get() = children.isNotEmpty()

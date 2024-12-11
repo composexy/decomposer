@@ -43,9 +43,10 @@ class IrSerializeTransformer(
             if (fileIr != null) {
                 declaration.annotations += irComposeIrCall().apply {
                     putValueArgument(0, irConst(declaration.fileEntry.name))
-                    putValueArgument(1, irConst(true))
-                    putValueArgument(2, fileIrDump)
-                    putValueArgument(3, irStringArray(BitEncoding.encodeBytes(fileIr)))
+                    putValueArgument(1, irConst(declaration.packageFqName.asString()))
+                    putValueArgument(2, irConst(true))
+                    putValueArgument(3, fileIrDump)
+                    putValueArgument(4, irStringArray(BitEncoding.encodeBytes(fileIr)))
                 }
                 dumpAnnotated = true
             }
@@ -55,9 +56,10 @@ class IrSerializeTransformer(
                 val irDump = if (dumpAnnotated) irStringArray(emptyArray()) else fileIrDump
                 irClass.annotations += irComposeIrCall().apply {
                     putValueArgument(0, irConst(declaration.fileEntry.name))
-                    putValueArgument(1, irConst(false))
-                    putValueArgument(2, irDump)
-                    putValueArgument(3, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
+                    putValueArgument(1, irConst(declaration.packageFqName.asString()))
+                    putValueArgument(2, irConst(false))
+                    putValueArgument(3, irDump)
+                    putValueArgument(4, irStringArray(BitEncoding.encodeBytes(topLevelClassIr)))
                 }
                 dumpAnnotated = true
             }

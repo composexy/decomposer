@@ -9,6 +9,8 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,22 +24,34 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.IconButton
-import androidx.compose.material.RadioButton
+import androidx.compose.material.Checkbox
+import androidx.compose.material.LinearProgressIndicator
+import androidx.compose.material.LocalContentColor
+import androidx.compose.material.Text
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
+import decomposer.composeapp.generated.resources.expand_data
+import decomposer.composeapp.generated.resources.fold_data
 import decomposer.composeapp.generated.resources.refresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,120 +60,358 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun CompositionPanel(
     modifier: Modifier = Modifier,
-    session: Session
+    session: Session,
+    navigationContext: NavigationContext?,
+    onShowPopup: (@Composable () -> Unit) -> Unit,
+    onShowWindow: (Pair<String, @Composable () -> Unit>) -> Unit,
+    onCodeNavigate: (String, Int, Int) -> Unit
 ) {
-    var compositionTree: FilterableTree by remember {
-        mutableStateOf(FilterableTree.EMPTY_TREE)
+    var loading: Boolean by remember {
+        mutableStateOf(true)
     }
 
-    var filteredNodeKind: NodeKind by remember {
-        mutableStateOf(NodeKind.ALL)
+    var full: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
+
+    val contentFilter: Filter = rememberFilter(UserGroup, ContentGroup)
+    val userFilter: Filter = rememberFilter(UserGroup)
+    val recomposeScopeFilter: Filter = rememberFilter(RecomposeScopeGroup)
+    val composeNodeFilter: Filter = rememberFilter(ComposeNodeGroup)
+    val compositionFilter: Filter = rememberFilter(CompositionGroup)
+
+    val user: FilterableTree by derivedStateOf { full.subtree(userFilter) }
+    val content: FilterableTree by derivedStateOf { full.subtree(contentFilter) }
+
+    var contentGroupsOnly: Boolean by remember {
+        mutableStateOf(false)
+    }
+
+    var userGroupsOnly: Boolean by remember {
+        mutableStateOf(false)
+    }
+
+    val tree: FilterableTree by remember {
+        derivedStateOf {
+            when {
+                userGroupsOnly -> user
+                contentGroupsOnly -> content
+                else -> full
+            }
+        }
+    }
+
+    var selectedTreeKind: TreeKind by remember { mutableStateOf(TreeKind.FULL) }
+    var hideEmpty: Boolean by remember { mutableStateOf(true) }
+    var hideLeaf: Boolean by remember { mutableStateOf(false) }
+    var keepLevel: Boolean by remember { mutableStateOf(false) }
+
+    val subtree: FilterableTree by remember {
+        derivedStateOf {
+            when (selectedTreeKind) {
+                TreeKind.FULL -> tree
+                TreeKind.RECOMPOSE_SCOPE -> tree.subtree(recomposeScopeFilter)
+                TreeKind.COMPOSE_NODE -> tree.subtree(composeNodeFilter)
+                TreeKind.COMPOSITION -> tree.subtree(compositionFilter)
+            }
+        }
     }
 
     val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
-    Column(
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().wrapContentHeight()
-        ) {
+    fun loadCompositionTree() {
+        coroutineScope.launch {
+            loading = true
+            val compositionRoots = session.getCompositionData()
+            full = compositionRoots.buildCompositionTree(
+                navigationContext = navigationContext,
+                showContextPopup = { onShowPopup(it) },
+                showContextWindow = { onShowWindow(it) },
+                sourceNavigation = { filePath, startOffset, endOffset ->
+                    onCodeNavigate(filePath, startOffset, endOffset)
+                }
+            )
+            loading = false
+        }
+    }
+
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
             CompositionPanelBar(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                filteredNodeKind = filteredNodeKind,
-                onRefresh = {
-                    coroutineScope.launch {
-                        val compositionRoots = session.getCompositionData()
-                    }
-                },
-                onSelectedOption = {
-                    filteredNodeKind = it
-                }
+                loading = loading,
+                onRefresh = { coroutineScope.launch { loadCompositionTree() } },
+                contentGroupsOnly = contentGroupsOnly,
+                userGroupsOnly = userGroupsOnly,
+                hideEmpty = hideEmpty,
+                hideLeaf = hideLeaf,
+                keepLevel = keepLevel,
+                onContentGroupsOnlyChanged = { contentGroupsOnly = it },
+                onUserGroupsOnlyChanged = { userGroupsOnly = it },
+                onHideEmptyCheckedChanged = { hideEmpty = it },
+                onHideLeafCheckedChanged = { hideLeaf = it },
+                onKeepLevelChanged = { keepLevel = it }
             )
         }
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            val verticalScrollState = rememberLazyListState()
-            val horizontalScrollState = rememberScrollState()
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .horizontalScroll(horizontalScrollState)
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = verticalScrollState,
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
-                ) {
-
-                }
+        if (!loading) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                TreeExpander(
+                    onFoldAll = {
+                        full.root.setExpandedRecursive(false)
+                    },
+                    onExpandAll = {
+                        full.root.setExpandedRecursive(true)
+                    }
+                )
+                DataExpander(
+                    onFoldData = {
+                        full.root.addExcludesRecursive(setOf(SlotNode::class))
+                    },
+                    onExpandData = {
+                        full.root.removeExcludesRecursive(setOf(SlotNode::class))
+                    }
+                )
             }
 
-            VerticalScrollbar(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                adapter = rememberScrollbarAdapter(verticalScrollState)
-            )
+            Box(modifier = Modifier.fillMaxWidth().weight(1.0f)) {
+                val verticalScrollState = rememberLazyListState()
+                val horizontalScrollState = rememberScrollState()
 
-            HorizontalScrollbar(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                adapter = rememberScrollbarAdapter(horizontalScrollState)
+                Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
+                    LazyColumn(
+                        modifier = Modifier.matchParentSize(),
+                        state = verticalScrollState,
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                    ) {
+                        val nodes = subtree.flattenNodes
+                        items(nodes.size, key = { nodes[it] }) {
+                            Box(modifier = Modifier.animateItem()) {
+                                RowWithLineNumber(it + 1, nodes.size) {
+                                    nodes[it].TreeNodeIndented(keepLevel)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    adapter = rememberScrollbarAdapter(verticalScrollState)
+                )
+
+                HorizontalScrollbar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    adapter = rememberScrollbarAdapter(horizontalScrollState)
+                )
+            }
+
+            HorizontalSplitter()
+
+            SubTreeSelector(
+                modifier = Modifier.wrapContentSize()
+                    .padding(vertical = 12.dp)
+                    .align(Alignment.CenterHorizontally),
+                selectedTreeKind = selectedTreeKind,
+                onSelectedOption = { selectedTreeKind = it }
+            )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+
+    LaunchedEffect(full, hideLeaf) {
+        if (hideLeaf) {
+            full.root.addExcludesRecursive(setOf(LeafGroup::class))
+        } else {
+            full.root.removeExcludesRecursive(setOf(LeafGroup::class))
+        }
+    }
+
+    LaunchedEffect(full, hideEmpty) {
+        if (hideEmpty) {
+            full.root.addExcludesRecursive(setOf(EmptyGroup::class))
+        } else {
+            full.root.removeExcludesRecursive(setOf(EmptyGroup::class))
+        }
+    }
+
+    LaunchedEffect(session) {
+        loadCompositionTree()
+    }
+}
+
+@Composable
+fun RowWithLineNumber(
+    lineNumber: Int,
+    lines: Int,
+    content: @Composable () -> Unit
+) {
+    val maxNumber = remember(lines) {
+        (0 until lines.toString().length).joinToString(separator = "") { "9" }
+    }
+    Row(
+        modifier = Modifier.wrapContentHeight().fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.padding(end = 8.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            LineNumber(maxNumber, color = Color.Transparent)
+            LineNumber(lineNumber.toString(), color = Color.Gray)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun rememberFilter(vararg tags: ComposeTag) = remember {
+    Filter { node ->
+        if (node.hasTag(SlotNode::class)) {
+            node.parent?.let { parent ->
+                tags.any { parent.hasTag(it::class) }
+            } ?: false
+        } else {
+            tags.any { node.hasTag(it::class) }
+        }
+    }
+}
+
+@Composable
+private fun LineNumber(text: String, color: Color) {
+    Text(
+        text = text,
+        fontFamily = Fonts.jetbrainsMono(),
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Thin,
+        lineHeight = 36.sp,
+        color = color
+    )
+}
+
+@Composable
+fun SubTreeSelector(
+    modifier: Modifier,
+    selectedTreeKind: TreeKind,
+    onSelectedOption: (TreeKind) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        val entries = TreeKind.entries
+        TreeKind.entries.forEachIndexed { index, kind ->
+            val interactionSource = remember { MutableInteractionSource() }
+            SegmentedButton(
+                modifier = Modifier
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
+                onClick = { onSelectedOption(entries[index]) },
+                selected = entries[index] == selectedTreeKind,
+                colors = SegmentedButtonDefaults.colors().copy(
+                    activeContainerColor = Color.Transparent,
+                    inactiveContainerColor = Color.Transparent,
+                    activeContentColor = LocalContentColor.current
+                )
+            ) {
+                DefaultPanelText(kind.tag)
+            }
+        }
+    }
+}
+
+@Composable
+fun DataExpander(
+    onExpandData: () -> Unit,
+    onFoldData: () -> Unit
+) {
+    Row(modifier = Modifier.wrapContentSize()) {
+        val interactionSource = remember { MutableInteractionSource() }
+        Row(
+            Modifier
+                .wrapContentSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.expand_data),
+                contentDescription = "Expand all data",
+                modifier = Modifier.size(32.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onExpandData() }
+            )
+            Image(
+                painter = painterResource(Res.drawable.fold_data),
+                contentDescription = "Fold all data",
+                modifier = Modifier.size(32.dp)
+                    .hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onFoldData() }
             )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CompositionPanelBar(
     modifier: Modifier,
-    filteredNodeKind: NodeKind,
+    loading: Boolean,
     onRefresh: () -> Unit,
-    onSelectedOption: (NodeKind) -> Unit
+    contentGroupsOnly: Boolean,
+    userGroupsOnly: Boolean,
+    hideEmpty: Boolean,
+    hideLeaf: Boolean,
+    keepLevel: Boolean,
+    onContentGroupsOnlyChanged: (Boolean) -> Unit,
+    onUserGroupsOnlyChanged: (Boolean) -> Unit,
+    onHideEmptyCheckedChanged: (Boolean) -> Unit,
+    onHideLeafCheckedChanged: (Boolean) -> Unit,
+    onKeepLevelChanged: (Boolean) -> Unit
 ) {
-    Row(modifier = modifier) {
-        CompositionRefresh(onRefresh)
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.ALL,
-            text = NodeKind.ALL.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.ALL)
-            }
+    FlowRow(modifier = modifier) {
+        CompositionRefresh(loading, onRefresh)
+        ComposeCheckBox(
+            text = "Content group only",
+            checked = contentGroupsOnly,
+            onCheckedChanged = { onContentGroupsOnlyChanged(it) }
         )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.RECOMPOSE_SCOPE,
-            text = NodeKind.RECOMPOSE_SCOPE.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.RECOMPOSE_SCOPE)
-            }
+        ComposeCheckBox(
+            text = "User groups only",
+            checked = userGroupsOnly,
+            onCheckedChanged = { onUserGroupsOnlyChanged(it) }
         )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.LAYOUT_NODE,
-            text = NodeKind.LAYOUT_NODE.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.LAYOUT_NODE)
-            }
+        ComposeCheckBox(
+            text = "Hide empty groups",
+            checked = hideEmpty,
+            onCheckedChanged = { onHideEmptyCheckedChanged(it) }
         )
-        FilterOption(
-            selected = filteredNodeKind == NodeKind.SUBCOMPOSITION,
-            text = NodeKind.SUBCOMPOSITION.tag,
-            onSelected = {
-                onSelectedOption(NodeKind.SUBCOMPOSITION)
-            }
+        ComposeCheckBox(
+            text = "Hide leaf groups",
+            checked = hideLeaf,
+            onCheckedChanged = { onHideLeafCheckedChanged(it) }
+        )
+        ComposeCheckBox(
+            text = "Keep subtree level",
+            checked = keepLevel,
+            onCheckedChanged = { onKeepLevelChanged(it) }
         )
     }
 }
 
 @Composable
-fun CompositionRefresh(onRefresh: () -> Unit) {
+fun CompositionRefresh(loading: Boolean, onRefresh: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        Modifier
+        modifier = Modifier
             .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .hoverable(interactionSource)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .clickable { onRefresh() },
+            .run {
+                if (!loading) {
+                    this.hoverable(interactionSource)
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable { onRefresh() }
+                } else {
+                    this
+                }
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
@@ -175,28 +427,28 @@ fun CompositionRefresh(onRefresh: () -> Unit) {
 }
 
 @Composable
-fun FilterOption(
-    selected: Boolean,
+fun ComposeCheckBox(
     text: String,
-    onSelected: () -> Unit
+    checked: Boolean,
+    onCheckedChanged: (Boolean) -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        Modifier
+        modifier = Modifier
             .wrapContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
             .toggleable(
-                value = selected,
-                onValueChange = { onSelected() },
-                role = Role.RadioButton
+                value = checked,
+                onValueChange = { onCheckedChanged(!checked) },
+                role = Role.Checkbox
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = null
+        Checkbox(
+            checked = checked,
+            onCheckedChange = null
         )
         DefaultPanelText(
             text = text,
@@ -205,9 +457,23 @@ fun FilterOption(
     }
 }
 
-enum class NodeKind(val tag: String) {
-    ALL("All"),
+enum class TreeKind(val tag: String) {
+    FULL("Full"),
     RECOMPOSE_SCOPE("RecomposeScope"),
-    LAYOUT_NODE("LayoutNode"),
-    SUBCOMPOSITION("Subcomposition")
+    COMPOSE_NODE("ComposeNode"),
+    COMPOSITION("Composition")
 }
+
+sealed interface ComposeTag
+data object RecomposeScopeGroup : ComposeTag
+data object ComposeNodeGroup : ComposeTag
+data object CompositionGroup : ComposeTag
+// Groups wrapping AbstractComposeView content.
+data object WrapperGroup : ComposeTag
+// Groups wrapping User defined groups.
+data object ContentGroup : ComposeTag
+// User defined groups. a.k.a group defined by setContent { }.
+data object UserGroup : ComposeTag
+data object EmptyGroup : ComposeTag
+data object LeafGroup : ComposeTag
+data object SlotNode : ComposeTag

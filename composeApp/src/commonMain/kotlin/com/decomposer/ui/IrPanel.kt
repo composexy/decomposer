@@ -5,6 +5,7 @@ import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,23 +36,25 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
+import kotlinx.serialization.json.Json
+import java.nio.file.Paths
 
 @Composable
 fun IrPanel(
     modifier: Modifier = Modifier,
     session: Session,
-    filePath: String?
+    irProcessor: IrProcessor,
+    filePath: String?,
+    highlight: Pair<Int, Int>?,
+    onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
-    val irProcessor: IrProcessor = remember {
-        IrProcessor()
-    }
-
     var compose by remember {
         mutableStateOf(true)
     }
@@ -102,12 +105,14 @@ fun IrPanel(
                         }
                     )
                 }
-                CodeContent(kotlinLikeIrDump, standardIrDump, kotlinLike)
+                CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike, highlight)
             }
         }
     }
 
-    LaunchedEffect(filePath, compose, session.sessionId) {
+    val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
+
+    LaunchedEffect(filePath, compose, session.sessionId, highlight) {
         if (filePath != null) {
             val virtualFileIr = session.getVirtualFileIr(filePath)
             if (!virtualFileIr.isEmpty) {
@@ -117,8 +122,14 @@ fun IrPanel(
                 } else {
                     irProcessor.originalFile(filePath)
                 }
-                val visualData = IrVisualBuilder(kotlinFile).visualize()
-                kotlinLikeIr = visualData.annotatedString
+                val irVisualBuilder = IrVisualBuilder(
+                    kotlinFile = kotlinFile,
+                    theme = theme,
+                    highlights = highlight?.let { listOf(it) } ?: emptyList()
+                ) {
+                    onShowPopup @Composable { IrDescription(it.description) }
+                }
+                kotlinLikeIr = irVisualBuilder.visualize().annotatedString
                 standardIr = kotlinFile.standardIrDump
             } else {
                 kotlinLikeIr = null
@@ -126,6 +137,11 @@ fun IrPanel(
             }
         }
     }
+}
+
+@Composable
+private fun IrDescription(text: String) {
+    DefaultPanelText(text)
 }
 
 private val VirtualFileIr.isEmpty: Boolean
@@ -138,65 +154,99 @@ private val VirtualFileIr.isEmpty: Boolean
 
 @Composable
 fun CodeContent(
+    filePath: String?,
     kotlinLikeIr: AnnotatedString,
     standardIr: String,
-    kotlinLike: Boolean
+    kotlinLike: Boolean,
+    highlight: Pair<Int, Int>?
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        val verticalScrollState = rememberScrollState()
-        val horizontalScrollState = rememberScrollState()
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(verticalScrollState)
-                .horizontalScroll(horizontalScrollState),
-        ) {
-            LineNumbers(
-                length = if (kotlinLike) {
-                    kotlinLikeIr.lines().size
-                } else {
-                    standardIr.lines().size
-                }
+    Column(modifier = Modifier.fillMaxSize()) {
+        filePath?.let {
+            DefaultPanelText(
+                text = Paths.get(it).fileName.toString(),
+                modifier = Modifier.fillMaxWidth()
             )
-            SelectionContainer {
-                if (kotlinLike) {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        text = kotlinLikeIr,
-                        fontFamily = Fonts.jetbrainsMono(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        lineHeight = 36.sp
-                    )
-                } else {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        text = standardIr,
-                        fontFamily = Fonts.jetbrainsMono(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        lineHeight = 36.sp
-                    )
-                }
-            }
         }
 
-        VerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-            adapter = rememberScrollbarAdapter(verticalScrollState)
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            val verticalScrollState = rememberScrollState()
+            val horizontalScrollState = rememberScrollState()
 
-        HorizontalScrollbar(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-            adapter = rememberScrollbarAdapter(horizontalScrollState)
-        )
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(verticalScrollState)
+                    .horizontalScroll(horizontalScrollState),
+            ) {
+                LineNumbers(
+                    length = if (kotlinLike) {
+                        kotlinLikeIr.lines().size
+                    } else {
+                        standardIr.lines().size
+                    }
+                )
+                SelectionContainer {
+                    if (kotlinLike) {
+                        var textLayoutResult: TextLayoutResult? by remember {
+                            mutableStateOf(null)
+                        }
+
+                        Text(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            text = kotlinLikeIr,
+                            fontFamily = Fonts.jetbrainsMono(),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            lineHeight = 36.sp,
+                            onTextLayout = { textLayoutResult = it }
+                        )
+
+                        LaunchedEffect(highlight, kotlinLikeIr, textLayoutResult) {
+                            val layoutResult = textLayoutResult ?: return@LaunchedEffect
+                            highlight?.let { highlight ->
+                                val annotation = kotlinLikeIr.getStringAnnotations(
+                                    tag = IrVisualBuilder.TAG_SOURCE_LOCATION,
+                                    start = 0,
+                                    end = kotlinLikeIr.text.length
+                                ).firstOrNull {
+                                    val location = Json.decodeFromString<SourceLocation>(it.item)
+                                    highlight.first == location.sourceStartOffset
+                                            && highlight.second == location.sourceEndOffset
+                                }
+
+                                if (annotation != null) {
+                                    val top = layoutResult.getBoundingBox(annotation.start).top
+                                    verticalScrollState.animateScrollTo(top.toInt())
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            text = standardIr,
+                            fontFamily = Fonts.jetbrainsMono(),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Light,
+                            lineHeight = 36.sp
+                        )
+                    }
+                }
+            }
+
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
+
+            HorizontalScrollbar(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                adapter = rememberScrollbarAdapter(horizontalScrollState)
+            )
+        }
     }
 }
 

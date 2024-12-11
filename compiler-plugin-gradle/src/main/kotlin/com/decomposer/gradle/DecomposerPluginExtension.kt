@@ -7,10 +7,4 @@ import org.gradle.api.provider.Property
 abstract class DecomposerPluginExtension @Inject constructor(objects: ObjectFactory) {
     val enabled: Property<Boolean> =
         objects.property(Boolean::class.javaObjectType).convention(true)
-
-    val irStorageEnabled: Property<Boolean> =
-        objects.property(Boolean::class.javaObjectType).convention(true)
-
-    val sourceStorageEnabled: Property<Boolean> =
-        objects.property(Boolean::class.javaObjectType).convention(true)
 }

@@ -79,7 +79,7 @@ class ComposeState(
 
 @Serializable
 class RecomposeScope(
-    val composeStates: List<Int>,
+    val composeStateHashes: List<Int>,
     override val toString: String,
     override val typeName: String?,
     override val hashCode: Int

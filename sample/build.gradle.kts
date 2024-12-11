@@ -52,8 +52,6 @@ kotlin {
         if (isDebug) {
             freeCompilerArgs.addAll(
                 "-P", "plugin:com.decomposer.compiler:enabled=true",
-                "-P", "plugin:com.decomposer.compiler:preComposeIrStorageEnabled=true",
-                "-P", "plugin:com.decomposer.compiler:postComposeIrStorageEnabled=true"
             )
         } else {
             freeCompilerArgs.addAll(

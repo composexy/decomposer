@@ -11,17 +11,14 @@ class PreComposeExtension(
     private val configuration: CompilerConfiguration
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
-        val preComposeIrStorageEnabled = configuration[KEY_PRE_COMPOSE_IR_STORAGE_ENABLED] == true
-        if (preComposeIrStorageEnabled) {
-            moduleFragment.transform(
-                IrSerializeTransformer(
-                    composed = false,
-                    messageCollector = messageCollector,
-                    configuration = configuration,
-                    context = pluginContext
-                ),
-                null
-            )
-        }
+        moduleFragment.transform(
+            IrSerializeTransformer(
+                composed = false,
+                messageCollector = messageCollector,
+                configuration = configuration,
+                context = pluginContext
+            ),
+            null
+        )
     }
 }

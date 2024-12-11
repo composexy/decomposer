@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,9 +39,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.runtime.connection.model.ProjectSnapshot
-import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
-import decomposer.composeapp.generated.resources.document
+import decomposer.composeapp.generated.resources.file
 import decomposer.composeapp.generated.resources.folder_close
 import decomposer.composeapp.generated.resources.folder_open
 import org.jetbrains.compose.resources.painterResource
@@ -49,77 +50,82 @@ import java.nio.file.Paths
 @Composable
 fun FileTreePanel(
     modifier: Modifier = Modifier,
-    session: Session,
+    projectSnapshot: ProjectSnapshot,
     onClickFileEntry: (String) -> Unit
 ) {
     var fileTree: FilterableTree by remember {
         mutableStateOf(FilterableTree.EMPTY_TREE)
     }
 
-    Box(
-        modifier = modifier
-    ) {
-        val verticalScrollState = rememberLazyListState()
-        val horizontalScrollState = rememberScrollState()
+    var loading: Boolean by remember {
+        mutableStateOf(true)
+    }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .horizontalScroll(horizontalScrollState)
-        ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = verticalScrollState,
-                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
-            ) {
-                val nodes = fileTree.flattenNodes
-                items(nodes.size) {
-                    nodes[it].TreeNodeRow()
+    if (!loading) {
+        Box(modifier = modifier) {
+            val verticalScrollState = rememberLazyListState()
+            val horizontalScrollState = rememberScrollState()
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                TreeExpander(
+                    onFoldAll = { fileTree.root.setExpandedRecursive(false) },
+                    onExpandAll = { fileTree.root.setExpandedRecursive(true) }
+                )
+                Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
+                    LazyColumn(
+                        modifier = Modifier.matchParentSize(),
+                        state = verticalScrollState,
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                    ) {
+                        val nodes = fileTree.flattenNodes
+                        items(nodes.size) {
+                            Box(modifier = Modifier.animateItem()) {
+                                nodes[it].TreeNodeIndented()
+                            }
+                        }
+                    }
                 }
             }
+
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                adapter = rememberScrollbarAdapter(verticalScrollState)
+            )
+
+            HorizontalScrollbar(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                adapter = rememberScrollbarAdapter(horizontalScrollState)
+            )
         }
-
-        VerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            adapter = rememberScrollbarAdapter(verticalScrollState)
-        )
-
-        HorizontalScrollbar(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            adapter = rememberScrollbarAdapter(horizontalScrollState)
+    } else {
+        LinearProgressIndicator(
+            modifier = modifier.fillMaxWidth()
         )
     }
 
-    LaunchedEffect(session.sessionId) {
-        val projectSnapshot = session.getProjectSnapshot()
+    LaunchedEffect(projectSnapshot) {
         fileTree = projectSnapshot.buildFileTree {
             projectSnapshot.findMatching(it)?.let(onClickFileEntry)
         }
+        loading = false
     }
 }
 
 class FileTreeNode(
     override val name: String,
-    override val children: List<TreeNode>,
+    override val children: List<FileTreeNode>,
     override val level: Int,
-    override val tags: List<Any> = emptyList(),
+    override val tags: Set<Any> = emptySet(),
     val prefix: String,
     val onClickFileEntry: (String) -> Unit
 ) : BaseTreeNode() {
-
     private val isFile = !expandable
     private val isFolder = expandable
 
     @Composable
-    override fun TreeNodeRow() {
-        Row(
-            modifier = Modifier
-                .wrapContentHeight()
-                .fillMaxWidth()
-                .padding(start = 24.dp * level)
-        ) {
+    override fun TreeNode() {
+        Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             val interactionSource = remember { MutableInteractionSource() }
-
             FileIcon(Modifier.align(Alignment.CenterVertically))
             Text(
                 text = name,
@@ -148,6 +154,16 @@ class FileTreeNode(
         }
     }
 
+    override fun compareTo(other: TreeNode): Int {
+        return when {
+            other !is FileTreeNode -> -1
+            isFolder.compareTo(other.isFolder) != 0 -> {
+                isFolder.compareTo(other.isFolder)
+            }
+            else -> name.compareTo(other.name)
+        }
+    }
+
     @Composable
     private fun FileIcon(modifier: Modifier) {
         Box(
@@ -167,7 +183,7 @@ class FileTreeNode(
                     val interactionSource = remember { MutableInteractionSource() }
                     Image(
                         painter = painterResource(Res.drawable.folder_open),
-                        contentDescription = "Unfold $name",
+                        contentDescription = "Fold $name",
                         modifier = Modifier
                             .size(32.dp)
                             .hoverable(interactionSource)
@@ -187,7 +203,7 @@ class FileTreeNode(
                 }
                 else -> {
                     Image(
-                        painter = painterResource(Res.drawable.document),
+                        painter = painterResource(Res.drawable.file),
                         contentDescription = name,
                         modifier = Modifier.size(32.dp),
                     )
@@ -198,7 +214,7 @@ class FileTreeNode(
 }
 
 @Suppress("UNCHECKED_CAST")
-internal fun ProjectSnapshot.buildFileTree(
+private fun ProjectSnapshot.buildFileTree(
     onClickFileEntry: (String) -> Unit
 ): FilterableTree {
     val paths = this.fileTree

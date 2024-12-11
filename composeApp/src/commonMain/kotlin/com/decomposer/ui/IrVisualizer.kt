@@ -1,7 +1,10 @@
 package com.decomposer.ui
 
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
 import com.decomposer.ir.AnonymousInit
 import com.decomposer.ir.Block
 import com.decomposer.ir.BlockBody
@@ -180,7 +183,9 @@ class IrVisualData(val annotatedString: AnnotatedString)
 class IrVisualBuilder(
     private val kotlinFile: KotlinFile,
     private val indentSize: Int = 2,
-    private val theme: Theme = Theme.dark
+    private val theme: Theme = Theme.dark,
+    private val highlights: List<Pair<Int, Int>> = emptyList(),
+    private val onClickDescription: (Description) -> Unit,
 ) {
     private var used = false
     private val annotatedStringBuilder = AnnotatedString.Builder()
@@ -903,25 +908,39 @@ class IrVisualBuilder(
     }
 
     private fun visualizeLambda(function: FunctionBase) {
-        punctuation('{')
-        if (function.valueParameters.isNotEmpty()) {
-            space()
-            function.valueParameters.forEachIndexed { index, parameter ->
-                visualizeValueParameter(parameter)
-                if (index != function.valueParameters.size - 1) {
-                    punctuation(',')
+        val startOffset = function.base.coordinate.startOffset
+        val endOffset = function.base.coordinate.endOffset
+        val highlighting = highlights.firstOrNull {
+            it.first == startOffset && it.second == endOffset
+        } != null
+        val block = {
+            withSourceLocation(SourceLocation(startOffset, endOffset)) {
+                punctuation('{')
+                if (function.valueParameters.isNotEmpty()) {
                     space()
+                    function.valueParameters.forEachIndexed { index, parameter ->
+                        visualizeValueParameter(parameter)
+                        if (index != function.valueParameters.size - 1) {
+                            punctuation(',')
+                            space()
+                        }
+                    }
+                    space()
+                    punctuation("->")
+                }
+                newLine()
+                function.bodyIndex?.let {
+                    val body = bodies(it) as? StatementBody
+                    if (body != null) {
+                        visualizeBody(body)
+                    }
                 }
             }
-            space()
-            punctuation("->")
         }
-        newLine()
-        function.bodyIndex?.let {
-            val body = bodies(it) as? StatementBody
-            if (body != null) {
-                visualizeBody(body)
-            }
+        if (highlighting) {
+            highlight { block() }
+        } else {
+            block()
         }
     }
 
@@ -937,11 +956,25 @@ class IrVisualBuilder(
     }
 
     private fun visualizeFunction(declaration: Function) {
-        if (declaration.overriden.isNotEmpty()) {
-            keyword(Keyword.OVERRIDE)
-            space()
+        val startOffset = declaration.base.base.coordinate.startOffset
+        val endOffset = declaration.base.base.coordinate.endOffset
+        val highlighting = highlights.firstOrNull {
+            it.first == startOffset && it.second == endOffset
+        } != null
+        val block = {
+            withSourceLocation(SourceLocation(startOffset, endOffset)) {
+                if (declaration.overriden.isNotEmpty()) {
+                    keyword(Keyword.OVERRIDE)
+                    space()
+                }
+                visualizeFunctionBase(declaration.base)
+            }
         }
-        visualizeFunctionBase(declaration.base)
+        if (highlighting) {
+            highlight { block() }
+        } else {
+            block()
+        }
     }
 
     private fun visualizeExpression(expression: Expression) {
@@ -1319,7 +1352,9 @@ class IrVisualBuilder(
                 value("${operation.value}f")
             }
             is IntConst -> {
-                value(operation.value.toString())
+                withDescription(Description(operation.value.toString(2))) {
+                    value(operation.value.toString())
+                }
             }
             is LongConst -> {
                 value("${operation.value}L")
@@ -1533,6 +1568,10 @@ class IrVisualBuilder(
 
     private fun symbol(text: String) = simple(text)
 
+    private fun highlight(block: () -> Unit) {
+        withStyle(style = theme.code.highlight, block)
+    }
+
     private fun withStyle(style: SpanStyle, block: () -> Unit) {
         annotatedStringBuilder.pushStyle(style)
         block()
@@ -1547,8 +1586,13 @@ class IrVisualBuilder(
     }
 
     private fun withDescription(description: Description, block: () -> Unit) {
-        val annotationString = Json.encodeToString(description)
-        annotatedStringBuilder.pushStringAnnotation(TAG_DESCRIPTION, annotationString)
+        val link = LinkAnnotation.Clickable(
+            TAG_DESCRIPTION,
+            TextLinkStyles(style = theme.code.value.copy(textDecoration = TextDecoration.Underline))
+        ) {
+            onClickDescription(description)
+        }
+        annotatedStringBuilder.pushLink(link)
         block()
         annotatedStringBuilder.pop()
     }
@@ -1778,10 +1822,10 @@ class IrVisualBuilder(
     }
 
     companion object {
+        const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
+        const val TAG_DESCRIPTION = "DESCRIPTION"
         private val LINE_SEPARATOR: String = System.lineSeparator()
         private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
         private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
-        private const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
-        private const val TAG_DESCRIPTION = "DESCRIPTION"
     }
 }

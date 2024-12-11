@@ -139,10 +139,17 @@ class DebugInfoTable(
 
 class KotlinFile(
     val filePath: String,
-    val topLevelDeclarations : TopLevelTable?,
-    val topLevelClasses : List<TopLevelTable>,
-    val standardIrDump:  String
+    val topLevelDeclarations: TopLevelTable?,
+    val topLevelClasses: List<TopLevelTable>,
+    val lambdas: List<FunctionExpression>,
+    val functions: List<Function>,
+    val standardIrDump: String
 )
+
+val KotlinFile.isEmpty: Boolean
+    get() {
+        return topLevelClasses.isEmpty() && topLevelDeclarations == null
+    }
 
 class SimpleType(
     val symbol: Symbol,
@@ -812,12 +819,20 @@ class IrProcessor {
     private val composedTopLevelClassesByPath = mutableMapOf<String, List<TopLevelTable>>()
     private val originalStandardIrByPath = mutableMapOf<String, String>()
     private val composedStandardIrByPath = mutableMapOf<String, String>()
+    private val composedFunctionsByPath = mutableMapOf<String, MutableList<Function>>()
+    private val composedLambdasByPath = mutableMapOf<String, MutableList<FunctionExpression>>()
+    private val originalFunctionsByPath = mutableMapOf<String, MutableList<Function>>()
+    private val originalLambdasByPath = mutableMapOf<String, MutableList<FunctionExpression>>()
+    private var currentFilePath: String? = null
+    private var currentComposed: Boolean? = null
 
     fun composedFile(filePath: String): KotlinFile {
         return KotlinFile(
             filePath = filePath,
             topLevelDeclarations = composedFilesByPath[filePath],
             topLevelClasses = composedTopLevelClassesByPath[filePath] ?: emptyList(),
+            lambdas = listOf(*composedLambdasByPath[filePath]?.toTypedArray() ?: emptyArray()),
+            functions = listOf(*composedFunctionsByPath[filePath]?.toTypedArray() ?: emptyArray()),
             standardIrDump = composedStandardIrByPath[filePath] ?: ""
         )
     }
@@ -827,6 +842,8 @@ class IrProcessor {
             filePath = filePath,
             topLevelDeclarations = originFilesByPath[filePath],
             topLevelClasses = originTopLevelClassesByPath[filePath] ?: emptyList(),
+            lambdas = listOf(*originalLambdasByPath[filePath]?.toTypedArray() ?: emptyArray()),
+            functions = listOf(*originalFunctionsByPath[filePath]?.toTypedArray() ?: emptyArray()),
             standardIrDump = originalStandardIrByPath[filePath] ?: ""
         )
     }
@@ -860,15 +877,27 @@ class IrProcessor {
 
     private fun processComposedIrFile(filePath: String, data: List<String>) {
         if (composedFilesByPath[filePath] != null) return
+        if (currentFilePath != null || currentComposed != null){
+            throw ConcurrentModificationException()
+        }
+        currentFilePath = filePath
+        currentComposed = true
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
         file.printJson()
         val table = buildTopLevelTableCommon(file)
         composedFilesByPath[filePath] = table
+        currentFilePath = null
+        currentComposed = null
     }
 
     private fun processComposedIrClasses(filePath: String, data: Set<List<String>>) {
         if (composedTopLevelClassesByPath[filePath] != null) return
+        if (currentFilePath != null || currentComposed != null){
+            throw ConcurrentModificationException()
+        }
+        currentFilePath = filePath
+        currentComposed = true
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
@@ -876,25 +905,41 @@ class IrProcessor {
             buildTopLevelTableCommon(clazz)
         }
         composedTopLevelClassesByPath[filePath] = tables
+        currentFilePath = null
+        currentComposed = null
     }
 
     private fun processOriginIrFile(filePath: String, data: List<String>) {
         if (originFilesByPath[filePath] != null) return
+        if (currentFilePath != null || currentComposed != null){
+            throw ConcurrentModificationException()
+        }
+        currentFilePath = filePath
+        currentComposed = false
         val protoByteArray = BitEncoding.decodeBytes(data.toTypedArray())
         val file = ClassOrFile.ADAPTER.decode(protoByteArray)
         file.printJson()
         val table = buildTopLevelTableCommon(file)
         originFilesByPath[filePath] = table
+        currentFilePath = null
+        currentComposed = null
     }
 
     private fun processOriginIrClasses(filePath: String, data: Set<List<String>>) {
         if (originTopLevelClassesByPath[filePath] != null) return
+        if (currentFilePath != null || currentComposed != null){
+            throw ConcurrentModificationException()
+        }
+        currentFilePath = filePath
+        currentComposed = false
         val tables = data.map {
             val protoByteArray = BitEncoding.decodeBytes(it.toTypedArray())
             val clazz = ClassOrFile.ADAPTER.decode(protoByteArray)
             buildTopLevelTableCommon(clazz)
         }
         originTopLevelClassesByPath[filePath] = tables
+        currentFilePath = null
+        currentComposed = null
     }
 
     private fun buildTopLevelTableCommon(classOrFile: ClassOrFile): TopLevelTable {
@@ -1118,10 +1163,20 @@ class IrProcessor {
     }
 
     private fun parseFunctionExpression(expression: IrFunctionExpression): FunctionExpression {
+        val map = if (currentComposed == true) {
+            composedLambdasByPath
+        } else {
+            originalLambdasByPath
+        }
+        val lambdaList = map.computeIfAbsent(currentFilePath!!) {
+            mutableListOf()
+        }
         return FunctionExpression(
             function = parseFunction(expression.function),
             originNameIndex = expression.origin_name
-        )
+        ).also {
+            lambdaList.add(it)
+        }
     }
 
     private fun parseConstructorCall(expression: IrConstructorCall): ConstructorCall {
@@ -1699,10 +1754,20 @@ class IrProcessor {
     }
 
     private fun parseFunction(irFunction: IrFunction): Function {
+        val map = if (currentComposed == true) {
+            composedFunctionsByPath
+        } else {
+            originalFunctionsByPath
+        }
+        val functions = map.computeIfAbsent(currentFilePath!!) {
+            mutableListOf()
+        }
         return Function(
             base = parseFunctionBase(irFunction.base),
             overriden = irFunction.overridden.map { parseSymbol(it) }
-        )
+        ).also {
+            functions.add(it)
+        }
     }
 
     private fun parseFunctionBase(irFunctionBase: IrFunctionBase): FunctionBase {

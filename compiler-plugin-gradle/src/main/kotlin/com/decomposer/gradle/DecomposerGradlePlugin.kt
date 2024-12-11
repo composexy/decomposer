@@ -20,14 +20,10 @@ class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
         )
 
         val enabled = extension.enabled.get()
-        val irStorageEnabled = extension.irStorageEnabled.get()
-        val sourceStorageEnabled = extension.sourceStorageEnabled.get()
 
         return project.provider {
             listOf(
                 SubpluginOption(key = "enabled", value = enabled.toString()),
-                SubpluginOption(key = "irStorageEnabled", value = irStorageEnabled.toString()),
-                SubpluginOption(key = "sourceStorageEnabled", value = sourceStorageEnabled.toString())
             )
         }
     }

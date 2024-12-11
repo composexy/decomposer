@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 class ProjectSnapshot(
-    val fileTree: Set<String>
+    val fileTree: Set<String>,
+    val packagesByPath: Map<String, String>
 )
 
 @Serializable

@@ -139,17 +139,19 @@ internal abstract class AbstractOkHttpClient(
             val compositionRoots = compositionExtractor.extractCompositionRoots()
             val response = CompositionDataResponse(compositionRoots)
             val serialized = Json.encodeToString(CommandResponse.serializer(), response)
-            log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
     }
 
     private fun processProjectSnapshot(webSocket: WebSocket) {
         coroutineScope.launch {
-            val projectSnapshot = ProjectSnapshot(projectScanner.fetchProjectSnapshot())
+            val scannedResult = projectScanner.fetchProjectSnapshot()
+            val projectSnapshot = ProjectSnapshot(
+                fileTree = scannedResult.first,
+                packagesByPath = scannedResult.second
+            )
             val response = ProjectSnapshotResponse(projectSnapshot)
             val serialized = Json.encodeToString(CommandResponse.serializer(), response)
-            log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
             webSocket.send(serialized)
         }
     }
@@ -169,7 +171,6 @@ internal abstract class AbstractOkHttpClient(
                 )
                 val response = VirtualFileIrResponse(virtualFileIr)
                 val serialized = Json.encodeToString(CommandResponse.serializer(), response)
-                log(Logger.Level.DEBUG, loggerTag, "Sending message $serialized")
                 webSocket.send(serialized)
             }
         }

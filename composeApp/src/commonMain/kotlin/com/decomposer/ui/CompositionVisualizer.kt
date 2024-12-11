@@ -400,12 +400,23 @@ private fun ExpandedLayoutNode(
         val verticalScrollState = rememberScrollState()
         Box(modifier = modifier) {
             Column(modifier = modifier) {
+                DefaultPanelText(
+                    text = "LayoutNode: ${layoutNode.toString}",
+                    maxLines = Int.MAX_VALUE,
+                    textAlign = TextAlign.Start,
+                    clickable = false
+                )
+
                 val lookahead = layoutNode.lookaheadRootHash?.let {
                     layoutNodesByHash[it]
                 }
                 if (lookahead != null) {
-                    DefaultPanelText(text = "Lookahead root:")
-                    DataItem(data = lookahead, expanded = false, showIcon = false, onClick = {
+                    DefaultPanelText(
+                        text = "Lookahead root: ${lookahead.toString}",
+                        maxLines = Int.MAX_VALUE,
+                        textAlign = TextAlign.Start,
+                        clickable = true
+                    ) {
                         window(
                             "LayoutNode@${lookahead.hashCode}" to @Composable {
                                 ExpandedLayoutNode(
@@ -415,15 +426,19 @@ private fun ExpandedLayoutNode(
                                 )
                             }
                         )
-                    })
+                    }
                 }
 
                 val parent = layoutNode.parentHash?.let {
                     layoutNodesByHash[it]
                 }
                 if (parent != null) {
-                    DefaultPanelText(text = "Parent:")
-                    DataItem(data = parent, expanded = false, showIcon = false, onClick = {
+                    DefaultPanelText(
+                        text = "Parent: ${parent.toString}",
+                        maxLines = Int.MAX_VALUE,
+                        textAlign = TextAlign.Start,
+                        clickable = true
+                    ) {
                         window(
                             "LayoutNode@${parent.hashCode}" to @Composable {
                                 ExpandedLayoutNode(
@@ -433,7 +448,7 @@ private fun ExpandedLayoutNode(
                                 )
                             }
                         )
-                    })
+                    }
                 }
 
                 val children = layoutNode.childrenHashes.mapNotNull {
@@ -441,8 +456,13 @@ private fun ExpandedLayoutNode(
                 }
                 if (children.isNotEmpty()) {
                     DefaultPanelText(text = "Children:")
-                    children.forEach { child ->
-                        DataItem(data = child, expanded = false, showIcon = false, onClick = {
+                    children.forEachIndexed { index, child ->
+                        DefaultPanelText(
+                            text = "Child $index: ${child.toString}",
+                            maxLines = Int.MAX_VALUE,
+                            textAlign = TextAlign.Start,
+                            clickable = true
+                        ) {
                             window(
                                 "LayoutNode@${child.hashCode}" to @Composable {
                                     ExpandedLayoutNode(
@@ -452,12 +472,12 @@ private fun ExpandedLayoutNode(
                                     )
                                 }
                             )
-                        })
+                        }
                     }
                 }
 
                 DefaultPanelText(text = "Coordinators and contained nodes:")
-                var currentNodeIndex = 0
+                var currentNodeIndex = -1
                 layoutNode.coordinators.forEachIndexed { index, coordinator ->
                     val tail = layoutNode.nodes.firstOrNull {
                         it.hashCode == coordinator.tailNodeHash
@@ -480,9 +500,10 @@ private fun ExpandedLayoutNode(
                             )
                         }
                     }
-                    while (tail != layoutNode.nodes[currentNodeIndex]) {
+
+                    do {
+                        val node = layoutNode.nodes[++currentNodeIndex]
                         Box(modifier = Modifier.padding(start = 24.dp)) {
-                            val node = layoutNode.nodes[currentNodeIndex]
                             RowWithLineNumber(currentNodeIndex + 1, layoutNode.nodes.size) {
                                 DefaultPanelText(
                                     text = "ModifierNode: ${node.toString}",
@@ -500,9 +521,8 @@ private fun ExpandedLayoutNode(
                                     )
                                 }
                             }
-                            currentNodeIndex++
                         }
-                    }
+                    } while (tail != node)
                 }
             }
 
@@ -532,6 +552,7 @@ private fun ExpandedCoordinator(
                 maxLines = Int.MAX_VALUE,
                 textAlign = TextAlign.Start
             )
+            HorizontalSplitter()
             DefaultPanelText(
                 text = "Tail node: ${ if (tail == null) "None" else "" }",
                 textAlign = TextAlign.Start

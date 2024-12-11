@@ -271,12 +271,13 @@ fun DefaultPanelText(
     clickable: Boolean = false,
     onClick: () -> Unit = { }
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Text(
         modifier = modifier.run {
             if (clickable) {
-                this.clickable {
-                    onClick()
-                }
+                this.hoverable(interactionSource)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onClick() }
             } else {
                 this
             }

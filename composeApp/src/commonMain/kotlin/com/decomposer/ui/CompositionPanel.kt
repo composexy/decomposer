@@ -3,6 +3,7 @@ package com.decomposer.ui
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
@@ -139,9 +140,7 @@ fun CompositionPanel(
             CompositionPanelBar(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
                 loading = loading,
-                onRefresh = {
-                    coroutineScope.launch { loadCompositionTree() }
-                },
+                onRefresh = { coroutineScope.launch { loadCompositionTree() } },
                 contentGroupsOnly = contentGroupsOnly,
                 userGroupsOnly = userGroupsOnly,
                 hideEmpty = hideEmpty,
@@ -174,19 +173,13 @@ fun CompositionPanel(
                 )
             }
 
-            Box(
-                modifier = Modifier.fillMaxWidth().weight(1.0f)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1.0f)) {
                 val verticalScrollState = rememberLazyListState()
                 val horizontalScrollState = rememberScrollState()
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .horizontalScroll(horizontalScrollState)
-                ) {
+                Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.matchParentSize(),
                         state = verticalScrollState,
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                     ) {

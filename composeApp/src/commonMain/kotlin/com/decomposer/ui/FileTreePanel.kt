@@ -62,26 +62,18 @@ fun FileTreePanel(
     }
 
     if (!loading) {
-        Box(
-            modifier = modifier
-        ) {
+        Box(modifier = modifier) {
             val verticalScrollState = rememberLazyListState()
             val horizontalScrollState = rememberScrollState()
 
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 TreeExpander(
                     onFoldAll = { fileTree.root.setExpandedRecursive(false) },
                     onExpandAll = { fileTree.root.setExpandedRecursive(true) }
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .horizontalScroll(horizontalScrollState)
-                ) {
+                Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.matchParentSize(),
                         state = verticalScrollState,
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                     ) {
@@ -133,9 +125,7 @@ class FileTreeNode(
 
     @Composable
     override fun TreeNode() {
-        Row(
-            modifier = Modifier.wrapContentHeight().fillMaxWidth()
-        ) {
+        Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             val interactionSource = remember { MutableInteractionSource() }
 
             FileIcon(Modifier.align(Alignment.CenterVertically))

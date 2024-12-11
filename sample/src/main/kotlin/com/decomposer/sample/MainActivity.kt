@@ -25,6 +25,8 @@ class MainActivity : ComponentActivity() {
         ComposeView(this).also {
             setContentView(it)
         }.setContent {
+            Text("Lazy")
+            /*
             Empty()
             Greeting(modifier = Modifier.width(100.dp), message = "HiHi")
             Footer(modifier = Modifier.width(100.dp), message = "HiHi")
@@ -45,6 +47,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 Text("Dialog")
             }
+            */
+
         }
     }
 }

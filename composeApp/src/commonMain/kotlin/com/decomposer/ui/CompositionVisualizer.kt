@@ -83,9 +83,7 @@ private fun GroupItem(
     clickable: Boolean = false,
     onClick: () -> Unit = { }
 ) {
-    Row(
-        modifier = modifier.wrapContentHeight().fillMaxWidth()
-    ) {
+    Row(modifier = modifier.wrapContentHeight()) {
         val interactionSource = remember { MutableInteractionSource() }
         GroupIcon(Modifier.align(Alignment.CenterVertically), node)
         Text(

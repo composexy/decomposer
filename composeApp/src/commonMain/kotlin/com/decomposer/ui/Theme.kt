@@ -1,12 +1,12 @@
 package com.decomposer.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.Colors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 
@@ -63,10 +63,11 @@ data class Theme(
 
 @Composable
 fun DecomposerTheme(content: @Composable () -> Unit) {
-    val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
-    MaterialTheme(
-        colors = theme.materialColors
-    ) {
+    val theme = LocalTheme.current
+    MaterialTheme(colors = theme.materialColors) {
         content()
     }
 }
+
+val LocalTheme = compositionLocalOf { Theme.dark }
+val LocalFontSize = compositionLocalOf { 16 }

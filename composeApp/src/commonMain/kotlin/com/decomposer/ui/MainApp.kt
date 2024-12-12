@@ -7,10 +7,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.decomposer.runtime.connection.ConnectionContract
 import com.decomposer.server.AdbConnectResult
@@ -87,4 +91,9 @@ fun DetectAdbDisconnect(connectionState: ConnectionState) {
 
 private enum class PanelContentState {
     DeviceDiscovery, Editor
+}
+
+object AppSetting {
+    var darkTheme: Boolean by mutableStateOf(true)
+    var fontSize: Int by mutableIntStateOf(20)
 }

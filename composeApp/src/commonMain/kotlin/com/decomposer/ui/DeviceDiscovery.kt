@@ -92,15 +92,14 @@ fun DeviceDiscovery(
 }
 
 @Composable
-private fun DefaultText(
-    text: String
-) {
+private fun DefaultText(text: String) {
+    val fontSize = AppSetting.fontSize
     Text(
         text = text,
         textAlign = TextAlign.Center,
         fontFamily = Fonts.jetbrainsMono(),
-        fontSize = 26.sp,
+        fontSize = fontSize.sp,
         fontWeight = FontWeight.Light,
-        lineHeight = 36.sp
+        lineHeight = (fontSize * 1.5f).sp
     )
 }

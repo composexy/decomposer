@@ -277,12 +277,13 @@ private fun rememberFilter(vararg tags: ComposeTag) = remember {
 
 @Composable
 private fun LineNumber(text: String, color: Color) {
+    val fontSize = AppSetting.fontSize
     Text(
         text = text,
         fontFamily = Fonts.jetbrainsMono(),
-        fontSize = 24.sp,
+        fontSize = fontSize.sp,
         fontWeight = FontWeight.Thin,
-        lineHeight = 36.sp,
+        lineHeight = (fontSize * 1.5f).sp,
         color = color
     )
 }

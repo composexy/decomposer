@@ -195,7 +195,7 @@ fun Panels(
                                 onCloseRequest = { panelsState.removeWindow(window) },
                                 title = title,
                                 state = rememberWindowState(
-                                    size = DpSize(1920.dp, 1080.dp)
+                                    size = DpSize(1280.dp, 720.dp)
                                 ),
                                 icon = painterResource(Res.drawable.ic_launcher)
                             ) {
@@ -270,6 +270,7 @@ fun DefaultPanelText(
     onClick: () -> Unit = { }
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val fontSize = AppSetting.fontSize
     Text(
         modifier = modifier.run {
             if (clickable) {
@@ -283,9 +284,9 @@ fun DefaultPanelText(
         text = text,
         textAlign = textAlign,
         fontFamily = Fonts.jetbrainsMono(),
-        fontSize = 24.sp,
+        fontSize = fontSize.sp,
         fontWeight = FontWeight.Light,
-        lineHeight = 36.sp,
+        lineHeight = (fontSize * 1.5).sp,
         overflow = TextOverflow.Ellipsis,
         maxLines = maxLines
     )

@@ -5,7 +5,6 @@ import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,7 +109,7 @@ fun IrPanel(
         }
     }
 
-    val theme = if (isSystemInDarkTheme()) Theme.dark else Theme.light
+    val theme = LocalTheme.current
 
     LaunchedEffect(filePath, compose, session.sessionId, highlight) {
         if (filePath != null) {
@@ -186,20 +185,20 @@ fun CodeContent(
                     }
                 )
                 SelectionContainer {
+                    val fontSize = AppSetting.fontSize
                     if (kotlinLike) {
                         var textLayoutResult: TextLayoutResult? by remember {
                             mutableStateOf(null)
                         }
-
                         Text(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 12.dp),
                             text = kotlinLikeIr,
                             fontFamily = Fonts.jetbrainsMono(),
-                            fontSize = 24.sp,
+                            fontSize = fontSize.sp,
                             fontWeight = FontWeight.Light,
-                            lineHeight = 36.sp,
+                            lineHeight = (fontSize * 1.5).sp,
                             onTextLayout = { textLayoutResult = it }
                         )
 
@@ -229,9 +228,9 @@ fun CodeContent(
                                 .padding(horizontal = 12.dp),
                             text = standardIr,
                             fontFamily = Fonts.jetbrainsMono(),
-                            fontSize = 24.sp,
+                            fontSize = fontSize.sp,
                             fontWeight = FontWeight.Light,
-                            lineHeight = 36.sp
+                            lineHeight = (fontSize * 1.5).sp
                         )
                     }
                 }
@@ -261,13 +260,14 @@ fun LineNumbers(
             .padding(end = 8.dp),
         horizontalAlignment = Alignment.End
     ) {
+        val fontSize = AppSetting.fontSize
         for (i in 1 .. length) {
             Text(
                 text = "$i",
                 fontFamily = Fonts.jetbrainsMono(),
-                fontSize = 24.sp,
+                fontSize = fontSize.sp,
                 fontWeight = FontWeight.Thin,
-                lineHeight = 36.sp,
+                lineHeight = (fontSize * 1.5).sp,
                 color = Color.Gray
             )
         }

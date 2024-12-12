@@ -126,6 +126,7 @@ class FileTreeNode(
     override fun TreeNode() {
         Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             val interactionSource = remember { MutableInteractionSource() }
+            val fontSize = AppSetting.fontSize
             FileIcon(Modifier.align(Alignment.CenterVertically))
             Text(
                 text = name,
@@ -147,9 +148,9 @@ class FileTreeNode(
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,
                 fontFamily = Fonts.jetbrainsMono(),
-                fontSize = 24.sp,
+                fontSize = fontSize.sp,
                 fontWeight = FontWeight.Light,
-                lineHeight = 36.sp
+                lineHeight = (fontSize * 1.5).sp
             )
         }
     }

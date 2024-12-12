@@ -85,6 +85,7 @@ private fun GroupItem(
 ) {
     Row(modifier = modifier.wrapContentHeight()) {
         val interactionSource = remember { MutableInteractionSource() }
+        val fontSize = AppSetting.fontSize
         GroupIcon(Modifier.align(Alignment.CenterVertically), node)
         Text(
             text = node.name,
@@ -113,9 +114,9 @@ private fun GroupItem(
             overflow = TextOverflow.Ellipsis,
             maxLines = 1,
             fontFamily = Fonts.jetbrainsMono(),
-            fontSize = 24.sp,
+            fontSize = fontSize.sp,
             fontWeight = FontWeight.Light,
-            lineHeight = 36.sp
+            lineHeight = (fontSize * 1.5).sp
         )
     }
 }
@@ -137,6 +138,7 @@ private fun DataItem(
                 if (showIcon) {
                     DataIcon(Modifier.align(Alignment.CenterVertically), data)
                 }
+                val fontSize = AppSetting.fontSize
                 Text(
                     text = data.toString,
                     modifier = Modifier
@@ -154,10 +156,10 @@ private fun DataItem(
                     softWrap = true,
                     maxLines = 1,
                     fontFamily = Fonts.jetbrainsMono(),
-                    fontSize = 24.sp,
+                    fontSize = fontSize.sp,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Thin,
-                    lineHeight = 36.sp
+                    lineHeight = (fontSize * 1.5).sp
                 )
             }
             if (expanded) {
@@ -670,6 +672,7 @@ private fun StateItem(
     Box(modifier = modifier) {
         Column(modifier = Modifier.wrapContentHeight().fillMaxWidth().animateContentSize()) {
             val interactionSource = remember { MutableInteractionSource() }
+            val fontSize = AppSetting.fontSize
             Text(
                 text = state.toString,
                 modifier = Modifier
@@ -687,10 +690,10 @@ private fun StateItem(
                 softWrap = true,
                 maxLines = 1,
                 fontFamily = Fonts.jetbrainsMono(),
-                fontSize = 24.sp,
+                fontSize = fontSize.sp,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.Thin,
-                lineHeight = 36.sp
+                lineHeight = (fontSize * 1.5).sp
             )
             if (expanded) {
                 StateDetail(

@@ -23,7 +23,9 @@ class AdbConnection(private val port: Int) {
                 return AdbConnectResult.Success
             }
         } catch (ex: Exception) {
-            return AdbConnectResult.Failure(ex.stackTraceToString())
+            return AdbConnectResult.Failure(
+                ex.message ?: ex.stackTraceToString().lines().first()
+            )
         }
     }
 }
@@ -34,7 +36,5 @@ sealed interface AdbConnectResult {
 
     data object Success : AdbConnectResult
 
-    data class Failure(
-        val errorMessage: String
-    ) : AdbConnectResult
+    data class Failure(val errorMessage: String) : AdbConnectResult
 }

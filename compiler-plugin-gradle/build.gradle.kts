@@ -27,7 +27,7 @@ java {
 gradlePlugin {
     plugins {
         create("decomposer") {
-            id = "com.decomposer.plugin.gradle"
+            id = "io.github.composexy-decomposer"
             implementationClass = "com.decomposer.gradle.DecomposerGradlePlugin"
         }
     }

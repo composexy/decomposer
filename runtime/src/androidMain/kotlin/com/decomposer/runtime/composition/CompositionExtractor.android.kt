@@ -1,4 +1,4 @@
-package com.decomposer.runtime.ir
+package com.decomposer.runtime.composition
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -16,6 +16,7 @@ import com.decomposer.runtime.compose.CompositionExtractor
 import com.decomposer.runtime.connection.model.ComposeState
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.CompositionRoot
+import com.decomposer.runtime.AndroidLogger
 import java.lang.reflect.Field
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMembers

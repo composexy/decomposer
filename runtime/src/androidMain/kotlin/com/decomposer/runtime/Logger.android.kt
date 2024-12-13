@@ -1,7 +1,6 @@
-package com.decomposer.runtime.ir
+package com.decomposer.runtime
 
 import android.util.Log
-import com.decomposer.runtime.Logger
 
 internal object AndroidLogger : Logger {
     override fun log(level: Logger.Level, tag: String, message: String) {

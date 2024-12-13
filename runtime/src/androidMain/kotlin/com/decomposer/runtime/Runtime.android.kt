@@ -1,7 +1,9 @@
-package com.decomposer.runtime.ir
+package com.decomposer.runtime
 
 import android.app.Application
 import android.content.Context
+import com.decomposer.runtime.composition.AndroidCompositionExtractor
+import com.decomposer.runtime.ir.AndroidProjectScanner
 
 class AndroidRuntime(context: Context) {
     private val projectScanner = AndroidProjectScanner(context)

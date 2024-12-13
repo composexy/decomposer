@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.decomposer.sample"
-    compileSdk = 34
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     buildFeatures {
         buildConfig = true
@@ -14,10 +14,10 @@ android {
 
     defaultConfig {
         applicationId = "com.decomposer.sample"
-        minSdk = 26
-        targetSdk = 35
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
     }

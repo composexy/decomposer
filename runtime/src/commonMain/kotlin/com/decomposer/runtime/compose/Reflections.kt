@@ -19,7 +19,7 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.declaredMembers
 import kotlin.reflect.jvm.isAccessible
 
-class CompositionReflection(
+internal class CompositionReflection(
     private val composition: Composition,
     private val logger: Logger
 ) {
@@ -93,7 +93,7 @@ class CompositionReflection(
     }
 }
 
-class SubcomposeLayoutStateReflection(
+internal class SubcomposeLayoutStateReflection(
     private val state: SubcomposeLayoutState,
     private val logger: Logger
 ) {
@@ -165,7 +165,7 @@ class SubcomposeLayoutStateReflection(
     }
 }
 
-class StateReflection(
+internal class StateReflection(
     private val state: State<*>,
     private val logger: Logger
 ) {
@@ -254,7 +254,7 @@ class StateReflection(
     }
 }
 
-class ComposableLambdaImplReflection(private val lambda: Any, private val logger: Logger) {
+internal class ComposableLambdaImplReflection(private val lambda: Any, private val logger: Logger) {
 
     val key: Int
         get() {
@@ -333,7 +333,7 @@ class ComposableLambdaImplReflection(private val lambda: Any, private val logger
     }
 }
 
-class LayoutNodeReflection(private val layoutNode: Any, private val logger: Logger) {
+internal class LayoutNodeReflection(private val layoutNode: Any, private val logger: Logger) {
     val lookaheadRootHash: Int?
         get() {
             val layoutNodeClazz = layoutNode::class
@@ -473,7 +473,10 @@ class LayoutNodeReflection(private val layoutNode: Any, private val logger: Logg
     }
 }
 
-class RememberObserverHolderReflection(private val holder: Any, private val logger: Logger) {
+internal class RememberObserverHolderReflection(
+    private val holder: Any,
+    private val logger: Logger
+) {
 
     val wrapped: Any?
         get() {
@@ -494,7 +497,10 @@ class RememberObserverHolderReflection(private val holder: Any, private val logg
     }
 }
 
-class CompositionContextHolderReflection(private val holder: Any, private val logger: Logger) {
+internal class CompositionContextHolderReflection(
+    private val holder: Any,
+    private val logger: Logger
+) {
 
     val ref: CompositionContext?
         get() {
@@ -534,7 +540,7 @@ private fun KClass<*>.cast(identifier: String): KClass<*>? {
     val superClasses = mutableListOf<KClass<*>>()
     superClasses.add(this)
     while (superClasses.isNotEmpty()) {
-        val clazz = superClasses.removeLast()
+        val clazz = superClasses.removeAt(superClasses.lastIndex)
         if (clazz.qualifiedName?.contains(identifier) == true) return clazz
         clazz.supertypes.forEach {
             it.classifier?.let { classifier ->

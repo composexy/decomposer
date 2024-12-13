@@ -2,6 +2,7 @@ package com.decomposer.runtime.ir
 
 import android.content.Context
 import android.os.Build
+import com.decomposer.runtime.AndroidLogger
 import com.decomposer.runtime.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

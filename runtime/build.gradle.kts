@@ -36,8 +36,6 @@ kotlin {
             dependencies {
                 implementation(libs.kotlinx.serializationJson)
                 implementation(libs.squareup.wire.runtime)
-                implementation(libs.squareup.wire.grpc.client)
-                implementation(libs.squareup.wire.grpc.server)
                 implementation(libs.ktor.client.contentNegotiation)
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.ktor.client.core)
@@ -60,16 +58,13 @@ kotlin {
             }
         }
         val androidUnitTest by getting {
-            dependencies {
-            }
+            dependencies {}
         }
         val desktopMain by getting {
-            dependencies {
-            }
+            dependencies {}
         }
         val desktopTest by getting {
-            dependencies {
-            }
+            dependencies {}
         }
     }
 }

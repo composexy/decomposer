@@ -1,7 +1,7 @@
 package com.decomposer.sample
 
 import android.app.Application
-import com.decomposer.runtime.ir.runtimeInit
+import com.decomposer.runtime.runtimeInit
 
 class SampleApplication : Application() {
 

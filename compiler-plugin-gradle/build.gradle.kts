@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     alias(libs.plugins.kotlin.jvm)
     `java-gradle-plugin`
+    `kotlin-dsl`
     alias(libs.plugins.mavenPublish)
 }
 
@@ -18,10 +19,16 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
+}
+
 gradlePlugin {
     plugins {
         create("decomposer") {
-            id = "com.decomposer.compiler"
+            id = "com.decomposer.plugin.gradle"
             implementationClass = "com.decomposer.gradle.DecomposerGradlePlugin"
         }
     }

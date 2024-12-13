@@ -1,6 +1,9 @@
 package com.decomposer.gradle
 
+import org.gradle.api.Project
 import org.gradle.api.provider.Provider
+import org.gradle.kotlin.dsl.create
+
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
 import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
@@ -8,23 +11,18 @@ import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
 
 class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
 
+    override fun apply(target: Project) {
+        target.extensions.create<DecomposerPluginExtension>("decomposer")
+    }
+
     override fun applyToCompilation(
         kotlinCompilation: KotlinCompilation<*>
     ): Provider<List<SubpluginOption>> {
         val project = kotlinCompilation.target.project
         val extension = project.extensions.getByType(DecomposerPluginExtension::class.java)
-
-        project.dependencies.add(
-            kotlinCompilation.implementationConfigurationName,
-            "com.decomposer:runtime:0.1.0",
-        )
-
         val enabled = extension.enabled.get()
-
         return project.provider {
-            listOf(
-                SubpluginOption(key = "enabled", value = enabled.toString()),
-            )
+            listOf(SubpluginOption(key = "enabled", value = enabled.toString()))
         }
     }
 
@@ -33,9 +31,13 @@ class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
     override fun getPluginArtifact(): SubpluginArtifact =
         SubpluginArtifact(
             groupId = "com.decomposer",
-            artifactId = "compiler",
-            version = "0.1.0"
+            artifactId = "decomposer-compiler",
+            version = VERSION
         )
 
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>) = true
+
+    companion object {
+        const val VERSION = "0.1.0"
+    }
 }

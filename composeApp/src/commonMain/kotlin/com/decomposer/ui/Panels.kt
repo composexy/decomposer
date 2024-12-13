@@ -138,12 +138,19 @@ fun Panels(
                                 VerticalSplitter()
                             }
                             IrPanel(
-                                modifier = Modifier.weight(0.42f).clickable(
-                                    indication = null,
-                                    interactionSource = remember { MutableInteractionSource() }
-                                ) {
-                                    highlight = null
-                                },
+                                modifier = Modifier.weight(0.42f)
+                                    .run {
+                                        if (highlight != null) {
+                                            this.clickable(
+                                                indication = null,
+                                                interactionSource = remember { MutableInteractionSource() }
+                                            ) {
+                                                highlight = null
+                                            }
+                                        } else {
+                                            this
+                                        }
+                                    },
                                 session = sessionState.session,
                                 irProcessor = irProcessor,
                                 filePath = panelsState.selectedIrFilePath,

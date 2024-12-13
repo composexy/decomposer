@@ -54,21 +54,10 @@ fun IrPanel(
     highlight: Pair<Int, Int>?,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
-    var compose by remember {
-        mutableStateOf(true)
-    }
-
-    var kotlinLike by remember {
-        mutableStateOf(true)
-    }
-
-    var kotlinLikeIr by remember {
-        mutableStateOf<AnnotatedString?>(null)
-    }
-
-    var standardIr by remember {
-        mutableStateOf<String?>(null)
-    }
+    var compose by remember { mutableStateOf(true) }
+    var kotlinLike by remember { mutableStateOf(true) }
+    var kotlinLikeIr by remember { mutableStateOf<AnnotatedString?>(null) }
+    var standardIr by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
@@ -83,12 +72,8 @@ fun IrPanel(
                 modifier = Modifier.align(Alignment.Center)
             )
         } else {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
-                ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
                     ComposeToggle(
                         text = "Compose",
                         checked = compose,

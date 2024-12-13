@@ -130,7 +130,10 @@ fun Panels(
                             FileTreePanel(
                                 modifier = Modifier.weight(0.16f),
                                 projectSnapshot = projectSnapshot,
-                                onClickFileEntry = { panelsState.selectedIrFilePath = it }
+                                onClickFileEntry = {
+                                    panelsState.selectedIrFilePath = it
+                                    panelsState.irViewerVisible = true
+                                }
                             )
                         }
                         if (panelsState.irViewerVisible) {

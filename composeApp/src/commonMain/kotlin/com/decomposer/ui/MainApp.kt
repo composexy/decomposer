@@ -95,5 +95,5 @@ private enum class PanelContentState {
 
 object AppSetting {
     var darkTheme: Boolean by mutableStateOf(true)
-    var fontSize: Int by mutableIntStateOf(20)
+    var fontSize: Int by mutableIntStateOf(24)
 }

@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -167,6 +168,9 @@ class FileTreeNode(
 
     @Composable
     private fun FileIcon(modifier: Modifier) {
+        val size = with(LocalDensity.current) {
+            (LocalFontSize.current * 1.25).sp.toDp()
+        }
         Box(
             modifier = modifier
                 .wrapContentSize()
@@ -186,7 +190,7 @@ class FileTreeNode(
                         painter = painterResource(Res.drawable.folder_open),
                         contentDescription = "Fold $name",
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(size)
                             .hoverable(interactionSource)
                             .pointerHoverIcon(PointerIcon.Hand),
                     )
@@ -197,7 +201,7 @@ class FileTreeNode(
                         painter = painterResource(Res.drawable.folder_close),
                         contentDescription = "Unfold $name",
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(size)
                             .hoverable(interactionSource)
                             .pointerHoverIcon(PointerIcon.Hand),
                     )
@@ -206,7 +210,7 @@ class FileTreeNode(
                     Image(
                         painter = painterResource(Res.drawable.file),
                         contentDescription = name,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(size),
                     )
                 }
             }

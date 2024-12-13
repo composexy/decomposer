@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -171,6 +172,9 @@ private fun DataItem(
 
 @Composable
 private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     Box(
         modifier = modifier
             .wrapContentSize()
@@ -195,7 +199,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                 Image(
                     painter = painterResource(Res.drawable.empty_group),
                     contentDescription = "Empty group",
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(size),
                 )
             }
             node.expanded -> {
@@ -204,7 +208,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                     painter = painterResource(Res.drawable.expand_down),
                     contentDescription = "Fold ${node.name}",
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(size)
                         .hoverable(interactionSource)
                         .pointerHoverIcon(PointerIcon.Hand),
                 )
@@ -215,7 +219,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
                     painter = painterResource(Res.drawable.expand_right),
                     contentDescription = "Unfold ${node.name}",
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(size)
                         .hoverable(interactionSource)
                         .pointerHoverIcon(PointerIcon.Hand),
                 )
@@ -782,6 +786,9 @@ private fun ExpandedRememberObserverHolder(
 
 @Composable
 private fun DataIcon(modifier: Modifier, data: Data) {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     Box(
         modifier = modifier
             .wrapContentSize()
@@ -790,7 +797,7 @@ private fun DataIcon(modifier: Modifier, data: Data) {
         Image(
             painter = painterResource(Res.drawable.data),
             contentDescription = data::class.simpleName,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(size),
         )
     }
 }
@@ -801,6 +808,9 @@ private fun ShowDataIcon(
     expanded: Boolean,
     onClick: () -> Unit
 ) {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
@@ -814,13 +824,13 @@ private fun ShowDataIcon(
             Image(
                 painter = painterResource(Res.drawable.fold_data),
                 contentDescription = "Fold data",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(size),
             )
         } else {
             Image(
                 painter = painterResource(Res.drawable.expand_data),
                 contentDescription = "Expand data",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(size),
             )
         }
     }
@@ -831,6 +841,9 @@ private fun GroupAttributesIcon(
     modifier: Modifier,
     onClick: () -> Unit
 ) {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
@@ -843,7 +856,7 @@ private fun GroupAttributesIcon(
         Image(
             painter = painterResource(Res.drawable.group_attributes),
             contentDescription = "Group attributes",
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(size),
         )
     }
 }

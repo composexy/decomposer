@@ -37,6 +37,6 @@ class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>) = true
 
     companion object {
-        const val VERSION = "0.1.0-alpha1"
+        const val VERSION = "0.1.0-SNAPSHOT"
     }
 }

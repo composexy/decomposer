@@ -1,5 +1,5 @@
 [versions]
-agp = "8.5.2"
+agp = "8.7.3"
 android-compileSdk = "35"
 android-minSdk = "21"
 android-targetSdk = "35"
@@ -17,6 +17,7 @@ wire = "5.1.0"
 moshi = "1.15.1"
 ktor = "3.0.1"
 collectionJvm = "1.4.5"
+publishing = "0.30.0"
 
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -60,6 +61,6 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 wire = { id = "com.squareup.wire", version.ref = "wire" }
-mavenPublish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
+mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "publishing" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinx-serialization = { id = "plugin.serialization", version.ref = "kotlin" }

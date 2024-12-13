@@ -62,7 +62,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(project.dependencies.platform(libs.androidx.compose.bom))
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)

@@ -29,7 +29,7 @@ class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
 
     override fun getPluginArtifact(): SubpluginArtifact =
         SubpluginArtifact(
-            groupId = "com.decomposer",
+            groupId = "io.github.composexy-decomposer",
             artifactId = "decomposer-compiler",
             version = VERSION
         )
@@ -37,6 +37,6 @@ class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>) = true
 
     companion object {
-        const val VERSION = "0.1.0"
+        const val VERSION = "0.1.0-SNAPSHOT"
     }
 }

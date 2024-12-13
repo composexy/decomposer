@@ -7,3 +7,10 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.android) apply false
 }
+
+subprojects {
+    if (this.name != "composeApp" && this.name != "sample") {
+        group = project.property("GROUP") as String
+        version = project.property("VERSION_NAME") as String
+    }
+}

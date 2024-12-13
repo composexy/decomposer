@@ -20,7 +20,6 @@ java {
 }
 
 group = "com.decomposer.runtime"
-version = "0.0.1"
 
 kotlin {
     jvm("desktop")

@@ -47,6 +47,7 @@ fun MainApp() {
                     DeviceDiscovery(
                         modifier = Modifier.fillMaxSize(),
                         adbState = adbConnectState,
+                        versions = Versions,
                         onConnect = {
                             coroutineScope.launch {
                                 if (adbConnectState != AdbConnectResult.Success) {
@@ -96,4 +97,10 @@ private enum class PanelContentState {
 object AppSetting {
     var darkTheme: Boolean by mutableStateOf(true)
     var fontSize: Int by mutableIntStateOf(24)
+}
+
+object Versions {
+    val version = "0.1.0"
+    val targetComposeRuntime = "1.7.1"
+    val targetKotlin = "2.1.0"
 }

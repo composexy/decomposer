@@ -2,7 +2,6 @@ package com.decomposer.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
-import org.gradle.kotlin.dsl.create
 
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
@@ -12,7 +11,7 @@ import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
 class DecomposerGradlePlugin : KotlinCompilerPluginSupportPlugin {
 
     override fun apply(target: Project) {
-        target.extensions.create<DecomposerPluginExtension>("decomposer")
+        target.extensions.create("decomposer", DecomposerPluginExtension::class.java)
     }
 
     override fun applyToCompilation(

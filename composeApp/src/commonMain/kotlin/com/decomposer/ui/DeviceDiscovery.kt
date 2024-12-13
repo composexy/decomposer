@@ -25,6 +25,7 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun DeviceDiscovery(
     modifier: Modifier,
+    versions: Versions,
     adbState: AdbConnectResult,
     onConnect: () -> Unit
 ) {
@@ -33,10 +34,17 @@ fun DeviceDiscovery(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            modifier = Modifier.heightIn(320.dp, 480.dp).widthIn(320.dp, 480.dp),
+            modifier = Modifier.heightIn(160.dp, 240.dp).widthIn(160.dp, 240.dp),
             painter = painterResource(Res.drawable.ic_launcher),
             contentDescription = "Launcher logo",
             contentScale = ContentScale.Fit
+        )
+        DefaultText(
+            text = """
+                Version: ${versions.version}
+                Target compose runtime: ${versions.targetComposeRuntime}
+                Target kotlin: ${versions.targetKotlin}
+            """.trimIndent(),
         )
         when (adbState) {
             is AdbConnectResult.Failure -> {

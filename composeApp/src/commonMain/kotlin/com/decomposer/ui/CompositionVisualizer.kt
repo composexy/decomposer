@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
@@ -933,7 +932,8 @@ private class CompositionNode(
     override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: "Recomposer"})"
     override val children: List<TreeNode> = compositionRoot.groups.map {
         GroupNode(
-            group = it,
+            groupIndex = it,
+            groupTable = compositionRoot.groupTable,
             level = level + 1,
             contexts = contexts
         )
@@ -947,10 +947,12 @@ private class CompositionNode(
 }
 
 private class GroupNode(
-    private val group: Group,
+    private val groupIndex: Int,
+    private val groupTable: List<Group>,
     private val contexts: Contexts,
     override val level: Int
 ) : BaseComposeTreeNode() {
+    private val group = groupTable[groupIndex]
     override val name = group.name
     private val _tags = mutableSetOf<Any>()
     private val _children = mutableListOf<TreeNode>()
@@ -985,7 +987,8 @@ private class GroupNode(
                 _children.addAll(
                     group.children.map {
                         GroupNode(
-                            group = it,
+                            groupIndex = it,
+                            groupTable = groupTable,
                             level = level + 1,
                             contexts = contexts
                         )
@@ -1226,7 +1229,8 @@ private fun CompositionRoots.buildContexts(
     val layoutNodesByHash = mutableMapOf<Int, LayoutNode>()
     val recomposeScopesByHash = mutableMapOf<Int, RecomposeScope>()
 
-    fun traverse(group: Group) {
+    fun traverse(groupIndex: Int, table: List<Group>) {
+        val group = table[groupIndex]
         group.data.forEach {
             when (it) {
                 is LayoutNode -> layoutNodesByHash[it.hashCode] = it
@@ -1235,13 +1239,14 @@ private fun CompositionRoots.buildContexts(
             }
         }
         group.children.forEach {
-            traverse(it)
+            traverse(it, table)
         }
     }
 
     this.compositionData.forEach {
+        val table = it.groupTable
         it.groups.forEach { group ->
-            traverse(group)
+            traverse(group, table)
         }
     }
 

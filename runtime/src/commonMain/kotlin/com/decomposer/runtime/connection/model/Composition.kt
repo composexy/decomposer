@@ -11,14 +11,15 @@ class CompositionRoots(
 @Serializable
 class CompositionRoot(
     val context: Context?,
-    val groups: List<Group>
+    val groups: List<Int>,
+    val groupTable: List<Group>
 )
 
 @Serializable
 class Group(
     val attributes: Attributes,
     val data: List<Data>,
-    val children: List<Group>
+    val children: List<Int>
 )
 
 @Serializable

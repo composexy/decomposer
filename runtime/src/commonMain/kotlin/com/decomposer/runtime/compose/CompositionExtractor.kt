@@ -55,11 +55,14 @@ internal abstract class CompositionExtractor(
         context: CompositionContext,
         outStates: MutableSet<ComposeState>
     ): CompositionRoot {
+        val outGroups = mutableListOf<Group>()
+        val groups = compositionData.compositionGroups.map {
+            mapCompositionGroup(it, observations, outStates, outGroups)
+        }
         return CompositionRoot(
             context = mapCompositionContext(context),
-            groups = compositionData.compositionGroups.map {
-                mapCompositionGroup(it, observations, outStates)
-            }
+            groupTable = outGroups,
+            groups = groups
         )
     }
 
@@ -84,22 +87,25 @@ internal abstract class CompositionExtractor(
     }
 
     private fun mapCompositionGroup(
-        group: CompositionGroup,
+        compositionGroup: CompositionGroup,
         observations: Map<Any, Set<Any>>,
-        outStates: MutableSet<ComposeState>
-    ): Group {
-        return Group(
+        outStates: MutableSet<ComposeState>,
+        outGroups: MutableList<Group>
+    ): Int {
+        val group = Group(
             attributes = Attributes(
-                key = mapKey(group.key),
-                sourceInformation = group.sourceInfo
+                key = mapKey(compositionGroup.key),
+                sourceInformation = compositionGroup.sourceInfo
             ),
-            data = group.data.map {
+            data = compositionGroup.data.map {
                 mapData(it, observations, outStates)
             },
-            children = group.compositionGroups.map {
-                mapCompositionGroup(it, observations, outStates)
+            children = compositionGroup.compositionGroups.map {
+                mapCompositionGroup(it, observations, outStates, outGroups)
             }
         )
+        outGroups.add(group)
+        return outGroups.size - 1
     }
 
     private fun mapData(
@@ -328,7 +334,7 @@ internal abstract class CompositionExtractor(
     }
 
     companion object {
-        private val EMPTY_ROOT = CompositionRoot(null, emptyList())
+        private val EMPTY_ROOT = CompositionRoot(null, emptyList(), emptyList())
         private const val COMPOSITION_CONTEXT_HOLDER = "androidx.compose.runtime.ComposerImpl.CompositionContextHolder"
         private const val REMEMBER_OBSERVER_HOLDER = "androidx.compose.runtime.RememberObserverHolder"
         private const val COMPOSABLE_LAMBDA_IMPL = "androidx.compose.runtime.internal.ComposableLambdaImpl"

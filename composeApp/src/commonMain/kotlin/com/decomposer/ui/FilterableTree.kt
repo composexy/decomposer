@@ -174,7 +174,8 @@ fun TreeNode.flattenChildren(): List<TreeNode> {
 
 abstract class BaseTreeNode : TreeNode {
     override var excludes: Set<KClass<*>> by mutableStateOf(emptySet())
-    override val levelWidth: Dp = 24.dp
+    override val levelWidth: Dp
+        get() = AppSetting.fontSize.dp
     override var parent: TreeNode? = null
 
     override val expandable: Boolean

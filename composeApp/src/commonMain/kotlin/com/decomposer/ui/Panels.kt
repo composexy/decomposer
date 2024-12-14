@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -310,6 +311,9 @@ fun TreeExpander(
     Row(
         modifier = Modifier.wrapContentSize()
     ) {
+        val size = with(LocalDensity.current) {
+            (LocalFontSize.current * 1.25).sp.toDp()
+        }
         val interactionSource = remember { MutableInteractionSource() }
         Row(
             Modifier
@@ -320,7 +324,7 @@ fun TreeExpander(
             Image(
                 painter = painterResource(Res.drawable.expand_all),
                 contentDescription = "Expand all",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(size)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onExpandAll() }
@@ -328,7 +332,7 @@ fun TreeExpander(
             Image(
                 painter = painterResource(Res.drawable.fold_all),
                 contentDescription = "Fold all",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(size)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onFoldAll() }

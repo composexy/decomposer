@@ -506,7 +506,7 @@ private fun ExpandedLayoutNode(
 
                     do {
                         val node = layoutNode.nodes[++currentNodeIndex]
-                        Box(modifier = Modifier.padding(start = 24.dp)) {
+                        Box(modifier = Modifier.padding(start = AppSetting.fontSize.dp)) {
                             RowWithLineNumber(currentNodeIndex + 1, layoutNode.nodes.size) {
                                 DefaultPanelText(
                                     text = "ModifierNode: ${node.toString}",
@@ -689,7 +689,7 @@ private fun StateItem(
                             this
                         }
                     }
-                    .basicMarquee(velocity = 160.dp),
+                    .basicMarquee(velocity = (fontSize * 7).dp),
                 softWrap = true,
                 maxLines = 1,
                 fontFamily = Fonts.jetbrainsMono(),
@@ -703,7 +703,7 @@ private fun StateItem(
                     modifier = Modifier.fillMaxWidth()
                         .wrapContentHeight()
                         .background(Color(0x08FFFFFF))
-                        .padding(horizontal = 48.dp),
+                        .padding(horizontal = (fontSize * 2).dp),
                     contexts = contexts,
                     state = state,
                     onClickDependency = onClickDependency

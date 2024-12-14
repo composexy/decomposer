@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -265,6 +266,7 @@ fun ComposeToggle(
     checked: Boolean,
     onCheckedChanged: (Boolean) -> Unit
 ) {
+    val scale = AppSetting.fontSize.toFloat() / 24.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
@@ -282,7 +284,7 @@ fun ComposeToggle(
         Checkbox(
             checked = checked,
             onCheckedChange = null,
-            modifier = Modifier.padding(4.dp)
+            modifier = Modifier.scale(scale).padding(4.dp)
         )
         DefaultPanelText(text = text)
     }

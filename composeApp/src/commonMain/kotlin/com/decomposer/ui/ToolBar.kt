@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.selection.toggleable
@@ -22,10 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -68,6 +72,9 @@ fun ToolBar(
 
 @Composable
 fun FontSizeChooser() {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     Row(
         modifier = Modifier.padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -75,7 +82,7 @@ fun FontSizeChooser() {
         var sliderValue by remember { mutableFloatStateOf(AppSetting.fontSize.toFloat()) }
 
         Slider(
-            modifier = Modifier.width(320.dp),
+            modifier = Modifier.width(size * 10),
             value = sliderValue,
             onValueChange = { sliderValue = it },
             onValueChangeFinished = { AppSetting.fontSize = sliderValue.toInt() },
@@ -96,6 +103,7 @@ fun ToolBarCheckBox(
     text: String,
     onCheckedChanged: (Boolean) -> Unit
 ) {
+    val scale = AppSetting.fontSize.toFloat() / 24.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
@@ -113,7 +121,7 @@ fun ToolBarCheckBox(
         Checkbox(
             checked = checked,
             onCheckedChange = null,
-            modifier = Modifier.padding(4.dp)
+            modifier = Modifier.scale(scale).padding(4.dp)
         )
         DefaultPanelText(
             text = text,

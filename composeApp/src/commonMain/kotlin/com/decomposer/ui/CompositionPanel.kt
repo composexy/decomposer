@@ -42,8 +42,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -323,6 +325,9 @@ fun DataExpander(
     onFoldData: () -> Unit
 ) {
     Row(modifier = Modifier.wrapContentSize()) {
+        val size = with(LocalDensity.current) {
+            (LocalFontSize.current * 1.25).sp.toDp()
+        }
         val interactionSource = remember { MutableInteractionSource() }
         Row(
             Modifier
@@ -333,7 +338,7 @@ fun DataExpander(
             Image(
                 painter = painterResource(Res.drawable.expand_data),
                 contentDescription = "Expand all data",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(size)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onExpandData() }
@@ -341,7 +346,7 @@ fun DataExpander(
             Image(
                 painter = painterResource(Res.drawable.fold_data),
                 contentDescription = "Fold all data",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(size)
                     .hoverable(interactionSource)
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onFoldData() }
@@ -399,6 +404,9 @@ fun CompositionPanelBar(
 
 @Composable
 fun CompositionRefresh(loading: Boolean, onRefresh: () -> Unit) {
+    val size = with(LocalDensity.current) {
+        (LocalFontSize.current * 1.25).sp.toDp()
+    }
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
@@ -418,7 +426,7 @@ fun CompositionRefresh(loading: Boolean, onRefresh: () -> Unit) {
         Image(
             painter = painterResource(Res.drawable.refresh),
             contentDescription = "Refresh composition",
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(size)
         )
         DefaultPanelText(
             text = "Refresh",
@@ -433,6 +441,7 @@ fun ComposeCheckBox(
     checked: Boolean,
     onCheckedChanged: (Boolean) -> Unit
 ) {
+    val scale = AppSetting.fontSize.toFloat() / 24.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
@@ -448,6 +457,7 @@ fun ComposeCheckBox(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
+            modifier = Modifier.scale(scale),
             checked = checked,
             onCheckedChange = null
         )

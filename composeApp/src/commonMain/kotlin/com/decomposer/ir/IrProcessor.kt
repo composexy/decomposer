@@ -1516,7 +1516,7 @@ class IrProcessor {
                 statement.branch != null -> parseBranch(statement.branch!!)
                 statement.catch_ != null -> parseCatch(statement.catch_!!)
                 statement.synthetic_body != null -> parseSyntheticBody(statement.synthetic_body!!)
-                else -> throw IllegalArgumentException("Unexpected state type: $statement")
+                else -> throw IllegalArgumentException("Unexpected statement type: $statement")
             }
         )
     }

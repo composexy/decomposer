@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -25,6 +27,12 @@ class MainActivity : ComponentActivity() {
         ComposeView(this).also {
             setContentView(it)
         }.setContent {
+            val stateList = remember {
+                mutableStateListOf(12, 123)
+            }
+            val stateMap = remember {
+                mutableStateMapOf(2 to "123", 4 to "123123")
+            }
             Box {
                 Text("Lazy")
             }
@@ -32,7 +40,7 @@ class MainActivity : ComponentActivity() {
             Greeting(modifier = Modifier.width(100.dp), message = "HiHi")
             Footer(modifier = Modifier.width(100.dp), message = "HiHi")
             val state1 = remember {
-                mutableStateOf("Hi!")
+                mutableStateOf("Hi! ${stateList[0]} ${stateMap[2]}")
             }
             Text(modifier = Modifier, text = "${state1.value} ${textState.value}")
             LazyColumn {

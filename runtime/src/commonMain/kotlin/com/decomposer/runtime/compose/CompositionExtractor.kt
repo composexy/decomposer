@@ -3,6 +3,8 @@ package com.decomposer.runtime.compose
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.State
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.tooling.CompositionData
 import androidx.compose.runtime.tooling.CompositionGroup
 import androidx.compose.ui.layout.SubcomposeLayoutState
@@ -209,13 +211,23 @@ internal abstract class CompositionExtractor(
         val readStates = mutableListOf<Int>()
         observations.forEach { entry ->
             val state = entry.key
-            if (state !is State<*>) {
-                logger.log(Logger.Level.WARNING, TAG, "Unexpected state type: $state")
-                return@forEach
-            }
             val hashCode = state.hashCode()
             if (!outStates.any { it.hashCode == hashCode }) {
-                outStates.add(mapState(state, observations, outStates))
+                when(state) {
+                    is State<*> -> {
+                        outStates.add(mapState(state, observations, outStates))
+                    }
+                    is SnapshotStateList<*> -> {
+                        outStates.add(mapStateList(state, observations, outStates))
+                    }
+                    is SnapshotStateMap<*, *> -> {
+                        outStates.add(mapStateMap(state, observations, outStates))
+                    }
+                    else -> {
+                        logger.log(Logger.Level.WARNING, TAG, "Unexpected state type: $state")
+                        return@forEach
+                    }
+                }
             }
             val scopes = entry.value
             if (scopes.contains(recomposeScope)) {
@@ -259,6 +271,40 @@ internal abstract class CompositionExtractor(
             toString = any.toString(),
             typeName = any::class.qualifiedName!!,
             hashCode = any.hashCode()
+        )
+    }
+
+    private fun mapStateList(
+        state: SnapshotStateList<*>,
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): ComposeState {
+        return ComposeState(
+            value = mapData(state.toList(), observations, outStates),
+            dependencyHashes = emptyList(),
+            readInComposition = null,
+            readInSnapshotFlow = null,
+            readInSnapshotStateObserver = null,
+            toString = state.toString(),
+            typeName = state::class.qualifiedName,
+            hashCode = state.hashCode()
+        )
+    }
+
+    private fun mapStateMap(
+        state: SnapshotStateMap<*, *>,
+        observations: Map<Any, Set<Any>>,
+        outStates: MutableSet<ComposeState>
+    ): ComposeState {
+        return ComposeState(
+            value = mapData(state.toMap(), observations, outStates),
+            dependencyHashes = emptyList(),
+            readInComposition = null,
+            readInSnapshotFlow = null,
+            readInSnapshotStateObserver = null,
+            toString = state.toString(),
+            typeName = state::class.qualifiedName,
+            hashCode = state.hashCode()
         )
     }
 

@@ -159,6 +159,7 @@ fun CompositionPanel(
             )
         }
         if (!loading) {
+            val nodes = subtree.flattenNodes
             Row(modifier = Modifier.fillMaxWidth()) {
                 TreeExpander(
                     onFoldAll = {
@@ -194,7 +195,6 @@ fun CompositionPanel(
                         state = verticalScrollState,
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                     ) {
-                        val nodes = subtree.flattenNodes
                         items(nodes.size, key = { nodes[it] }) {
                             Box(modifier = Modifier.animateItem()) {
                                 RowWithLineNumber(it + 1, nodes.size) {

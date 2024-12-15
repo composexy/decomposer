@@ -1,5 +1,7 @@
 package com.decomposer.runtime.compose
 
+import androidx.collection.MutableIntObjectMap
+import androidx.collection.MutableObjectIntMap
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.State
@@ -525,43 +527,96 @@ internal abstract class CompositionNormalizer(
 }
 
 internal class NormalizerContext(
-    private val usedString: MutableMap<String, Int> = mutableMapOf(),
-    private val usedData: MutableMap<Any?, Int> = mutableMapOf(),
-    private val usedState: MutableMap<Any, Int> = mutableMapOf(),
-    private val usedGroup: MutableMap<CompositionGroup, Int> = mutableMapOf(),
-    internal val stringTable: MutableList<String> = mutableListOf(),
-    internal val dataTable: MutableList<Data> = mutableListOf(),
-    internal val stateTable: MutableList<ComposeState> = mutableListOf(),
-    internal val groupTable: MutableList<Group> = mutableListOf()
+    private val stagingStringTable: MutableIntObjectMap<String> = MutableIntObjectMap(),
+    private val stagingDataTable: MutableIntObjectMap<Data> = MutableIntObjectMap(),
+    private val stagingStateTable: MutableIntObjectMap<ComposeState> = MutableIntObjectMap(),
+    private val stagingGroupTable: MutableIntObjectMap<Group> = MutableIntObjectMap(),
+    private val usedString: MutableObjectIntMap<String> = MutableObjectIntMap(),
+    private val usedData: MutableObjectIntMap<Any?> = MutableObjectIntMap(),
+    private val usedState: MutableObjectIntMap<Any> = MutableObjectIntMap(),
+    private val usedGroup: MutableObjectIntMap<CompositionGroup> = MutableObjectIntMap(),
 ) {
+
+    internal val stringTable: List<String>
+        get() {
+            val table = mutableListOf<String>()
+            for (i in 0 until stagingStringTable.size) {
+                table.add(i, stagingStringTable[i]!!)
+            }
+            return table
+        }
+
+    internal val dataTable: List<Data>
+        get() {
+            val table = mutableListOf<Data>()
+            for (i in 0 until stagingDataTable.size) {
+                table.add(i, stagingDataTable[i]!!)
+            }
+            return table
+        }
+
+    internal val stateTable: List<ComposeState>
+        get() {
+            val table = mutableListOf<ComposeState>()
+            for (i in 0 until stagingStateTable.size) {
+                table.add(i, stagingStateTable[i]!!)
+            }
+            return table
+        }
+
+    internal val groupTable: List<Group>
+        get() {
+            val table = mutableListOf<Group>()
+            for (i in 0 until stagingGroupTable.size) {
+                table.add(i, stagingGroupTable[i]!!)
+            }
+            return table
+        }
+
     fun string(string: String): Int {
-        return usedString.computeIfAbsent(string) {
-            stringTable.add(string)
-            stringTable.size - 1
+        if (string in usedString) {
+            return usedString[string]
+        } else {
+            val index = usedString.size
+            usedString[string] = index
+            stagingStringTable[index] = string
+            return index
         }
     }
 
-    fun data(data: Any?, block: (Any?) -> Data): Int {
-        return usedData.computeIfAbsent(data) {
-            val converted = block(data)
-            dataTable.add(converted)
-            dataTable.size - 1
+    inline fun data(data: Any?, block: (Any?) -> Data): Int {
+        if (data in usedData) {
+            return usedData[data]
+        } else {
+            val index = usedData.size
+            usedData[data] = index
+            val newValue = block(data)
+            stagingDataTable[index] = newValue
+            return index
         }
     }
 
-    fun state(state: Any, block: (Any) -> ComposeState): Int {
-        return usedState.computeIfAbsent(state) {
-            val converted = block(state)
-            stateTable.add(converted)
-            stateTable.size - 1
+    inline fun state(state: Any, block: (Any) -> ComposeState): Int {
+        if (state in usedState) {
+            return usedState[state]
+        } else {
+            val index = usedState.size
+            usedState[state] = index
+            val newValue = block(state)
+            stagingStateTable[index] = newValue
+            return index
         }
     }
 
-    fun group(group: CompositionGroup, block: (CompositionGroup) -> Group): Int {
-        return usedGroup.computeIfAbsent(group) {
-            val converted = block(group)
-            groupTable.add(converted)
-            groupTable.size - 1
+    inline fun group(group: CompositionGroup, block: (CompositionGroup) -> Group): Int {
+        if (group in usedGroup) {
+            return usedGroup[group]
+        } else {
+            val index = usedGroup.size
+            usedGroup[group] = index
+            val newValue = block(group)
+            stagingGroupTable[index] = newValue
+            return index
         }
     }
 }

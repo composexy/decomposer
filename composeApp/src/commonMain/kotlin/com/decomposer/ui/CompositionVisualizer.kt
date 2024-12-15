@@ -411,7 +411,7 @@ private fun ExpandedLayoutNode(
     with(contexts) {
         val verticalScrollState = rememberScrollState()
         Box(modifier = modifier) {
-            Column(modifier = modifier) {
+            Column(modifier = modifier.verticalScroll(verticalScrollState)) {
                 DefaultPanelText(
                     text = "LayoutNode: ${string(layoutNode.toStringIndex)}",
                     maxLines = Int.MAX_VALUE,
@@ -624,7 +624,6 @@ private fun ExpandedStatesTable(
     val expandedMap: SnapshotStateMap<Int, Boolean> = remember {
         mutableStateMapOf()
     }
-
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),

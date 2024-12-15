@@ -195,11 +195,7 @@ internal class StateReflection(
     private val readerKind: Int?
         get() {
             val stateClazz = state::class
-            val stateObjectImplClazz = stateClazz.cast(STATE_OBJECT_IMPL)
-            if (stateObjectImplClazz == null) {
-                logger.log(Logger.Level.WARNING, TAG, "Unknown state type: $state")
-                return null
-            }
+            val stateObjectImplClazz = stateClazz.cast(STATE_OBJECT_IMPL) ?: return null
             val readerKindProperty = stateObjectImplClazz.members
                 .find { it.name == STATE_OBJECT_READER_KIND } as? KProperty1<Any, *>
             if (readerKindProperty == null) {

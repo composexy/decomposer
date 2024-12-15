@@ -25,14 +25,15 @@ internal class CompositionContextReflection(
 ) {
     val compoundHashKey: Int
         get() {
-            val kClass = this::class
+            val kClass = compositionContext::class
             val property = kClass.declaredMembers
                 .find { it.name == COMPOUND_HASH_KEY } as? KProperty1<Any, *>
             if (property == null) {
                 logger.log(Logger.Level.WARNING, TAG, "Cannot find compoundHashKey property!")
                 return 0
             }
-            return property.get(this) as Int
+            property.isAccessible = true
+            return property.get(compositionContext) as Int
         }
 
     companion object {

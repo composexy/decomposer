@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -35,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -176,10 +181,16 @@ fun CompositionPanel(
             Box(modifier = Modifier.fillMaxWidth().weight(1.0f)) {
                 val verticalScrollState = rememberLazyListState()
                 val horizontalScrollState = rememberScrollState()
+                var boxWidth by remember { mutableIntStateOf(0) }
 
-                Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
+                Box(modifier = Modifier.fillMaxSize()
+                    .onGloballyPositioned { boxWidth = it.size.width }
+                    .horizontalScroll(horizontalScrollState)
+                ) {
                     LazyColumn(
-                        modifier = Modifier.matchParentSize(),
+                        modifier = Modifier.fillMaxHeight()
+                            .wrapContentWidth()
+                            .widthIn(min = with(LocalDensity.current) { boxWidth.toDp() }),
                         state = verticalScrollState,
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
                     ) {

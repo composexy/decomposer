@@ -177,6 +177,6 @@ internal abstract class AbstractOkHttpClient(
     }
 
     companion object {
-        private const val PROBE_INTERVAL_SECONDS = 5L
+        private const val PROBE_INTERVAL_SECONDS = 3L
     }
 }

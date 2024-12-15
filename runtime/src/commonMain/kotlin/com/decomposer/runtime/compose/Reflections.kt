@@ -19,6 +19,28 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.declaredMembers
 import kotlin.reflect.jvm.isAccessible
 
+internal class CompositionContextReflection(
+    private val compositionContext: CompositionContext,
+    private val logger: Logger
+) {
+    val compoundHashKey: Int
+        get() {
+            val kClass = this::class
+            val property = kClass.declaredMembers
+                .find { it.name == COMPOUND_HASH_KEY } as? KProperty1<Any, *>
+            if (property == null) {
+                logger.log(Logger.Level.WARNING, TAG, "Cannot find compoundHashKey property!")
+                return 0
+            }
+            return property.get(this) as Int
+        }
+
+    companion object {
+        private const val COMPOUND_HASH_KEY = "compoundHashKey"
+        private const val TAG = "CompositionContextReflection"
+    }
+}
+
 internal class CompositionReflection(
     private val composition: Composition,
     private val logger: Logger
@@ -295,7 +317,7 @@ internal class ComposableLambdaImplReflection(private val lambda: Any, private v
             return trackedProperty.get(lambda) as Boolean
         }
 
-    val scopeHash: Int?
+    val scope: Any?
         get() {
             val lambdaClazz = lambda::class
             val scopeProperty = lambdaClazz.declaredMembers
@@ -305,10 +327,10 @@ internal class ComposableLambdaImplReflection(private val lambda: Any, private v
                 return null
             }
             scopeProperty.isAccessible = true
-            return scopeProperty.get(lambda)?.hashCode()
+            return scopeProperty.get(lambda)
         }
 
-    val scopeHashes: List<Int>
+    val scopes: List<Any>
         get() {
             val lambdaClazz = lambda::class
             val scopesProperty = lambdaClazz.declaredMembers
@@ -318,9 +340,7 @@ internal class ComposableLambdaImplReflection(private val lambda: Any, private v
                 return emptyList()
             }
             scopesProperty.isAccessible = true
-            return (scopesProperty.get(lambda) as List<Any>?)?.map {
-                it.hashCode()
-            } ?: emptyList()
+            return (scopesProperty.get(lambda) as List<Any>?) ?: emptyList()
         }
 
     companion object {
@@ -334,7 +354,7 @@ internal class ComposableLambdaImplReflection(private val lambda: Any, private v
 }
 
 internal class LayoutNodeReflection(private val layoutNode: Any, private val logger: Logger) {
-    val lookaheadRootHash: Int?
+    val lookaheadRoot: Any?
         get() {
             val layoutNodeClazz = layoutNode::class
             val lookAheadRootProperty = layoutNodeClazz.declaredMembers
@@ -344,10 +364,10 @@ internal class LayoutNodeReflection(private val layoutNode: Any, private val log
                 return null
             }
             lookAheadRootProperty.isAccessible = true
-            return lookAheadRootProperty.get(layoutNode)?.hashCode()
+            return lookAheadRootProperty.get(layoutNode)
         }
 
-    val childrenHashes: List<Int>
+    val children: List<Any>
         get() {
             val layoutNodeClazz = layoutNode::class
             val childrenProperty = layoutNodeClazz.declaredMembers
@@ -357,12 +377,10 @@ internal class LayoutNodeReflection(private val layoutNode: Any, private val log
                 return emptyList()
             }
             childrenProperty.isAccessible = true
-            return (childrenProperty.get(layoutNode) as List<Any>).map {
-                it.hashCode()
-            }
+            return childrenProperty.get(layoutNode) as List<Any>
         }
 
-    val parentHash: Int?
+    val parent: Any?
         get() {
             val layoutNodeClazz = layoutNode::class
             val parentProperty = layoutNodeClazz.declaredMembers
@@ -372,7 +390,7 @@ internal class LayoutNodeReflection(private val layoutNode: Any, private val log
                 return null
             }
             parentProperty.isAccessible = true
-            return parentProperty.get(layoutNode)?.hashCode()
+            return parentProperty.get(layoutNode)
         }
 
     val nodes: List<Modifier.Node>

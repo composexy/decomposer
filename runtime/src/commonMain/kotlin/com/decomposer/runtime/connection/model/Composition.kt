@@ -5,27 +5,29 @@ import kotlinx.serialization.Serializable
 @Serializable
 class CompositionRoots(
     val compositionData: List<CompositionRoot>,
-    val stateTable: Set<ComposeState>
+    val stateTable: List<ComposeState>,
+    val stringTable: List<String>,
+    val dataTable: List<Data>,
+    val groupTable: List<Group>
 )
 
 @Serializable
 class CompositionRoot(
-    val context: Context?,
-    val groups: List<Int>,
-    val groupTable: List<Group>
+    val contextIndex: Int?,
+    val groupIndexes: List<Int>
 )
 
 @Serializable
 class Group(
     val attributes: Attributes,
-    val data: List<Data>,
-    val children: List<Int>
+    val dataIndexes: List<Int>,
+    val childIndexes: List<Int>
 )
 
 @Serializable
 class Attributes(
     val key: GroupKey,
-    val sourceInformation: String?
+    val sourceInformationIndex: Int?
 )
 
 @Serializable
@@ -35,110 +37,116 @@ sealed interface GroupKey
 class IntKey(val value: Int) : GroupKey
 
 @Serializable
-class ObjectKey(val value: String) : GroupKey
+class ObjectKey(val valueIndex: Int) : GroupKey
 
 @Serializable
 sealed interface Data {
-    val toString: String
-    val typeName: String?
+    val toStringIndex: Int
+    val typeNameIndex: Int?
     val hashCode: Int
 }
 
 @Serializable
 data object EmptyData : Data {
-    override val toString = "EmptyData"
-    override val typeName = null
+    override val toStringIndex = -1
+    override val typeNameIndex = null
     override val hashCode = 0
 }
 
 @Serializable
 class Context(
     val compoundHashKey: Int,
-    override val toString: String,
-    override val typeName: String?,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class Default(
-    override val toString: String,
-    override val typeName: String?,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class ComposeState(
-    val value: Data,
-    val dependencyHashes: List<Int>,
+    val valueIndex: Int,
+    val dependencyIndexes: List<Int>,
     val readInComposition: Boolean?,
     val readInSnapshotFlow: Boolean?,
     val readInSnapshotStateObserver: Boolean?,
-    override val toString: String,
-    override val typeName: String?,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class RecomposeScope(
-    val composeStateHashes: List<Int>,
-    override val toString: String,
-    override val typeName: String?,
+    val stateIndexes: List<Int>,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class SubcomposeState(
     val compositions: List<CompositionRoot>,
-    override val toString: String,
-    override val typeName: String?,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class RememberObserverHolder(
-    val wrapped: Data
-) : Data by wrapped
+    val wrappedIndex: Int,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
+    override val hashCode: Int
+) : Data
 
 @Serializable
 class CompositionContextHolder(
-    val ref: Context
-) : Data by ref
+    val refIndex: Int,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
+    override val hashCode: Int
+) : Data
 
 @Serializable
 class ComposableLambdaImpl(
     val key: Int,
-    val block: Data?,
+    val blockIndex: Int?,
     val tracked: Boolean,
-    val scopeHash: Int?,
-    val scopeHashes: List<Int>,
-    override val toString: String,
-    override val typeName: String?,
+    val scopeIndex: Int?,
+    val scopeIndexes: List<Int>,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class LayoutNode(
-    val lookaheadRootHash: Int?,
-    val childrenHashes: List<Int>,
-    val parentHash: Int?,
-    val nodes: List<ModifierNode>,
-    val coordinators: List<Coordinator>,
-    override val toString: String,
-    override val typeName: String?,
+    val lookaheadRootIndex: Int?,
+    val childIndexes: List<Int>,
+    val parentIndex: Int?,
+    val nodeIndexes: List<Int>,
+    val coordinatorIndexes: List<Int>,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 data class ModifierNode(
-    override val toString: String,
-    override val typeName: String?,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data
 
 @Serializable
 class Coordinator(
-    val tailNodeHash: Int,
-    override val toString: String,
-    override val typeName: String?,
+    val tailNodeIndex: Int,
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
     override val hashCode: Int
 ) : Data

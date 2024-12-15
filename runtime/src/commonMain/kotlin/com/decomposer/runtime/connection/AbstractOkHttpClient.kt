@@ -1,7 +1,7 @@
 package com.decomposer.runtime.connection
 
 import com.decomposer.runtime.Logger
-import com.decomposer.runtime.compose.CompositionExtractor
+import com.decomposer.runtime.compose.CompositionNormalizer
 import com.decomposer.runtime.connection.model.Command
 import com.decomposer.runtime.connection.model.CommandKeys
 import com.decomposer.runtime.connection.model.CommandResponse
@@ -32,7 +32,7 @@ import kotlin.time.Duration.Companion.seconds
 internal abstract class AbstractOkHttpClient(
     private val serverPort: Int,
     private val projectScanner: ProjectScanner,
-    private val compositionExtractor: CompositionExtractor
+    private val compositionNormalizer: CompositionNormalizer
 ) : Logger, Client {
 
     private lateinit var webSocket: WebSocket

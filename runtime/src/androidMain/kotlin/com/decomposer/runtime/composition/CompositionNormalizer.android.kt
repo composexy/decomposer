@@ -12,20 +12,20 @@ import androidx.compose.ui.R
 import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import com.decomposer.runtime.Logger
-import com.decomposer.runtime.compose.CompositionExtractor
 import com.decomposer.runtime.connection.model.ComposeState
 import com.decomposer.runtime.connection.model.CompositionRoots
 import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.AndroidLogger
+import com.decomposer.runtime.compose.CompositionNormalizer
 import java.lang.reflect.Field
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMembers
 
 @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
 @Suppress("UNCHECKED_CAST")
-internal class AndroidCompositionExtractor(
+internal class AndroidCompositionNormalizer(
     private val context: Context
-) : CompositionExtractor(AndroidLogger), Logger by AndroidLogger  {
+) : CompositionNormalizer(AndroidLogger), Logger by AndroidLogger  {
 
     private val uiDispatcher = AndroidUiDispatcher.Main
     private val frameClock = uiDispatcher[MonotonicFrameClock]

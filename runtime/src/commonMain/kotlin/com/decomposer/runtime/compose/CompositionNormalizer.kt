@@ -140,7 +140,7 @@ internal abstract class CompositionNormalizer(
         context: NormalizerContext
     ): Data {
         return when {
-            any == null -> EmptyData
+            any == null -> mapNull(context)
             any is CompositionContext -> mapCompositionContext(any, context)
             any is State<*> -> mapState(any, observations, context)
             any is SnapshotStateList<*> -> mapStateList(any, observations, context)
@@ -154,12 +154,22 @@ internal abstract class CompositionNormalizer(
                 mapComposableLambda(any, observations, context)
             }
             any::class.qualifiedName == REMEMBER_OBSERVER_HOLDER -> {
-                mapRememberObserverHolder(any, context) ?: EmptyData
+                mapRememberObserverHolder(any, context) ?: mapNull(context)
             }
             any::class.qualifiedName == COMPOSITION_CONTEXT_HOLDER -> {
-                mapCompositionContextHolder(any, context) ?: EmptyData
+                mapCompositionContextHolder(any, context) ?: mapNull(context)
             }
             else -> mapGeneric(any, context)
+        }
+    }
+
+    private fun mapNull(context: NormalizerContext): EmptyData {
+        return with(context) {
+            EmptyData(
+                toStringIndex = string("Empty"),
+                typeNameIndex = null,
+                hashCode = 0
+            )
         }
     }
 

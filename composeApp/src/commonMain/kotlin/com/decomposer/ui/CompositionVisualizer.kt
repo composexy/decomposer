@@ -125,12 +125,13 @@ private fun GroupItem(
 private fun DataItem(
     modifier: Modifier = Modifier,
     data: Data,
+    contexts: Contexts,
     expanded: Boolean,
     clickable: Boolean = true,
     onClick: () -> Unit = {},
     showIcon: Boolean = true,
     expandedContent: @Composable () -> Unit = {}
-) {
+) = with(contexts) {
     Box(modifier = modifier) {
         Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
             Row(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
@@ -140,7 +141,7 @@ private fun DataItem(
                 }
                 val fontSize = AppSetting.fontSize
                 Text(
-                    text = data.toString,
+                    text = string(data.toStringIndex),
                     modifier = Modifier
                         .align(Alignment.CenterVertically)
                         .wrapContentSize()
@@ -237,9 +238,10 @@ private fun StateDetail(
 ) {
     with(contexts) {
         Column(modifier = modifier) {
+            val value = data(state.valueIndex)
             DefaultPanelText(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
-                text = "Value: ${state.value.toString}",
+                text = "Value: ${string(value.toStringIndex)}",
                 textAlign = TextAlign.Start,
                 maxLines = Int.MAX_VALUE
             )
@@ -252,7 +254,7 @@ private fun StateDetail(
                 text = "Readers: ${readers.joinToString(", ")}",
                 textAlign = TextAlign.Start
             )
-            val hasDependencies = state.dependencyHashes.isNotEmpty()
+            val hasDependencies = state.dependencyIndexes.isNotEmpty()
             if (hasDependencies) {
                 HorizontalSplitter()
             }
@@ -261,8 +263,8 @@ private fun StateDetail(
                 text = "Dependencies: ${if (!hasDependencies) "None" else ""}",
                 textAlign = TextAlign.Start
             )
-            state.dependencyHashes.forEach {
-                statesByHash[it]?.let { dependency ->
+            state.dependencyIndexes.forEach {
+                state(it).let { dependency ->
                     StateItem(
                         modifier = Modifier.padding(vertical = 2.dp),
                         state = dependency,
@@ -286,7 +288,6 @@ private fun ExpandedComposableLambdaImpl(
 ) {
     with(contexts) {
         val verticalScrollState = rememberScrollState()
-
         Box(modifier = modifier.fillMaxSize()) {
             Column(modifier = Modifier.verticalScroll(verticalScrollState)) {
                 DefaultPanelText(
@@ -294,7 +295,7 @@ private fun ExpandedComposableLambdaImpl(
                     textAlign = TextAlign.Start
                 )
                 HorizontalSplitter()
-                composableLambdaImpl.block?.let {
+                composableLambdaImpl.blockIndex?.let {
                     DefaultPanelText(
                         text = "Block:",
                         textAlign = TextAlign.Start
@@ -302,7 +303,7 @@ private fun ExpandedComposableLambdaImpl(
                     ExpandedDataDefault(
                         modifier = Modifier.fillMaxWidth().wrapContentHeight(),
                         contexts = contexts,
-                        data = it
+                        data = data(it)
                     )
                 }
                 HorizontalSplitter()
@@ -310,36 +311,18 @@ private fun ExpandedComposableLambdaImpl(
                     text = "Tracked: ${composableLambdaImpl.tracked}",
                     textAlign = TextAlign.Start
                 )
-                val recomposeScope = composableLambdaImpl.scopeHash?.let {
-                    recomposeScopesByHash[it]
-                }
+                val recomposeScope = composableLambdaImpl.scopeIndex?.let { scope(it) }
                 DefaultPanelText(
                     text = "RecomposeScope: ${ if(recomposeScope == null) "Empty" else "" }",
                     textAlign = TextAlign.Start
                 )
                 recomposeScope?.let { scope ->
-                    DataItem(data = scope, expanded = false, showIcon = false, onClick = {
-                        window(
-                            "RecomposeScope@${scope.hashCode}" to @Composable {
-                                ExpandedRecomposeScope(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contexts = contexts,
-                                    recomposeScope = scope
-                                )
-                            }
-                        )
-                    })
-                }
-                val scopes = composableLambdaImpl.scopeHashes.mapNotNull {
-                    recomposeScopesByHash[it]
-                }
-                DefaultPanelText(
-                    text = "RecomposeScopes: ${ if(scopes.isEmpty()) "Empty" else "" }",
-                    textAlign = TextAlign.Start
-                )
-                if (scopes.isNotEmpty()) {
-                    scopes.forEach { scope ->
-                        DataItem(data = scope, expanded = false, showIcon = false, onClick = {
+                    DataItem(
+                        data = scope,
+                        expanded = false,
+                        showIcon = false,
+                        contexts = contexts,
+                        onClick = {
                             window(
                                 "RecomposeScope@${scope.hashCode}" to @Composable {
                                     ExpandedRecomposeScope(
@@ -349,7 +332,33 @@ private fun ExpandedComposableLambdaImpl(
                                     )
                                 }
                             )
-                        })
+                        }
+                    )
+                }
+                val scopes = composableLambdaImpl.scopeIndexes.map { scope(it) }
+                DefaultPanelText(
+                    text = "RecomposeScopes: ${ if(scopes.isEmpty()) "Empty" else "" }",
+                    textAlign = TextAlign.Start
+                )
+                if (scopes.isNotEmpty()) {
+                    scopes.forEach { scope ->
+                        DataItem(
+                            data = scope,
+                            expanded = false,
+                            showIcon = false,
+                            contexts = contexts,
+                            onClick = {
+                                window(
+                                    "RecomposeScope@${scope.hashCode}" to @Composable {
+                                        ExpandedRecomposeScope(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contexts = contexts,
+                                            recomposeScope = scope
+                                        )
+                                    }
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -374,7 +383,7 @@ private fun ExpandedCompositionContextHolder(
             ExpandedContext(
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
                 contexts = contexts,
-                context = compositionContextHolder.ref
+                context = context(compositionContextHolder.refIndex)
             )
         }
     }
@@ -404,18 +413,16 @@ private fun ExpandedLayoutNode(
         Box(modifier = modifier) {
             Column(modifier = modifier) {
                 DefaultPanelText(
-                    text = "LayoutNode: ${layoutNode.toString}",
+                    text = "LayoutNode: ${string(layoutNode.toStringIndex)}",
                     maxLines = Int.MAX_VALUE,
                     textAlign = TextAlign.Start,
                     clickable = false
                 )
 
-                val lookahead = layoutNode.lookaheadRootHash?.let {
-                    layoutNodesByHash[it]
-                }
+                val lookahead = layoutNode.lookaheadRootIndex?.let { layoutNode(it) }
                 if (lookahead != null) {
                     DefaultPanelText(
-                        text = "Lookahead root: ${lookahead.toString}",
+                        text = "Lookahead root: ${string(lookahead.toStringIndex)}",
                         maxLines = Int.MAX_VALUE,
                         textAlign = TextAlign.Start,
                         clickable = true
@@ -432,12 +439,10 @@ private fun ExpandedLayoutNode(
                     }
                 }
 
-                val parent = layoutNode.parentHash?.let {
-                    layoutNodesByHash[it]
-                }
+                val parent = layoutNode.parentIndex?.let { layoutNode(it) }
                 if (parent != null) {
                     DefaultPanelText(
-                        text = "Parent: ${parent.toString}",
+                        text = "Parent: ${string(parent.toStringIndex)}",
                         maxLines = Int.MAX_VALUE,
                         textAlign = TextAlign.Start,
                         clickable = true
@@ -454,14 +459,12 @@ private fun ExpandedLayoutNode(
                     }
                 }
 
-                val children = layoutNode.childrenHashes.mapNotNull {
-                    layoutNodesByHash[it]
-                }
+                val children = layoutNode.childIndexes.map { layoutNode(it) }
                 if (children.isNotEmpty()) {
                     DefaultPanelText(text = "Children:")
                     children.forEachIndexed { index, child ->
                         DefaultPanelText(
-                            text = "Child $index: ${child.toString}",
+                            text = "Child $index: ${string(child.toStringIndex)}",
                             maxLines = Int.MAX_VALUE,
                             textAlign = TextAlign.Start,
                             clickable = true
@@ -481,13 +484,12 @@ private fun ExpandedLayoutNode(
 
                 DefaultPanelText(text = "Coordinators and contained nodes:")
                 var currentNodeIndex = -1
-                layoutNode.coordinators.forEachIndexed { index, coordinator ->
-                    val tail = layoutNode.nodes.firstOrNull {
-                        it.hashCode == coordinator.tailNodeHash
-                    }
-                    RowWithLineNumber(index + 1, layoutNode.coordinators.size) {
+                layoutNode.coordinatorIndexes.forEachIndexed { index, coordinatorIndex ->
+                    val coordinator = coordinator(coordinatorIndex)
+                    val tail = modifier(coordinator.tailNodeIndex)
+                    RowWithLineNumber(index + 1, layoutNode.coordinatorIndexes.size) {
                         DefaultPanelText(
-                            text = "Coordinator: ${coordinator.toString}",
+                            text = "Coordinator: ${string(coordinator.toStringIndex)}",
                             textAlign = TextAlign.Start,
                             clickable = true
                         ) {
@@ -505,11 +507,11 @@ private fun ExpandedLayoutNode(
                     }
 
                     do {
-                        val node = layoutNode.nodes[++currentNodeIndex]
+                        val node = modifier(layoutNode.nodeIndexes[++currentNodeIndex])
                         Box(modifier = Modifier.padding(start = AppSetting.fontSize.dp)) {
-                            RowWithLineNumber(currentNodeIndex + 1, layoutNode.nodes.size) {
+                            RowWithLineNumber(currentNodeIndex + 1, layoutNode.nodeIndexes.size) {
                                 DefaultPanelText(
-                                    text = "ModifierNode: ${node.toString}",
+                                    text = "ModifierNode: ${string(node.toStringIndex)}",
                                     textAlign = TextAlign.Start,
                                     clickable = true
                                 ) {
@@ -551,7 +553,7 @@ private fun ExpandedCoordinator(
                 textAlign = TextAlign.Start
             )
             DefaultPanelText(
-                text = coordinator.toString,
+                text = string(coordinator.toStringIndex),
                 maxLines = Int.MAX_VALUE,
                 textAlign = TextAlign.Start
             )
@@ -584,7 +586,7 @@ private fun ExpandedModifierNode(
                 textAlign = TextAlign.Start
             )
             DefaultPanelText(
-                text = node.toString,
+                text = string(node.toStringIndex),
                 maxLines = Int.MAX_VALUE,
                 textAlign = TextAlign.Start
             )
@@ -600,12 +602,8 @@ private fun ExpandedRecomposeScope(
     recomposeScope: RecomposeScope
 ) {
     with(contexts) {
-        Column(
-            modifier = modifier
-        ) {
-            val states = recomposeScope.composeStateHashes.mapNotNull {
-                statesByHash[it]
-            }
+        Column(modifier = modifier) {
+            val states = recomposeScope.stateIndexes.map { state(it) }
             DefaultPanelText(
                 text = "States in scope: ${if (states.isEmpty()) "None" else ""}",
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(),
@@ -671,13 +669,13 @@ private fun StateItem(
     clickable: Boolean = true,
     onClickDependency: (ComposeState) -> Unit = {},
     onClick: () -> Unit = {},
-) {
+) = with(contexts) {
     Box(modifier = modifier) {
         Column(modifier = Modifier.wrapContentHeight().fillMaxWidth().animateContentSize()) {
             val interactionSource = remember { MutableInteractionSource() }
             val fontSize = AppSetting.fontSize
             Text(
-                text = state.toString,
+                text = string(state.toStringIndex),
                 modifier = Modifier
                     .clipToBounds()
                     .run {
@@ -730,11 +728,11 @@ private fun ExpandedDataDefault(
     with(contexts) {
         Column(modifier) {
             DefaultPanelText(
-                text = "${data.typeName ?: "<anonymous>"}@${data.hashCode}",
+                text = "${data.typeNameIndex?.let { string(it) } ?: "<anonymous>"}@${data.hashCode}",
                 textAlign = TextAlign.Start
             )
             DefaultPanelText(
-                text = "toString: ${data.toString}",
+                text = "toString: ${string(data.toStringIndex)}",
                 maxLines = Int.MAX_VALUE,
                 textAlign = TextAlign.Start
             )
@@ -748,15 +746,16 @@ private fun GroupAttributes(
     contexts: Contexts,
     group: Group
 ) {
-    val keyInfo = when(val key = group.attributes.key) {
-        is IntKey -> key.value
-        is ObjectKey -> key.value
-    }
     with(contexts) {
+        val keyInfo = when(val key = group.attributes.key) {
+            is IntKey -> key.value
+            is ObjectKey -> string(key.valueIndex)
+        }
+        val sourceInformation = group.attributes.sourceInformationIndex?.let { string(it) }
         Column(modifier) {
             DefaultPanelText(text = "Key: $keyInfo", textAlign = TextAlign.Start)
             DefaultPanelText(
-                text = "Source info: ${group.attributes.sourceInformation}",
+                text = "Source info: $sourceInformation",
                 maxLines = Int.MAX_VALUE,
                 textAlign = TextAlign.Start
             )
@@ -774,7 +773,8 @@ private fun ExpandedRememberObserverHolder(
         Column(modifier = modifier) {
             DefaultPanelText(text = "RememberObserverHolder:", textAlign = TextAlign.Start)
             DataItem(
-                data = rememberObserverHolder.wrapped,
+                data = data(rememberObserverHolder.wrappedIndex),
+                contexts = contexts,
                 expanded = false,
                 showIcon = false,
                 clickable = false
@@ -929,14 +929,17 @@ private class CompositionNode(
     private val contexts: Contexts,
     override val level: Int
 ) : BaseComposeTreeNode() {
-    override val name = "Composition(${compositionRoot.context?.compoundHashKey ?: "Recomposer"})"
-    override val children: List<TreeNode> = compositionRoot.groups.map {
-        GroupNode(
-            groupIndex = it,
-            groupTable = compositionRoot.groupTable,
-            level = level + 1,
-            contexts = contexts
-        )
+    override val name = with(contexts) {
+        "Composition(${compositionRoot.contextIndex?.let { context(it) } ?: "Recomposer"})"
+    }
+    override val children: List<TreeNode> = with(contexts) {
+        compositionRoot.groupIndexes.map {
+            GroupNode(
+                group = group(it),
+                level = level + 1,
+                contexts = contexts
+            )
+        }
     }
     override val tags: Set<Any> = setOf(CompositionGroup)
 
@@ -947,13 +950,11 @@ private class CompositionNode(
 }
 
 private class GroupNode(
-    private val groupIndex: Int,
-    private val groupTable: List<Group>,
+    private val group: Group,
     private val contexts: Contexts,
     override val level: Int
 ) : BaseComposeTreeNode() {
-    private val group = groupTable[groupIndex]
-    override val name = group.name
+    override val name = group.name(contexts)
     private val _tags = mutableSetOf<Any>()
     private val _children = mutableListOf<TreeNode>()
     override val children: List<TreeNode>
@@ -976,26 +977,27 @@ private class GroupNode(
                     navigationContext.canNavigate(PackageHashWithFileName(packageHash, fileName))
                 }
                 _children.addAll(
-                    group.data.map {
+                    group.dataIndexes.map {
                         DataNode(
-                            data = it,
+                            data = data(it),
                             level = level + 1,
                             contexts = contexts
                         )
                     }
                 )
                 _children.addAll(
-                    group.children.map {
+                    group.childIndexes.map {
                         GroupNode(
-                            groupIndex = it,
-                            groupTable = groupTable,
+                            group = group(it),
                             level = level + 1,
                             contexts = contexts
                         )
                     }
                 )
-                val subcomposeStates = group.data.filterIsInstance<SubcomposeState>()
-                if (group.sourceKey == "SubcomposeLayout") {
+                val subcomposeStates = group.dataIndexes
+                    .map { data(it) }
+                    .filterIsInstance<SubcomposeState>()
+                if (group.sourceKey(contexts) == "SubcomposeLayout") {
                     _children.addAll(
                         subcomposeStates.map {
                             SubcompositionsNode(
@@ -1013,23 +1015,23 @@ private class GroupNode(
                     isUserGroup -> _tags.add(UserGroup)
                 }
 
-                group.data.forEach {
-                    when(it) {
+                group.dataIndexes.forEach {
+                    when(data(it)) {
                         is RecomposeScope -> _tags.add(RecomposeScopeGroup)
                         is LayoutNode -> _tags.add(ComposeNodeGroup)
                         else -> { }
                     }
                 }
-                if (group.children.isEmpty()) {
+                if (group.childIndexes.isEmpty()) {
                     _tags.add(LeafGroup)
-                    if (group.data.isEmpty()) {
+                    if (group.dataIndexes.isEmpty()) {
                         _tags.add(EmptyGroup)
                     }
                 }
                 if (group.wellKnownKey == WellKnownKey.NODE) {
                     _tags.add(ComposeNodeGroup)
                 }
-                when(group.sourceKey) {
+                when(group.sourceKey(contexts)) {
                     "SubcomposeLayout" -> _tags.add(CompositionGroup)
                     "ReusableComposeNode", "ComposeNode", "Layout" -> _tags.add(ComposeNodeGroup)
                     else -> { }
@@ -1071,7 +1073,7 @@ private class GroupNode(
                         }
                     }
                 }
-                if (group.data.isNotEmpty()) {
+                if (group.dataIndexes.isNotEmpty()) {
                     val dataExpanded: Boolean by remember {
                         derivedStateOf { !excludes.contains(SlotNode::class) }
                     }
@@ -1146,7 +1148,7 @@ private class DataNode(
     private val contexts: Contexts,
     override val level: Int
 ) : BaseComposeTreeNode() {
-    override val name: String = data.toString
+    override val name: String = with(contexts) { string(data.toStringIndex) }
     override val children: List<TreeNode> = emptyList()
     override val tags: Set<Any> = setOf(SlotNode)
 
@@ -1155,6 +1157,7 @@ private class DataNode(
         DataItem(
             data = data,
             expanded = false,
+            contexts = contexts,
             onClick = { showDetail(data) }
         )
     }
@@ -1225,35 +1228,11 @@ private fun CompositionRoots.buildContexts(
     window: (Pair<String, @Composable () -> Unit>) -> Unit,
     navigate: (String, Int, Int) -> Unit
 ): Contexts {
-    val statesByHash = this.stateTable.associateBy { it.hashCode }
-    val layoutNodesByHash = mutableMapOf<Int, LayoutNode>()
-    val recomposeScopesByHash = mutableMapOf<Int, RecomposeScope>()
-
-    fun traverse(groupIndex: Int, table: List<Group>) {
-        val group = table[groupIndex]
-        group.data.forEach {
-            when (it) {
-                is LayoutNode -> layoutNodesByHash[it.hashCode] = it
-                is RecomposeScope -> recomposeScopesByHash[it.hashCode] = it
-                else -> { }
-            }
-        }
-        group.children.forEach {
-            traverse(it, table)
-        }
-    }
-
-    this.compositionData.forEach {
-        val table = it.groupTable
-        it.groups.forEach { group ->
-            traverse(group, table)
-        }
-    }
-
     return Contexts(
-        statesByHash = statesByHash,
-        layoutNodesByHash = layoutNodesByHash,
-        recomposeScopesByHash = recomposeScopesByHash,
+        states = this.stateTable,
+        groups = this.groupTable,
+        strings = this.stringTable,
+        data = this.dataTable,
         navigationContext = navigationContext,
         popup = popup,
         window = window,
@@ -1262,26 +1241,69 @@ private fun CompositionRoots.buildContexts(
 }
 
 private class Contexts(
-    val statesByHash: Map<Int, ComposeState>,
-    val layoutNodesByHash: Map<Int, LayoutNode>,
-    val recomposeScopesByHash: Map<Int, RecomposeScope>,
+    private val states: List<ComposeState>,
+    private val strings: List<String>,
+    private val groups: List<Group>,
+    private val data: List<Data>,
     val navigationContext: NavigationContext?,
     val popup: (@Composable () -> Unit) -> Unit,
     val window: (Pair<String, @Composable () -> Unit>) -> Unit,
     val navigate: (String, Int, Int) -> Unit,
     val callStack: CallStack = CallStack(navigationContext)
 ) {
+
+    init {
+        callStack.setContext(this)
+    }
+
     fun <R> call(group: Group, block: CallScope.(Group) -> R): R {
         callStack.push(group)
         val result = callStack.block(group)
         callStack.pop()
         return result
     }
+
+    fun state(index: Int): ComposeState {
+        return states[index]
+    }
+
+    fun string(index: Int): String {
+        return strings[index]
+    }
+
+    fun group(index: Int): Group {
+        return groups[index]
+    }
+
+    fun context(index: Int): Context {
+        return data[index] as Context
+    }
+
+    fun data(index: Int): Data {
+        return data[index]
+    }
+
+    fun scope(index: Int): RecomposeScope {
+        return data[index] as RecomposeScope
+    }
+
+    fun layoutNode(index: Int): LayoutNode {
+        return data[index] as LayoutNode
+    }
+
+    fun modifier(index: Int): ModifierNode {
+        return data[index] as ModifierNode
+    }
+
+    fun coordinator(index: Int): Coordinator {
+        return data[index] as Coordinator
+    }
 }
 
-private class CallStack(private val navigationContext: NavigationContext?) : CallScope {
+private class CallStack(private val navigationContext: NavigationContext?, ) : CallScope {
     private val stack = mutableListOf<Group>()
     private val sourceInformationStack = mutableListOf<SourceInformation?>()
+    private lateinit var contexts: Contexts
 
     override val caller: Group?
         get() {
@@ -1312,7 +1334,7 @@ private class CallStack(private val navigationContext: NavigationContext?) : Cal
 
     private var topUserGroup: Group?  = null
 
-    fun push(group: Group) {
+    fun push(group: Group) = with(contexts) {
         stack.add(group).also {
             if (isWrapperGroup) {
                 if (group.isUiContent) {
@@ -1330,9 +1352,10 @@ private class CallStack(private val navigationContext: NavigationContext?) : Cal
             }
 
             val sourceInformation = try {
-                group.parseSourceInformation
+                group.parseSourceInformation(this)
             } catch (ex: Exception) {
-                println("Unexpected format: ${group.attributes.sourceInformation}")
+                val sourceInformation = group.attributes.sourceInformationIndex?.let { string(it) }
+                println("Unexpected format: $sourceInformation")
                 null
             }
 
@@ -1357,10 +1380,14 @@ private class CallStack(private val navigationContext: NavigationContext?) : Cal
         }
     }
 
+    fun setContext(contexts: Contexts) {
+        this.contexts = contexts
+    }
+
     private val Group.isUserGroup: Boolean
         get() {
-            val packageHash = this.packageHash
-            val fileName = this.sourceFile
+            val packageHash = this.packageHash(contexts)
+            val fileName = this.sourceFile(contexts)
             return when {
                 packageHash == null || fileName == null || navigationContext == null -> false
                 else -> navigationContext.canNavigate(
@@ -1376,22 +1403,22 @@ private class CallStack(private val navigationContext: NavigationContext?) : Cal
 
     private val Group.isComposeViewContent: Boolean
         get() {
-            val sourceKey = this.sourceKey
-            val sourceFile = this.sourceFile
+            val sourceKey = this.sourceKey(contexts)
+            val sourceFile = this.sourceFile(contexts)
             return sourceKey == "Content" && sourceFile == "ComposeView.android.kt"
         }
 
     private val Group.isPopupContent: Boolean
         get() {
-            val sourceKey = this.sourceKey
-            val sourceFile = this.sourceFile
+            val sourceKey = this.sourceKey(contexts)
+            val sourceFile = this.sourceFile(contexts)
             return sourceKey == "Content" && sourceFile == "AndroidPopup.android.kt"
         }
 
     private val Group.isDialogContent: Boolean
         get() {
-            val sourceKey = this.sourceKey
-            val sourceFile = this.sourceFile
+            val sourceKey = this.sourceKey(contexts)
+            val sourceFile = this.sourceFile(contexts)
             return sourceKey == "Content" && sourceFile == "AndroidDialog.android.kt"
         }
 }
@@ -1421,94 +1448,94 @@ private class Location(
     val endOffset: Int
 )
 
-private val Group.parseSourceInformation: SourceInformation?
-    get() {
-        val sourceInfo = this.attributes.sourceInformation ?: return null
-        val sourceKey = this.sourceKey
-        val isCall = sourceInfo.startsWith("C")
-        val isInline = sourceInfo.startsWith("CC")
-        val isLambda = sourceKey == null
-        val fileName = this.sourceFile
-        val packageHash = this.packageHash
-        val indexOfLastParentheses = sourceInfo.indexOfLast { it == ')' }
-        val locationStart = when {
-            indexOfLastParentheses != -1 -> indexOfLastParentheses + 1
-            isInline -> 2
-            else -> 1
-        }
-        val indexOfFirstColon = sourceInfo.indexOf(':')
-        val locationEnd = when {
-            indexOfFirstColon == -1 -> sourceInfo.length
-            else -> indexOfFirstColon
-        }
-        val locationParts = if (locationStart < locationEnd) {
-            sourceInfo.substring(locationStart, locationEnd).split(",")
+private fun Group.parseSourceInformation(contexts: Contexts): SourceInformation? {
+    val sourceInfo = this.attributes.sourceInformationIndex?.let {
+        contexts.string(it)
+    } ?: return null
+    val sourceKey = this.sourceKey(contexts)
+    val isCall = sourceInfo.startsWith("C")
+    val isInline = sourceInfo.startsWith("CC")
+    val isLambda = sourceKey == null
+    val fileName = this.sourceFile(contexts)
+    val packageHash = this.packageHash(contexts)
+    val indexOfLastParentheses = sourceInfo.indexOfLast { it == ')' }
+    val locationStart = when {
+        indexOfLastParentheses != -1 -> indexOfLastParentheses + 1
+        isInline -> 2
+        else -> 1
+    }
+    val indexOfFirstColon = sourceInfo.indexOf(':')
+    val locationEnd = when {
+        indexOfFirstColon == -1 -> sourceInfo.length
+        else -> indexOfFirstColon
+    }
+    val locationParts = if (locationStart < locationEnd) {
+        sourceInfo.substring(locationStart, locationEnd).split(",")
+    } else {
+        emptyList()
+    }
+    val invocations = locationParts.map {
+        if (it.startsWith('*')) it.substring(1)
+        else it
+    }.mapNotNull {
+        val startOffsetStart = it.indexOf('@') + 1
+        val lineNumberEnd = startOffsetStart - 1
+        val lengthStart = it.indexOf('L') + 1
+        val startOffsetEnd = if (lengthStart == 0) {
+            it.length
         } else {
-            emptyList()
+            lengthStart - 1
         }
-        val invocations = locationParts.map {
-            if (it.startsWith('*')) it.substring(1)
-            else it
-        }.mapNotNull {
-            val startOffsetStart = it.indexOf('@') + 1
-            val lineNumberEnd = startOffsetStart - 1
-            val lengthStart = it.indexOf('L') + 1
-            val startOffsetEnd = if (lengthStart == 0) {
-                it.length
-            } else {
-                lengthStart - 1
-            }
-            val lineNumber = it.substring(0, lineNumberEnd).toIntOrNull()
-            val startOffset = it.substring(startOffsetStart, startOffsetEnd).toIntOrNull()
-            val length = if (lengthStart > 0) {
-                it.substring(lengthStart).toIntOrNull()
-            } else null
-            if (lineNumber != null && startOffset != null && length != null) {
-                Location(
-                    lineNumber = lineNumber,
-                    startOffset = startOffset,
-                    endOffset = startOffset + length
-                )
-            } else {
-                null
-            }
+        val lineNumber = it.substring(0, lineNumberEnd).toIntOrNull()
+        val startOffset = it.substring(startOffsetStart, startOffsetEnd).toIntOrNull()
+        val length = if (lengthStart > 0) {
+            it.substring(lengthStart).toIntOrNull()
+        } else null
+        if (lineNumber != null && startOffset != null && length != null) {
+            Location(
+                lineNumber = lineNumber,
+                startOffset = startOffset,
+                endOffset = startOffset + length
+            )
+        } else {
+            null
         }
-        return SourceInformation(
-            fileName = fileName,
-            packageHash = packageHash,
-            isLambda = isLambda,
-            isCall = isCall,
-            isInline = isInline,
-            sourceName = sourceKey,
-            invocations = invocations
-        )
     }
+    return SourceInformation(
+        fileName = fileName,
+        packageHash = packageHash,
+        isLambda = isLambda,
+        isCall = isCall,
+        isInline = isInline,
+        sourceName = sourceKey,
+        invocations = invocations
+    )
+}
 
-private val Group.name: String
-    get() {
-        val sourceInfo = this.attributes.sourceInformation
-        val key = this.attributes.key
-        val intKeyValue = if (key is IntKey) {
-            key.value
-        } else null
-        val sourceKey = this.sourceKey
-        val isLambda = sourceInfo != null && sourceKey == null
-        val lambdaPrefix = if (isLambda) "\u03BB " else ""
-        val wellKnownKey = this.wellKnownKey
-        val intKey = if (key is IntKey) {
-            "${lambdaPrefix}Group(${key.value})"
-        } else null
-        val objectKey = if (key is ObjectKey) {
-            "${lambdaPrefix}Group(${key.value})"
-        } else null
-        return when {
-            sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
-            wellKnownKey != null -> "Group(${wellKnownKey.displayName})"
-            intKey != null -> intKey
-            objectKey != null -> objectKey
-            else -> "Group()"
-        }
+private fun Group.name(contexts: Contexts): String {
+    val sourceInfo = this.attributes.sourceInformationIndex?.let { contexts.string(it) }
+    val key = this.attributes.key
+    val intKeyValue = if (key is IntKey) {
+        key.value
+    } else null
+    val sourceKey = this.sourceKey(contexts)
+    val isLambda = sourceInfo != null && sourceKey == null
+    val lambdaPrefix = if (isLambda) "\u03BB " else ""
+    val wellKnownKey = this.wellKnownKey
+    val intKey = if (key is IntKey) {
+        "${lambdaPrefix}Group(${key.value})"
+    } else null
+    val objectKey = if (key is ObjectKey) {
+        "${lambdaPrefix}Group(${contexts.string(key.valueIndex)})"
+    } else null
+    return when {
+        sourceKey != null -> "$sourceKey(${intKeyValue ?: ""})"
+        wellKnownKey != null -> "Group(${wellKnownKey.displayName})"
+        intKey != null -> intKey
+        objectKey != null -> objectKey
+        else -> "Group()"
     }
+}
 
 private val Group.wellKnownKey: WellKnownKey?
     get() {
@@ -1520,45 +1547,42 @@ private val Group.wellKnownKey: WellKnownKey?
         } else null
     }
 
-private val Group.sourceKey: String?
-    get() {
-        val sourceInfo = this.attributes.sourceInformation
-        return if (sourceInfo != null) {
-            val startIndex =
-                when {
-                    sourceInfo.startsWith("C(") -> 2
-                    sourceInfo.startsWith("CC(") -> 3
-                    else -> -1
-                }
-            val endIndex = sourceInfo.indexOf(')')
-            if (endIndex > 2 && startIndex >= 0)
-                sourceInfo.substring(startIndex, endIndex)
-            else null
-        } else null
-    }
+private fun Group.sourceKey(contexts: Contexts): String? {
+    val sourceInfo = this.attributes.sourceInformationIndex?.let { contexts.string(it) }
+    return if (sourceInfo != null) {
+        val startIndex =
+            when {
+                sourceInfo.startsWith("C(") -> 2
+                sourceInfo.startsWith("CC(") -> 3
+                else -> -1
+            }
+        val endIndex = sourceInfo.indexOf(')')
+        if (endIndex > 2 && startIndex >= 0)
+            sourceInfo.substring(startIndex, endIndex)
+        else null
+    } else null
+}
 
-private val Group.sourceFile: String?
-    get() {
-        val sourceInfo = this.attributes.sourceInformation
-        return if (sourceInfo != null) {
-            val startIndex = sourceInfo.indexOf(':') + 1
-            val endIndex = sourceInfo.indexOf('#')
-            if (startIndex in 0 until endIndex)
-                sourceInfo.substring(startIndex, endIndex)
-            else null
-        } else null
-    }
+private fun Group.sourceFile(contexts: Contexts): String? {
+    val sourceInfo = this.attributes.sourceInformationIndex?.let { contexts.string(it) }
+    return if (sourceInfo != null) {
+        val startIndex = sourceInfo.indexOf(':') + 1
+        val endIndex = sourceInfo.indexOf('#')
+        if (startIndex in 0 until endIndex)
+            sourceInfo.substring(startIndex, endIndex)
+        else null
+    } else null
+}
 
-private val Group.packageHash: String?
-    get() {
-        val sourceInfo = this.attributes.sourceInformation
-        return if (sourceInfo != null) {
-            val startIndex = sourceInfo.indexOfLast { it == '#' } + 1
-            if (startIndex in 1 until sourceInfo.length)
-                sourceInfo.substring(startIndex)
-            else null
-        } else null
-    }
+private fun Group.packageHash(contexts: Contexts): String? {
+    val sourceInfo = this.attributes.sourceInformationIndex?.let { contexts.string(it) }
+    return if (sourceInfo != null) {
+        val startIndex = sourceInfo.indexOfLast { it == '#' } + 1
+        if (startIndex in 1 until sourceInfo.length)
+            sourceInfo.substring(startIndex)
+        else null
+    } else null
+}
 
 private enum class WellKnownKey(val intKey: Int, val displayName: String) {
     ROOT(100, "Root"),

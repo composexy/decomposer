@@ -136,7 +136,7 @@ internal abstract class AbstractOkHttpClient(
 
     private fun processCompositionData(webSocket: WebSocket) {
         coroutineScope.launch {
-            val compositionRoots = compositionExtractor.extractCompositionRoots()
+            val compositionRoots = compositionNormalizer.extractCompositionRoots()
             val response = CompositionDataResponse(compositionRoots)
             val serialized = Json.encodeToString(CommandResponse.serializer(), response)
             webSocket.send(serialized)

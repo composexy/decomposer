@@ -47,11 +47,11 @@ sealed interface Data {
 }
 
 @Serializable
-data object EmptyData : Data {
-    override val toStringIndex = -1
-    override val typeNameIndex = null
-    override val hashCode = 0
-}
+class EmptyData(
+    override val toStringIndex: Int,
+    override val typeNameIndex: Int?,
+    override val hashCode: Int
+) : Data
 
 @Serializable
 class Context(

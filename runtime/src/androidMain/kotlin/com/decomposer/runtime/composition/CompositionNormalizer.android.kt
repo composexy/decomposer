@@ -12,9 +12,7 @@ import androidx.compose.ui.R
 import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import com.decomposer.runtime.Logger
-import com.decomposer.runtime.connection.model.ComposeState
 import com.decomposer.runtime.connection.model.CompositionRoots
-import com.decomposer.runtime.connection.model.CompositionRoot
 import com.decomposer.runtime.AndroidLogger
 import com.decomposer.runtime.compose.CompositionNormalizer
 import java.lang.reflect.Field
@@ -58,14 +56,7 @@ internal class AndroidCompositionNormalizer(
                 compositions.add(it)
             }
         }
-        val roots = mutableListOf<CompositionRoot>()
-        val states = mutableSetOf<ComposeState>()
-        compositions.forEach {
-            val data = map(it)
-            roots.add(data.first)
-            states.addAll(data.second)
-        }
-        return CompositionRoots(roots, states)
+        return map(compositions)
     }
 
     private fun getAllRootViews(): List<View> {

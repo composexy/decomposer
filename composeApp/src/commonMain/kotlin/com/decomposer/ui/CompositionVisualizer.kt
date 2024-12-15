@@ -1355,7 +1355,7 @@ private class CallStack(private val navigationContext: NavigationContext?, ) : C
                 group.parseSourceInformation(this)
             } catch (ex: Exception) {
                 val sourceInformation = group.attributes.sourceInformationIndex?.let { string(it) }
-                println("Unexpected format: $sourceInformation")
+                println("Unexpected sourceInformation format: $sourceInformation")
                 null
             }
 

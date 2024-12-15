@@ -930,7 +930,8 @@ private class CompositionNode(
     override val level: Int
 ) : BaseComposeTreeNode() {
     override val name = with(contexts) {
-        "Composition(${compositionRoot.contextIndex?.let { context(it) } ?: "Recomposer"})"
+        val hashKey = compositionRoot.contextIndex?.let { context(it) }?.compoundHashKey
+        "Composition(${if (hashKey == 1000) "Recomposer" else hashKey})"
     }
     override val children: List<TreeNode> = with(contexts) {
         compositionRoot.groupIndexes.map {

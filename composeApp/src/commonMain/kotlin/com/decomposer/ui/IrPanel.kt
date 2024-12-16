@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
+import com.decomposer.runtime.connection.model.ProjectSnapshot
 import com.decomposer.runtime.connection.model.VirtualFileIr
 import com.decomposer.server.Session
 import kotlinx.serialization.json.Json
@@ -52,6 +53,7 @@ fun IrPanel(
     session: Session,
     irProcessor: IrProcessor,
     filePath: String?,
+    projectSnapshot: ProjectSnapshot,
     highlight: Pair<Int, Int>?,
     onShowPopup: (@Composable () -> Unit) -> Unit
 ) {
@@ -99,6 +101,7 @@ fun IrPanel(
 
     LaunchedEffect(filePath, compose, session.sessionId, highlight) {
         if (filePath != null) {
+            val packageName = projectSnapshot.packagesByPath[filePath]
             val virtualFileIr = session.getVirtualFileIr(filePath)
             if (!virtualFileIr.isEmpty) {
                 irProcessor.processVirtualFileIr(virtualFileIr)
@@ -109,6 +112,7 @@ fun IrPanel(
                 }
                 val irVisualBuilder = IrVisualBuilder(
                     kotlinFile = kotlinFile,
+                    packageName = packageName,
                     theme = theme,
                     highlights = highlight?.let { listOf(it) } ?: emptyList()
                 ) {

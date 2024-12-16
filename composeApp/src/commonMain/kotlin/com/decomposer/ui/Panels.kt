@@ -148,6 +148,7 @@ fun Panels(
                                 session = sessionState.session,
                                 irProcessor = irProcessor,
                                 filePath = panelsState.selectedIrFilePath,
+                                projectSnapshot = projectSnapshot,
                                 highlight = highlight,
                                 onShowPopup = { panelsState.currentPopup = it },
                             )

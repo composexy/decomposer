@@ -163,6 +163,7 @@ enum class Keyword(val visual: String) {
     TAILREC("tailrec"),
     SUSPEND("suspend"),
     REIFIED("reified"),
+    PACKAGE("package")
 }
 
 sealed interface AnnotationData
@@ -182,6 +183,7 @@ class IrVisualData(val annotatedString: AnnotatedString)
 
 class IrVisualBuilder(
     private val kotlinFile: KotlinFile,
+    private val packageName: String? = null,
     private val indentSize: Int = 2,
     private val theme: Theme = Theme.dark,
     private val highlights: List<Pair<Int, Int>> = emptyList(),
@@ -218,37 +220,47 @@ class IrVisualBuilder(
         sortedDeclarations.putAll(
             declarations.toSortedMap(compareBy { it.range.startOffset })
         )
+        packageName?.let {
+            keyword(Keyword.PACKAGE)
+            space()
+            simple(it)
+            newLine(indent = false)
+            newLine(indent = false)
+        }
         sortedDeclarations.forEach {
             withTable(it.value) { visualizeDeclaration(it.key) }
         }
     }
 
     private fun visualizeDeclaration(declaration: Declaration) {
-        increaseIndent {
-            newLine()
-            when (declaration) {
-                is Function -> visualizeFunction(declaration)
-                is AnonymousInit -> visualizeAnonymousInit(declaration)
-                is Class -> visualizeClass(declaration)
-                is Constructor -> visualizeConstructor(declaration)
-                is EnumEntry -> visualizeEnumEntry(declaration)
-                is ErrorDeclaration -> visualizeErrorDeclaration(declaration)
-                is Field -> visualizeField(declaration)
-                is LocalDelegatedProperty -> visualizeLocalDelegatedProperty(declaration)
-                is Property -> visualizeProperty(declaration)
-                is TypeAlias -> visualizeTypeAlias(declaration)
-                is TypeParameter -> visualizeTypeParameter(declaration)
-                is ValueParameter -> visualizeValueParameter(declaration)
-                is Variable -> visualizeVariable(declaration)
+        when (declaration) {
+            is Function -> {
+                visualizeFunction(declaration)
+                newLine()
             }
-            newLine()
+            is AnonymousInit -> visualizeAnonymousInit(declaration)
+            is Class -> {
+                visualizeClass(declaration)
+                newLine()
+            }
+            is Constructor -> visualizeConstructor(declaration)
+            is EnumEntry -> visualizeEnumEntry(declaration)
+            is ErrorDeclaration -> visualizeErrorDeclaration(declaration)
+            is Field -> visualizeField(declaration)
+            is LocalDelegatedProperty -> visualizeLocalDelegatedProperty(declaration)
+            is Property -> visualizeProperty(declaration)
+            is TypeAlias -> visualizeTypeAlias(declaration)
+            is TypeParameter -> visualizeTypeParameter(declaration)
+            is ValueParameter -> visualizeValueParameter(declaration)
+            is Variable -> visualizeVariable(declaration)
         }
     }
 
     private fun visualizeVariable(declaration: Variable) {
-        val flags = declaration.base.flags as? LocalVarFlags
-        flags?.let {
-            visualizeLocalVarFlags(it)
+        val flags = (declaration.base.flags as? LocalVarFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -289,36 +301,21 @@ class IrVisualBuilder(
         when (argument) {
             StarProjection -> punctuation('*')
             is TypeProjection -> {
-                visualizeVariance(argument.variance)
+                argument.variance.keyword?.let {
+                    keyword(it)
+                    space()
+                }
                 val type = types(argument.typeIndex)
                 visualizeType(type)
             }
         }
     }
 
-    private fun visualizeVariance(variance: Variance) {
-        when (variance) {
-            Variance.INVARIANT -> Unit
-            Variance.IN_VARIANCE -> {
-                keyword(Keyword.IN)
-                space()
-            }
-            Variance.OUT_VARIANCE -> {
-                keyword(Keyword.OUT)
-                space()
-            }
-        }
-    }
-
     private fun visualizeTypeAlias(declaration: TypeAlias) {
-        val flags = declaration.base.flags as? TypeAliasFlags
-        flags?.let {
-            val visibility = flags.visibility
-            visualizeVisibility(visibility)
-            if (it.isActual) {
-                keyword(Keyword.ACTUAL)
-                space()
-            }
+        val flags = (declaration.base.flags as? TypeAliasFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         keyword(Keyword.TYPEALIAS)
         space()
@@ -329,79 +326,12 @@ class IrVisualBuilder(
         visualizeType(type)
     }
 
-    private fun visualizeModality(modality: Modality) {
-        when (modality) {
-            Modality.FINAL -> Unit
-            Modality.SEALED -> {
-                keyword(Keyword.SEALED)
-                space()
-            }
-            Modality.OPEN -> {
-                keyword(Keyword.OPEN)
-                space()
-            }
-            Modality.ABSTRACT -> {
-                keyword(Keyword.ABSTRACT)
-                space()
-            }
-        }
-    }
-
-    private fun visualizeVisibility(visibility: Visibility) {
-        when (visibility) {
-            Visibility.PRIVATE,
-            Visibility.PRIVATE_TO_THIS -> {
-                keyword(Keyword.PRIVATE)
-                space()
-            }
-            Visibility.PROTECTED -> {
-                keyword(Keyword.PROTECTED)
-                space()
-            }
-            Visibility.INTERNAL -> {
-                keyword(Keyword.INTERNAL)
-                space()
-            }
-            Visibility.PUBLIC,
-            Visibility.LOCAL,
-            Visibility.INHERITED,
-            Visibility.INVISIBLE_FAKE,
-            Visibility.UNKNOWN -> Unit
-        }
-    }
-
-    private fun visualizePropertyFlags(flags: PropertyFlags) {
-        visualizeVisibility(flags.visibility)
-        visualizeModality(flags.modality)
-        if (flags.isExpect) {
-            keyword(Keyword.EXPECT)
-            space()
-        }
-        if (flags.isLateinit) {
-            keyword(Keyword.LATEINIT)
-            space()
-        }
-        if (flags.isConst) {
-            keyword(Keyword.CONST)
-            space()
-        }
-        if (flags.isExternal) {
-            keyword(Keyword.EXTERNAL)
-            space()
-        }
-        if (flags.isVar) {
-            keyword(Keyword.VAR)
-        } else {
-            keyword(Keyword.VAL)
-        }
-        space()
-    }
-
     private fun visualizeProperty(declaration: Property) {
         visualizeAnnotations(declaration.base.annotations)
-        val flags = declaration.base.flags as? PropertyFlags
-        flags?.let {
-            visualizePropertyFlags(it)
+        val flags = (declaration.base.flags as? PropertyFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -446,9 +376,10 @@ class IrVisualBuilder(
 
     private fun visualizeLocalDelegatedProperty(declaration: LocalDelegatedProperty) {
         visualizeAnnotations(declaration.base.annotations)
-        val flags = declaration.base.flags as? LocalVarFlags
-        flags?.let {
-            visualizeLocalVarFlags(it)
+        val flags = (declaration.base.flags as? LocalVarFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -460,27 +391,11 @@ class IrVisualBuilder(
         newLine()
     }
 
-    private fun visualizeLocalVarFlags(flags: LocalVarFlags) {
-        if (flags.isLateinit) {
-            keyword(Keyword.LATEINIT)
-            space()
-        }
-        if (flags.isConst) {
-            keyword(Keyword.CONST)
-            space()
-        }
-        if (flags.isVar) {
-            keyword(Keyword.VAR)
-        } else {
-            keyword(Keyword.VAL)
-        }
-        space()
-    }
-
     private fun visualizeField(declaration: Field) {
-        val flags = declaration.base.flags as? FieldFlags
-        flags?.let {
-            visualizeFieldFlags(it)
+        val flags = (declaration.base.flags as? FieldFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -495,20 +410,6 @@ class IrVisualBuilder(
                 visualizeExpressionBody(expressionBody)
             }
         }
-    }
-
-    private fun visualizeFieldFlags(flags: FieldFlags) {
-        visualizeVisibility(flags.visibility)
-        if (flags.isStatic) {
-            keyword(Keyword.STATIC)
-            space()
-        }
-        if (flags.isFinal) {
-            keyword(Keyword.VAL)
-        } else {
-            keyword(Keyword.VAR)
-        }
-        space()
     }
 
     private fun visualizeErrorDeclaration(declaration: ErrorDeclaration) = Unit
@@ -538,15 +439,17 @@ class IrVisualBuilder(
 
     private fun visualizeFunctionBase(functionBase: FunctionBase) {
         visualizeAnnotations(functionBase.base.annotations)
-        val flags = functionBase.base.flags as? FunctionFlags
-        flags?.let {
-            visualizeFunctionFlags(it)
-        }
+        val flags = (functionBase.base.flags as? FunctionFlags).keywords
         val isConstructor = functionBase.base.symbol.kind == Symbol.Kind.CONSTRUCTOR_SYMBOL
         if (isConstructor) {
             keyword(Keyword.CONSTRUCTOR)
         } else {
-            keywordSpaced(Keyword.FUN)
+            flags.forEach {
+                keyword(it)
+                space()
+            }
+            keyword(Keyword.FUN)
+            space()
             visualizeTypeParameters(functionBase.typeParameters)
             functionBase.extensionReceiver?.let {
                 val name = strings(it.nameIndex)
@@ -569,48 +472,16 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeFunctionFlags(flags: FunctionFlags) {
-        visualizeVisibility(flags.visibility)
-        visualizeModality(flags.modality)
-        if (flags.isOperator) {
-            keyword(Keyword.OPERATOR)
-            space()
-        }
-        if (flags.isInfix) {
-            keyword(Keyword.INFIX)
-            space()
-        }
-        if (flags.isInline) {
-            keyword(Keyword.INLINE)
-            space()
-        }
-        if (flags.isTailrec) {
-            keyword(Keyword.TAILREC)
-            space()
-        }
-        if (flags.isExternal) {
-            keyword(Keyword.EXTERNAL)
-            space()
-        }
-        if (flags.isSuspend) {
-            keyword(Keyword.SUSPEND)
-            space()
-        }
-        if (flags.isExpect) {
-            keyword(Keyword.EXPECT)
-            space()
-        }
-    }
-
     private fun visualizeClass(declaration: Class) {
         visualizeAnnotations(declaration.base.annotations)
         val primaryConstructor = declaration.declarations.firstOrNull {
             it is Constructor && it.isPrimary
         } as? Constructor
         val declarationsNoPrimary = declaration.declarations.filter { it != primaryConstructor }
-        val flags = declaration.base.flags as? ClassFlags
-        flags?.let {
-            visualizeClassFlags(it)
+        val flags = (declaration.base.flags as? ClassFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -666,66 +537,6 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeClassFlags(flags: ClassFlags) {
-        visualizeVisibility(flags.visibility)
-        visualizeModality(flags.modality)
-        if (flags.isInner) {
-            keyword(Keyword.INNER)
-            space()
-        }
-        if (flags.isExpect) {
-            keyword(Keyword.EXPECT)
-            space()
-        }
-        if (flags.isExternal) {
-            keyword(Keyword.EXTERNAL)
-            space()
-        }
-        if (flags.isData) {
-            keyword(Keyword.DATA)
-            space()
-        }
-        if (flags.isValue) {
-            keyword(Keyword.VALUE)
-            space()
-        }
-        if (flags.isFun) {
-            keyword(Keyword.FUN)
-            space()
-        }
-        if (flags.isCompanion) {
-            keyword(Keyword.COMPANION)
-            space()
-        }
-        visualizeClassKind(flags.kind)
-    }
-
-    private fun visualizeClassKind(kind: ClassKind) {
-        when (kind) {
-            ClassKind.CLASS -> {
-                keyword(Keyword.CLASS)
-                space()
-            }
-            ClassKind.INTERFACE -> {
-                keyword(Keyword.INTERFACE)
-                space()
-            }
-            ClassKind.ENUM_CLASS -> {
-                keyword(Keyword.ENUM)
-                keywordSpaced(Keyword.CLASS)
-            }
-            ClassKind.ENUM_ENTRY -> Unit
-            ClassKind.ANNOTATION_CLASS -> {
-                keyword(Keyword.ANNOTATION)
-                keywordSpaced(Keyword.CLASS)
-            }
-            ClassKind.OBJECT -> {
-                keyword(Keyword.OBJECT)
-                space()
-            }
-        }
-    }
-
     private fun visualizeValueParameters(
         declarations: List<ValueParameter>,
         multiLine: Boolean = true
@@ -740,11 +551,11 @@ class IrVisualBuilder(
     }
 
     private fun visualizeValueParameter(declaration: ValueParameter) {
-        val flags = declaration.base.flags as? ValueParameterFlags
-        flags?.let {
-            visualizeValueParameterFlags(it)
+        val flags = (declaration.base.flags as? ValueParameterFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
-
         visualizeAnnotations(declaration.base.annotations, multiLine = false)
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -756,17 +567,6 @@ class IrVisualBuilder(
             val expressionBody = bodies(it) as? ExpressionBody ?: return@let
             punctuationSpaced('=')
             visualizeExpressionBody(expressionBody)
-        }
-    }
-
-    private fun visualizeValueParameterFlags(flags: ValueParameterFlags) {
-        if (flags.isCrossInline) {
-            keyword(Keyword.CROSSINLINE)
-            space()
-        }
-        if (flags.isNoInline) {
-            keyword(Keyword.NOINLINE)
-            space()
         }
     }
 
@@ -792,9 +592,10 @@ class IrVisualBuilder(
     }
 
     private fun visualizeTypeParameter(declaration: TypeParameter) {
-        val flags = declaration.base.flags as? TypeParameterFlags
-        flags?.let {
-            visualizeTypeParameterFlags(it)
+        val flags = (declaration.base.flags as? TypeParameterFlags).keywords
+        flags.forEach {
+            keyword(it)
+            space()
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
@@ -808,14 +609,6 @@ class IrVisualBuilder(
                 }
             }
         }
-    }
-
-    private fun visualizeTypeParameterFlags(flags: TypeParameterFlags) {
-        if (flags.isReified) {
-            keyword(Keyword.REIFIED)
-            space()
-        }
-        visualizeVariance(flags.variance)
     }
 
     private fun visualizeAnnotations(
@@ -1666,6 +1459,150 @@ class IrVisualBuilder(
             it is Property && strings(nameIndex) == name
         } as? Property
     }
+
+    private val Modality.keyword: Keyword?
+        get() {
+            return when (this) {
+                Modality.FINAL -> null
+                Modality.SEALED -> Keyword.SEALED
+                Modality.OPEN -> Keyword.OPEN
+                Modality.ABSTRACT -> Keyword.ABSTRACT
+            }
+        }
+
+
+    private val Visibility.keyword: Keyword?
+        get() {
+            return when (this) {
+                Visibility.PRIVATE,
+                Visibility.PRIVATE_TO_THIS -> Keyword.PRIVATE
+                Visibility.PROTECTED -> Keyword.PROTECTED
+                Visibility.INTERNAL -> Keyword.INTERNAL
+                Visibility.PUBLIC,
+                Visibility.LOCAL,
+                Visibility.INHERITED,
+                Visibility.INVISIBLE_FAKE,
+                Visibility.UNKNOWN -> null
+            }
+        }
+
+    private val Variance.keyword: Keyword?
+        get() {
+            return when (this) {
+                Variance.INVARIANT -> null
+                Variance.IN_VARIANCE -> Keyword.IN
+                Variance.OUT_VARIANCE -> Keyword.OUT
+            }
+        }
+
+    private val ValueParameterFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            if (this.isCrossInline) keywords.add(Keyword.CROSSINLINE)
+            if (this.isNoInline) keywords.add(Keyword.NOINLINE)
+            return keywords
+        }
+
+    private val TypeAliasFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            this.visibility.keyword?.let { keywords.add(it) }
+            if (this.isActual) keywords.add(Keyword.ACTUAL)
+            return keywords
+        }
+
+    private val TypeParameterFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            if (this.isReified) keywords.add(Keyword.REIFIED)
+            this.variance.keyword?.let { keywords.add(it) }
+            return keywords
+        }
+
+    private val FunctionFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            this.visibility.keyword?.let { keywords.add(it) }
+            this.modality.keyword?.let { keywords.add(it) }
+            if (this.isOperator) keywords.add(Keyword.OPERATOR)
+            if (this.isInfix) keywords.add(Keyword.INFIX)
+            if (this.isInline) keywords.add(Keyword.INLINE)
+            if (this.isTailrec) keywords.add(Keyword.TAILREC)
+            if (this.isExternal) keywords.add(Keyword.EXTERNAL)
+            if (this.isSuspend) keywords.add(Keyword.SUSPEND)
+            if (this.isExpect) keywords.add(Keyword.EXPECT)
+            return keywords
+        }
+
+    private val PropertyFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            this.visibility.keyword?.let { keywords.add(it) }
+            this.modality.keyword?.let { keywords.add(it) }
+            if (this.isExpect) keywords.add(Keyword.EXPECT)
+            if (this.isLateinit) keywords.add(Keyword.LATEINIT)
+            if (this.isConst) keywords.add(Keyword.CONST)
+            if (this.isExternal) keywords.add(Keyword.EXTERNAL)
+            if (this.isVar) keywords.add(Keyword.VAR)
+            else keywords.add(Keyword.VAL)
+            return keywords
+        }
+
+    private val LocalVarFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            if (this.isLateinit) keywords.add(Keyword.LATEINIT)
+            if (this.isConst) keywords.add(Keyword.CONST)
+            if (this.isVar) keywords.add(Keyword.VAR)
+            else keywords.add(Keyword.VAL)
+            return keywords
+        }
+
+    private val FieldFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            this.visibility.keyword?.let { keywords.add(it) }
+            if (this.isStatic) keywords.add(Keyword.STATIC)
+            if (this.isFinal) keywords.add(Keyword.VAL)
+            else keywords.add(Keyword.VAR)
+            return keywords
+        }
+
+    private val ClassFlags?.keywords: List<Keyword>
+        get() {
+            val keywords = mutableListOf<Keyword>()
+            if (this == null) return keywords
+            this.visibility.keyword?.let { keywords.add(it) }
+            this.modality.keyword?.let { keywords.add(it) }
+            if (this.isInner) keywords.add(Keyword.INNER)
+            if (this.isExpect) keyword(Keyword.EXPECT)
+            if (this.isExternal) keyword(Keyword.EXTERNAL)
+            if (this.isData) keyword(Keyword.DATA)
+            if (this.isValue) keyword(Keyword.VALUE)
+            if (this.isFun) keyword(Keyword.FUN)
+            if (this.isCompanion) keyword(Keyword.COMPANION)
+            keywords.addAll(this.kind.keywords)
+            return keywords
+        }
+
+    private val ClassKind.keywords: List<Keyword>
+        get() {
+            return when (this) {
+                ClassKind.CLASS -> listOf(Keyword.CLASS)
+                ClassKind.INTERFACE -> listOf(Keyword.INTERFACE)
+                ClassKind.ENUM_CLASS -> listOf(Keyword.ENUM, Keyword.CLASS)
+                ClassKind.ENUM_ENTRY -> emptyList()
+                ClassKind.ANNOTATION_CLASS -> listOf(Keyword.ANNOTATION, Keyword.CLASS)
+                ClassKind.OBJECT -> listOf(Keyword.OBJECT)
+            }
+        }
 
     private val Symbol.fqName: String
         get() {

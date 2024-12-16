@@ -14,11 +14,13 @@ import org.jf.dexlib2.DexFileFactory
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.ValueType
 import org.jf.dexlib2.iface.ClassDef
+import org.jf.dexlib2.iface.DexFile
 import org.jf.dexlib2.iface.value.ArrayEncodedValue
 import org.jf.dexlib2.iface.value.BooleanEncodedValue
 import org.jf.dexlib2.iface.value.EncodedValue
 import org.jf.dexlib2.iface.value.StringEncodedValue
 import java.io.File
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
@@ -26,7 +28,12 @@ import kotlin.coroutines.suspendCoroutine
 internal class AndroidProjectScanner(
     private val context: Context,
     private val preloadAllIr: Boolean,
+    private var cacheIr: Boolean,
+    packagePrefixes: List<String>?
 ) : ProjectScanner, Logger by AndroidLogger {
+    private var packageDescriptors = packagePrefixes?.map {
+        packageToDescriptor(it)
+    }
     private val uncommitedFilePaths = mutableSetOf<String>()
     private val uncommitedPackageNamesByPath = mutableMapOf<String, String>()
     private val uncommitedComposedIrFiles = mutableMapOf<String, List<String>>()
@@ -37,9 +44,11 @@ internal class AndroidProjectScanner(
         mutableMapOf<String, MutableSet<List<String>>>()
     private val uncommitedComposedIrDump = mutableMapOf<String, List<String>>()
     private val uncommitedOriginalIrDump = mutableMapOf<String, List<String>>()
+    private val uncommitedIrLocations = mutableMapOf<String, IrLocation>()
 
-    private var projectStructure: Pair<Set<String>, Map<String, String>>? = null
-    private var projectFiles: Map<String, VirtualFileIr>? = null
+    private var scannedProjectStructure: Pair<Set<String>, Map<String, String>>? = null
+    private var scannedProjectFiles: MutableMap<String, VirtualFileIr?>? = null
+    private var scannedIrLocations: Map<String, IrLocation>? = null
 
     private val projectStructureWaiters =
         mutableListOf<Continuation<Pair<Set<String>, Map<String, String>>>>()
@@ -48,7 +57,7 @@ internal class AndroidProjectScanner(
 
     override suspend fun fetchProjectSnapshot(): Pair<Set<String>, Map<String, String>> {
         return suspendCoroutine { continuation ->
-            val structure = projectStructure
+            val structure = scannedProjectStructure
             if (structure != null) {
                 continuation.resumeWith(Result.success(structure))
             } else {
@@ -60,10 +69,28 @@ internal class AndroidProjectScanner(
     override suspend fun fetchIr(
         filePath: String
     ): VirtualFileIr = suspendCoroutine { continuation ->
-        val projectFiles = projectFiles
+        val projectFiles = scannedProjectFiles
+        val irLocations = scannedIrLocations
         if (projectFiles != null) {
-            val virtualFileIr = projectFiles[filePath] ?: VirtualFileIr(filePath)
-            continuation.resumeWith(Result.success(virtualFileIr))
+            if (projectFiles.containsKey(filePath)) {
+                val virtualFileIr = projectFiles[filePath]
+                when {
+                    virtualFileIr != null -> {
+                        continuation.resumeWith(Result.success(virtualFileIr))
+                        if (!cacheIr && !preloadAllIr) {
+                            projectFiles[filePath] = null
+                        }
+                    }
+                    irLocations != null && irLocations.containsKey(filePath) -> {
+                        val irLocation = irLocations[filePath]!!
+                        irWaitersByPath[filePath] = continuation
+                        loadIr(filePath, irLocation)
+                    }
+                    else -> continuation.resumeWith(Result.success(VirtualFileIr(filePath)))
+                }
+            } else {
+                continuation.resumeWith(Result.success(VirtualFileIr(filePath)))
+            }
         } else {
             irWaitersByPath[filePath] = continuation
         }
@@ -78,6 +105,75 @@ internal class AndroidProjectScanner(
         uncommitedOriginalIrFiles.clear()
         uncommitedOriginalIrTopLevelClasses.clear()
         uncommitedOriginalIrDump.clear()
+        uncommitedIrLocations.clear()
+    }
+
+    private fun loadDexFile(dexEntry: ZipEntry, scanDir: File, zipFile: ZipFile): DexFile {
+        val virtualDexFile = File(scanDir, dexEntry.name)
+        zipFile.getInputStream(dexEntry).use { input ->
+            virtualDexFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        val opCode = Opcodes.forApi(Build.VERSION.SDK_INT)
+        return DexFileFactory.loadDexFile(virtualDexFile, opCode).also {
+            if (!virtualDexFile.delete()) {
+                log(
+                    Logger.Level.WARNING,
+                    TAG,
+                    "Cannot delete temporary file ${virtualDexFile.name}"
+                )
+            }
+        }
+    }
+
+    private fun loadIr(filePath: String, irLocation: IrLocation) {
+        coroutineScope.launch {
+            val apkFile = File(context.applicationInfo.sourceDir)
+            val scanDir = context.getDir(SCANNER_DIR, Context.MODE_PRIVATE)
+            val zipFile = ZipFile(apkFile)
+            try {
+                val dexEntry = zipFile.entries().asSequence()
+                    .filter { it.name == irLocation.dexFileName }
+                    .single()
+                val dexFile = withContext(Dispatchers.IO) {
+                    loadDexFile(dexEntry, scanDir, zipFile)
+                }
+                val irDataPart = IrDataPart()
+                dexFile.classes.filter { it.type in irLocation.classDescriptors }.forEach {
+                    loadDexClass(
+                        dexFileName = dexEntry.name,
+                        clazz = it,
+                        irDataPart = irDataPart,
+                        loadProjectStructure = false,
+                        loadIr = true,
+                        loadIrLocation = false
+                    )
+                }
+                scannedProjectFiles!![filePath] = VirtualFileIr(
+                    filePath = filePath,
+                    composedIrFile = irDataPart.composedIrFiles[filePath],
+                    composedTopLevelIrClasses = irDataPart.composedIrTopLevelClasses[filePath]
+                        ?: emptySet(),
+                    composedStandardDump = irDataPart.composedIrDump[filePath] ?: emptyList(),
+                    originalIrFile = irDataPart.originalIrFiles[filePath],
+                    originalTopLevelIrClasses = irDataPart.originalIrTopLevelClasses[filePath]
+                        ?: emptySet(),
+                    originalStandardDump = irDataPart.originalIrDump[filePath] ?: emptyList(),
+                )
+                resumeIrWaiters()
+            } catch (ex: Exception) {
+                log(Logger.Level.WARNING, TAG, ex.stackTraceToString())
+            } finally {
+                zipFile.close()
+                scanDir.deleteRecursively()
+            }
+        }
+    }
+
+    private fun packageToDescriptor(packageName: String): String {
+        return "L${packageName.replace('.', '/')}"
     }
 
     internal fun scanProject() {
@@ -94,28 +190,26 @@ internal class AndroidProjectScanner(
                     .toList()
 
                 for (dexEntry in dexEntries) {
+                    val dexFile = withContext(Dispatchers.IO) {
+                        loadDexFile(dexEntry, scanDir, zipFile)
+                    }
                     val job = async(Dispatchers.Default) {
-                        val dexFile = withContext(Dispatchers.IO) {
-                            val virtualDexFile = File(scanDir, dexEntry.name)
-                            zipFile.getInputStream(dexEntry).use { input ->
-                                virtualDexFile.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-
-                            val opCode = Opcodes.forApi(Build.VERSION.SDK_INT)
-                            DexFileFactory.loadDexFile(virtualDexFile, opCode).also {
-                                if (!virtualDexFile.delete()) {
-                                    log(
-                                        Logger.Level.WARNING,
-                                        TAG,
-                                        "Cannot delete temporary file ${virtualDexFile.name}"
-                                    )
-                                }
+                        val irDataPart = IrDataPart()
+                        dexFile.classes.forEach { clazz ->
+                            val packageDescriptors = packageDescriptors
+                            if (packageDescriptors == null
+                                || packageDescriptors.any { clazz.type.startsWith(it) }
+                            ) {
+                                loadDexClass(
+                                    dexFileName = dexEntry.name,
+                                    clazz = clazz,
+                                    irDataPart = irDataPart,
+                                    loadProjectStructure = true,
+                                    loadIr = preloadAllIr,
+                                    loadIrLocation = true
+                                )
                             }
                         }
-                        val irDataPart = IrDataPart()
-                        dexFile.classes.forEach { processDexClass(it, irDataPart) }
                         irDataPart
                     }
                     loadJobs.add(job)
@@ -163,6 +257,9 @@ internal class AndroidProjectScanner(
                     synchronized(uncommitedOriginalIrDump) {
                         uncommitedOriginalIrDump.putAll(irParts.originalIrDump)
                     }
+                    synchronized(uncommitedIrLocations) {
+                        uncommitedIrLocations.putAll(irParts.irLocationByFilePath)
+                    }
                 }
 
                 commitProjectData()
@@ -179,7 +276,7 @@ internal class AndroidProjectScanner(
     }
 
     private fun commitProjectData() {
-        projectStructure = Pair<Set<String>, Map<String, String>>(
+        scannedProjectStructure = Pair<Set<String>, Map<String, String>>(
             first = mutableSetOf<String>().also {
                 it.addAll(uncommitedFilePaths)
             },
@@ -187,22 +284,98 @@ internal class AndroidProjectScanner(
                 it.putAll(uncommitedPackageNamesByPath)
             }
         )
-        projectFiles = mutableMapOf<String, VirtualFileIr>().also {
+        scannedIrLocations = mutableMapOf<String, IrLocation>().also {
+            it.putAll(uncommitedIrLocations)
+        }
+        scannedProjectFiles = mutableMapOf<String, VirtualFileIr?>().also {
             it.putAll(uncommitedFilePaths.associateWith { filePath ->
-                VirtualFileIr(
-                    filePath = filePath,
-                    composedIrFile = uncommitedComposedIrFiles[filePath],
-                    composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath] ?: emptySet(),
-                    composedStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
-                    originalIrFile = uncommitedOriginalIrFiles[filePath],
-                    originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath] ?: emptySet(),
-                    originalStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
-                )
+                if (preloadAllIr) {
+                    VirtualFileIr(
+                        filePath = filePath,
+                        composedIrFile = uncommitedComposedIrFiles[filePath],
+                        composedTopLevelIrClasses = uncommitedComposedIrTopLevelClasses[filePath]
+                            ?: emptySet(),
+                        composedStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
+                        originalIrFile = uncommitedOriginalIrFiles[filePath],
+                        originalTopLevelIrClasses = uncommitedOriginalIrTopLevelClasses[filePath]
+                            ?: emptySet(),
+                        originalStandardDump = uncommitedComposedIrDump[filePath] ?: emptyList(),
+                    )
+                } else null
             })
         }
     }
 
-    private fun processDexClass(clazz: ClassDef, irDataPart: IrDataPart) {
+    private fun loadDexClass(
+        dexFileName: String,
+        clazz: ClassDef,
+        irDataPart: IrDataPart,
+        loadProjectStructure: Boolean,
+        loadIr: Boolean,
+        loadIrLocation: Boolean
+    ) {
+        fun loadAnnotation(
+            ir: List<String>,
+            dump: List<String>,
+            filePath: String,
+            packageName: String,
+            fileFacade: Boolean,
+            composed: Boolean,
+            irDataPart: IrDataPart
+        ) {
+            fun loadProjectStructure() {
+                irDataPart.filePaths.add(filePath)
+                val existingPackage = irDataPart.packageNamesByPath[filePath]
+                if (existingPackage != null) {
+                    if (packageName != existingPackage) {
+                        log(
+                            Logger.Level.ERROR, TAG,
+                            "Package different: $packageName, $existingPackage"
+                        )
+                    }
+                } else {
+                    irDataPart.packageNamesByPath[filePath] = packageName
+                }
+            }
+
+            fun loadIr() {
+                when {
+                    fileFacade && composed -> irDataPart.composedIrFiles[filePath] = ir
+                    fileFacade && !composed -> irDataPart.originalIrFiles[filePath] = ir
+                    !fileFacade && composed -> {
+                        if (!irDataPart.composedIrTopLevelClasses.containsKey(filePath)) {
+                            irDataPart.composedIrTopLevelClasses[filePath] = mutableSetOf()
+                        }
+                        irDataPart.composedIrTopLevelClasses[filePath]!!.add(ir)
+                    }
+                    else -> {
+                        if (!irDataPart.originalIrTopLevelClasses.containsKey(filePath)) {
+                            irDataPart.originalIrTopLevelClasses[filePath] = mutableSetOf()
+                        }
+                        irDataPart.originalIrTopLevelClasses[filePath]!!.add(ir)
+                    }
+                }
+                if (dump.isNotEmpty()) {
+                    if (composed && !irDataPart.composedIrDump.containsKey(filePath)) {
+                        irDataPart.composedIrDump[filePath] = dump
+                    } else if (!composed && !uncommitedOriginalIrDump.containsKey(filePath)) {
+                        irDataPart.originalIrDump[filePath] = dump
+                    }
+                }
+            }
+
+            fun loadIrLocation() {
+                if (!irDataPart.irLocationByFilePath.containsKey(filePath)) {
+                    irDataPart.irLocationByFilePath[filePath] = IrLocation(dexFileName)
+                }
+                irDataPart.irLocationByFilePath[filePath]!!.classDescriptors.add(clazz.type)
+            }
+
+            if (loadProjectStructure) loadProjectStructure()
+            if (loadIr) loadIr()
+            if (loadIrLocation) loadIrLocation()
+        }
+
         clazz.annotations.forEach { annotation ->
             val type = annotation.type
             if (type != PRE_COMPOSE_IR_SIGNATURE && type != POST_COMPOSE_IR_SIGNATURE) {
@@ -225,50 +398,7 @@ internal class AndroidProjectScanner(
                 }
             }
             if (ir != null && filePath != null && isFileFacade != null) {
-                processAnnotation(ir!!, dump, filePath!!, packageName!!, isFileFacade!!, composed, irDataPart)
-            }
-        }
-    }
-
-    private fun processAnnotation(
-        ir: List<String>,
-        dump: List<String>,
-        filePath: String,
-        packageName: String,
-        fileFacade: Boolean,
-        composed: Boolean,
-        irDataPart: IrDataPart
-    ) {
-        irDataPart.filePaths.add(filePath)
-        val existingPackage = irDataPart.packageNamesByPath[filePath]
-        if (existingPackage != null) {
-            if (packageName != existingPackage) {
-                log(Logger.Level.ERROR, TAG, "Package name different: $packageName, $existingPackage")
-            }
-        } else {
-            irDataPart.packageNamesByPath[filePath] = packageName
-        }
-        when {
-            fileFacade && composed -> irDataPart.composedIrFiles[filePath] = ir
-            fileFacade && !composed -> irDataPart.originalIrFiles[filePath] = ir
-            !fileFacade && composed -> {
-                if (!irDataPart.composedIrTopLevelClasses.containsKey(filePath)) {
-                    irDataPart.composedIrTopLevelClasses[filePath] = mutableSetOf()
-                }
-                irDataPart.composedIrTopLevelClasses[filePath]!!.add(ir)
-            }
-            else -> {
-                if (!irDataPart.originalIrTopLevelClasses.containsKey(filePath)) {
-                    irDataPart.originalIrTopLevelClasses[filePath] = mutableSetOf()
-                }
-                irDataPart.originalIrTopLevelClasses[filePath]!!.add(ir)
-            }
-        }
-        if (dump.isNotEmpty()) {
-            if (composed && !irDataPart.composedIrDump.containsKey(filePath)) {
-                irDataPart.composedIrDump[filePath] = dump
-            } else if (!composed && !uncommitedOriginalIrDump.containsKey(filePath)) {
-                irDataPart.originalIrDump[filePath] = dump
+                loadAnnotation(ir!!, dump, filePath!!, packageName!!, isFileFacade!!, composed, irDataPart)
             }
         }
     }
@@ -303,7 +433,7 @@ internal class AndroidProjectScanner(
     }
 
     private fun resumeProjectStructureWaiters() {
-        val structure = projectStructure
+        val structure = scannedProjectStructure
         if (structure != null) {
             projectStructureWaiters.forEach {
                 it.resumeWith(Result.success(structure))
@@ -318,10 +448,16 @@ internal class AndroidProjectScanner(
         irWaitersByPath.forEach {
             val filePath = it.key
             val waiter = it.value
-            val virtualFileIr = projectFiles?.get(filePath) ?: VirtualFileIr(filePath = filePath)
+            val virtualFileIr = scannedProjectFiles?.get(filePath) ?: VirtualFileIr(filePath = filePath)
             waiter.resumeWith(Result.success(virtualFileIr))
         }
         irWaitersByPath.clear()
+        if (!cacheIr && !preloadAllIr) {
+            val projectFiles = scannedProjectFiles
+            projectFiles?.keys?.forEach {
+                projectFiles[it] = null
+            }
+        }
     }
 
     companion object {
@@ -343,4 +479,10 @@ internal class IrDataPart(
         mutableMapOf(),
     val composedIrDump: MutableMap<String, List<String>> = mutableMapOf(),
     val originalIrDump: MutableMap<String, List<String>> = mutableMapOf(),
+    val irLocationByFilePath: MutableMap<String, IrLocation> = mutableMapOf()
+)
+
+internal class IrLocation(
+    val dexFileName: String,
+    val classDescriptors: MutableSet<String> = mutableSetOf()
 )

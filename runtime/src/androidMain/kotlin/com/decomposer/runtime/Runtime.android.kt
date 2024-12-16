@@ -9,6 +9,8 @@ class AndroidRuntime(context: Context, config: RuntimeConfig) {
     private val projectScanner = AndroidProjectScanner(
         context = context,
         preloadAllIr = config.preloadAllIr,
+        cacheIr = config.cacheIr,
+        packagePrefixes = config.packagePrefixes
     )
     private val compositionNormalizer = AndroidCompositionNormalizer(context)
     private val client = AndroidOkHttpClient(
@@ -22,9 +24,9 @@ class AndroidRuntime(context: Context, config: RuntimeConfig) {
     }
 }
 
-fun Application.runtimeInit(block: RuntimeConfigScope.() -> Unit): AndroidRuntime {
+fun Application.runtimeInit(block: (RuntimeConfigScope.() -> Unit)? = null): AndroidRuntime {
     val scope = RuntimeConfigScope()
-    scope.block()
+    block?.let { scope.it() }
     return AndroidRuntime(this, scope).also {
         it.init()
     }
@@ -32,8 +34,12 @@ fun Application.runtimeInit(block: RuntimeConfigScope.() -> Unit): AndroidRuntim
 
 interface RuntimeConfig {
     val preloadAllIr: Boolean
+    val cacheIr: Boolean
+    val packagePrefixes: List<String>?
 }
 
 class RuntimeConfigScope internal constructor(
     override var preloadAllIr: Boolean = false,
+    override var cacheIr: Boolean = true,
+    override var packagePrefixes: List<String>? = null,
 ) : RuntimeConfig

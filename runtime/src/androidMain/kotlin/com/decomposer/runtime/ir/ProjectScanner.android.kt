@@ -191,11 +191,15 @@ internal class AndroidProjectScanner(
             fileFacade && composed -> uncommitedComposedIrFiles[filePath] = ir
             fileFacade && !composed -> uncommitedOriginalIrFiles[filePath] = ir
             !fileFacade && composed -> {
-                uncommitedComposedIrTopLevelClasses.putIfAbsent(filePath, mutableSetOf())
+                if (!uncommitedComposedIrTopLevelClasses.containsKey(filePath)) {
+                    uncommitedComposedIrTopLevelClasses[filePath] = mutableSetOf()
+                }
                 uncommitedComposedIrTopLevelClasses[filePath]!!.add(ir)
             }
             else -> {
-                uncommitedOriginalIrTopLevelClasses.putIfAbsent(filePath, mutableSetOf())
+                if (!uncommitedOriginalIrTopLevelClasses.containsKey(filePath)) {
+                    uncommitedOriginalIrTopLevelClasses[filePath] = mutableSetOf()
+                }
                 uncommitedOriginalIrTopLevelClasses[filePath]!!.add(ir)
             }
         }

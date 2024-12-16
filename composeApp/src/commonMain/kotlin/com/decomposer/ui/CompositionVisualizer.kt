@@ -246,9 +246,18 @@ private fun StateDetail(
                 maxLines = Int.MAX_VALUE
             )
             val readers = mutableListOf<String>()
+            if (state.readInSnapshotStateObserver == null
+                || state.readInSnapshotFlow == null
+                || state.readInComposition == null
+            ) {
+                readers.add("Unknown")
+            }
             if (state.readInComposition == true) readers.add("Composition")
             if (state.readInSnapshotStateObserver == true) readers.add("SnapshotStateObserver")
             if (state.readInSnapshotFlow == true) readers.add("SnapshotFlow")
+            if (readers.isEmpty()) {
+                readers.add("None")
+            }
             DefaultPanelText(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth().padding(vertical = 2.dp),
                 text = "Readers: ${readers.joinToString(", ")}",

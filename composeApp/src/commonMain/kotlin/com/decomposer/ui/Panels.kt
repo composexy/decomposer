@@ -124,13 +124,11 @@ fun Panels(
                 )
                 HorizontalSplitter()
                 Box(modifier = modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    Row(modifier = Modifier.fillMaxSize()) {
                         if (panelsState.fileTreeVisible) {
                             FileTreePanel(
                                 modifier = Modifier.weight(0.16f),
-                                projectSnapshot = projectSnapshot,
+                                session = sessionState.session,
                                 onClickFileEntry = {
                                     panelsState.selectedIrFilePath = it
                                     panelsState.irViewerVisible = true
@@ -223,7 +221,6 @@ fun Panels(
 
             LaunchedEffect(sessionState.session) {
                 irProcessor = IrProcessor()
-                projectSnapshot = sessionState.session.getProjectSnapshot()
                 coroutineScope.launch {
                     navigationContext = buildNavigationContext(
                         sessionState.session,

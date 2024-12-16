@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.runtime.connection.model.ProjectSnapshot
+import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.file
 import decomposer.composeapp.generated.resources.folder_close
@@ -51,23 +52,20 @@ import java.nio.file.Paths
 @Composable
 fun FileTreePanel(
     modifier: Modifier = Modifier,
-    projectSnapshot: ProjectSnapshot,
+    session: Session,
     onClickFileEntry: (String) -> Unit
 ) {
-    var fileTree: FilterableTree by remember {
-        mutableStateOf(FilterableTree.EMPTY_TREE)
-    }
+    var fileTree: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
+    var loading: Boolean by remember { mutableStateOf(true) }
 
-    var loading: Boolean by remember {
-        mutableStateOf(true)
-    }
+    Box(modifier = modifier) {
+        val verticalScrollState = rememberLazyListState()
+        val horizontalScrollState = rememberScrollState()
 
-    if (!loading) {
-        Box(modifier = modifier) {
-            val verticalScrollState = rememberLazyListState()
-            val horizontalScrollState = rememberScrollState()
-
-            Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (loading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else {
                 TreeExpander(
                     onFoldAll = { fileTree.root.setExpandedRecursive(false) },
                     onExpandAll = { fileTree.root.setExpandedRecursive(true) }
@@ -87,24 +85,22 @@ fun FileTreePanel(
                     }
                 }
             }
-
-            VerticalScrollbar(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                adapter = rememberScrollbarAdapter(verticalScrollState)
-            )
-
-            HorizontalScrollbar(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                adapter = rememberScrollbarAdapter(horizontalScrollState)
-            )
         }
-    } else {
-        LinearProgressIndicator(
-            modifier = modifier.fillMaxWidth()
+
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            adapter = rememberScrollbarAdapter(verticalScrollState)
+        )
+
+        HorizontalScrollbar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            adapter = rememberScrollbarAdapter(horizontalScrollState)
         )
     }
 
-    LaunchedEffect(projectSnapshot) {
+    LaunchedEffect(session) {
+        loading = true
+        val projectSnapshot = session.getProjectSnapshot()
         fileTree = projectSnapshot.buildFileTree {
             projectSnapshot.findMatching(it)?.let(onClickFileEntry)
         }

@@ -148,7 +148,6 @@ class IrVisualBuilder(
             space()
             simple(it)
             newLine(indent = false)
-            newLine(indent = false)
         }
         sortedDeclarations.forEach {
             withTable(it.value) { visualizeDeclaration(it.key) }
@@ -158,13 +157,13 @@ class IrVisualBuilder(
     private fun visualizeDeclaration(declaration: Declaration) {
         when (declaration) {
             is Function -> {
-                visualizeFunction(declaration)
                 newLine()
+                visualizeFunction(declaration)
             }
             is AnonymousInit -> visualizeAnonymousInit(declaration)
             is Class -> {
-                visualizeClass(declaration)
                 newLine()
+                visualizeClass(declaration)
             }
             is Constructor -> visualizeConstructor(declaration)
             is EnumEntry -> visualizeEnumEntry(declaration)
@@ -177,6 +176,7 @@ class IrVisualBuilder(
             is ValueParameter -> visualizeValueParameter(declaration)
             is Variable -> visualizeVariable(declaration)
         }
+        newLine()
     }
 
     private fun visualizeVariable(declaration: Variable) {

@@ -99,23 +99,14 @@ fun Panels(
             }
         }
         is SessionState.Connected -> {
-            var navigationContext: NavigationContext? by remember {
-                mutableStateOf(null)
-            }
-
-            var irProcessor: IrProcessor by remember {
-                mutableStateOf(IrProcessor())
-            }
-
+            var navigationContext: NavigationContext? by remember { mutableStateOf(null) }
+            var irProcessor: IrProcessor by remember { mutableStateOf(IrProcessor()) }
+            var loadingProjectSnapshot by remember { mutableStateOf(false) }
+            var highlight: Pair<Int, Int>? by remember { mutableStateOf(null) }
+            val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
             var projectSnapshot: ProjectSnapshot by remember {
                 mutableStateOf(ProjectSnapshot(emptySet(), emptyMap()))
             }
-
-            var highlight: Pair<Int, Int>? by remember {
-                mutableStateOf(null)
-            }
-
-            val coroutineScope = rememberCoroutineScope { Dispatchers.Default }
 
             Column(modifier = modifier) {
                 ToolBar(
@@ -128,7 +119,8 @@ fun Panels(
                         if (panelsState.fileTreeVisible) {
                             FileTreePanel(
                                 modifier = Modifier.weight(0.16f),
-                                session = sessionState.session,
+                                projectSnapshot = projectSnapshot,
+                                loading = loadingProjectSnapshot,
                                 onClickFileEntry = {
                                     panelsState.selectedIrFilePath = it
                                     panelsState.irViewerVisible = true
@@ -220,7 +212,9 @@ fun Panels(
             }
 
             LaunchedEffect(sessionState.session) {
+                loadingProjectSnapshot = true
                 irProcessor = IrProcessor()
+                projectSnapshot = sessionState.session.getProjectSnapshot()
                 coroutineScope.launch {
                     navigationContext = buildNavigationContext(
                         sessionState.session,
@@ -228,6 +222,7 @@ fun Panels(
                         irProcessor
                     )
                 }
+                loadingProjectSnapshot = false
             }
         }
     }

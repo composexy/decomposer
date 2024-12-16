@@ -40,7 +40,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.runtime.connection.model.ProjectSnapshot
-import com.decomposer.server.Session
 import decomposer.composeapp.generated.resources.Res
 import decomposer.composeapp.generated.resources.file
 import decomposer.composeapp.generated.resources.folder_close
@@ -52,11 +51,11 @@ import java.nio.file.Paths
 @Composable
 fun FileTreePanel(
     modifier: Modifier = Modifier,
-    session: Session,
+    projectSnapshot: ProjectSnapshot,
+    loading: Boolean,
     onClickFileEntry: (String) -> Unit
 ) {
     var fileTree: FilterableTree by remember { mutableStateOf(FilterableTree.EMPTY_TREE) }
-    var loading: Boolean by remember { mutableStateOf(true) }
 
     Box(modifier = modifier) {
         val verticalScrollState = rememberLazyListState()
@@ -98,13 +97,10 @@ fun FileTreePanel(
         )
     }
 
-    LaunchedEffect(session) {
-        loading = true
-        val projectSnapshot = session.getProjectSnapshot()
+    LaunchedEffect(projectSnapshot) {
         fileTree = projectSnapshot.buildFileTree {
             projectSnapshot.findMatching(it)?.let(onClickFileEntry)
         }
-        loading = false
     }
 }
 

@@ -39,7 +39,7 @@ data class Theme(
                 punctuation = SpanStyle(Color(0xFFA1C17E)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
                 comment = SpanStyle(Color(0xFF808080)),
-                highlight = SpanStyle(background = Color(0x77569CD6))
+                highlight = SpanStyle(background = Color(0xAA569CD6))
             )
         )
 
@@ -55,7 +55,7 @@ data class Theme(
                 punctuation = SpanStyle(Color(0xFFA1A1A1)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
                 comment = SpanStyle(Color(0xFF808080)),
-                highlight = SpanStyle(background = Color(0x77569CD6))
+                highlight = SpanStyle(background = Color(0xAA569CD6))
             )
         )
     }

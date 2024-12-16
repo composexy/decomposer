@@ -5,8 +5,11 @@ import android.os.Build
 import com.decomposer.runtime.AndroidLogger
 import com.decomposer.runtime.Logger
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jf.dexlib2.DexFileFactory
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.ValueType
@@ -21,7 +24,8 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
 internal class AndroidProjectScanner(
-    private val context: Context
+    private val context: Context,
+    private val preloadAllIr: Boolean,
 ) : ProjectScanner, Logger by AndroidLogger {
     private val uncommitedFilePaths = mutableSetOf<String>()
     private val uncommitedPackageNamesByPath = mutableMapOf<String, String>()
@@ -81,7 +85,7 @@ internal class AndroidProjectScanner(
             val apkFile = File(context.applicationInfo.sourceDir)
             val scanDir = context.getDir(SCANNER_DIR, Context.MODE_PRIVATE)
             val zipFile = ZipFile(apkFile)
-
+            val loadJobs = mutableListOf<Deferred<IrDataPart>>()
             clearUncommitedData()
 
             try {
@@ -90,18 +94,74 @@ internal class AndroidProjectScanner(
                     .toList()
 
                 for (dexEntry in dexEntries) {
-                    val virtualDexFile = File(scanDir, dexEntry.name)
-                    zipFile.getInputStream(dexEntry).use { input ->
-                        virtualDexFile.outputStream().use { output ->
-                            input.copyTo(output)
+                    val job = async(Dispatchers.Default) {
+                        val dexFile = withContext(Dispatchers.IO) {
+                            val virtualDexFile = File(scanDir, dexEntry.name)
+                            zipFile.getInputStream(dexEntry).use { input ->
+                                virtualDexFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+
+                            val opCode = Opcodes.forApi(Build.VERSION.SDK_INT)
+                            DexFileFactory.loadDexFile(virtualDexFile, opCode).also {
+                                if (!virtualDexFile.delete()) {
+                                    log(
+                                        Logger.Level.WARNING,
+                                        TAG,
+                                        "Cannot delete temporary file ${virtualDexFile.name}"
+                                    )
+                                }
+                            }
+                        }
+                        val irDataPart = IrDataPart()
+                        dexFile.classes.forEach { processDexClass(it, irDataPart) }
+                        irDataPart
+                    }
+                    loadJobs.add(job)
+                }
+
+                loadJobs.forEach { job ->
+                    val irParts = job.await()
+                    synchronized(uncommitedFilePaths) {
+                        uncommitedFilePaths.addAll(irParts.filePaths)
+                    }
+                    synchronized(uncommitedPackageNamesByPath) {
+                        uncommitedPackageNamesByPath.putAll(irParts.packageNamesByPath)
+                    }
+                    synchronized(uncommitedComposedIrFiles) {
+                        uncommitedComposedIrFiles.putAll(irParts.composedIrFiles)
+                    }
+                    synchronized(uncommitedOriginalIrFiles) {
+                        uncommitedOriginalIrFiles.putAll(irParts.originalIrFiles)
+                    }
+                    synchronized(uncommitedComposedIrTopLevelClasses) {
+                        irParts.composedIrTopLevelClasses.forEach { entry ->
+                            val filePath = entry.key
+                            val topLevelClasses = entry.value
+                            if (!uncommitedComposedIrTopLevelClasses.containsKey(filePath)) {
+                                uncommitedComposedIrTopLevelClasses[filePath] = topLevelClasses
+                            } else {
+                                uncommitedComposedIrTopLevelClasses[filePath]!! += topLevelClasses
+                            }
                         }
                     }
-
-                    val opCode = Opcodes.forApi(Build.VERSION.SDK_INT)
-                    val dexFile = DexFileFactory.loadDexFile(virtualDexFile, opCode)
-                    dexFile.classes.forEach { processDexClass(it) }
-                    if (!virtualDexFile.delete()) {
-                        log(Logger.Level.WARNING, TAG, "Cannot delete temporary file ${virtualDexFile.name}")
+                    synchronized(uncommitedOriginalIrTopLevelClasses) {
+                        irParts.originalIrTopLevelClasses.forEach { entry ->
+                            val filePath = entry.key
+                            val topLevelClasses = entry.value
+                            if (!uncommitedOriginalIrTopLevelClasses.containsKey(filePath)) {
+                                uncommitedOriginalIrTopLevelClasses[filePath] = topLevelClasses
+                            } else {
+                                uncommitedOriginalIrTopLevelClasses[filePath]!! += topLevelClasses
+                            }
+                        }
+                    }
+                    synchronized(uncommitedComposedIrDump) {
+                        uncommitedComposedIrDump.putAll(irParts.composedIrDump)
+                    }
+                    synchronized(uncommitedOriginalIrDump) {
+                        uncommitedOriginalIrDump.putAll(irParts.originalIrDump)
                     }
                 }
 
@@ -142,7 +202,7 @@ internal class AndroidProjectScanner(
         }
     }
 
-    private fun processDexClass(clazz: ClassDef) {
+    private fun processDexClass(clazz: ClassDef, irDataPart: IrDataPart) {
         clazz.annotations.forEach { annotation ->
             val type = annotation.type
             if (type != PRE_COMPOSE_IR_SIGNATURE && type != POST_COMPOSE_IR_SIGNATURE) {
@@ -165,7 +225,7 @@ internal class AndroidProjectScanner(
                 }
             }
             if (ir != null && filePath != null && isFileFacade != null) {
-                processAnnotation(ir!!, dump, filePath!!, packageName!!, isFileFacade!!, composed)
+                processAnnotation(ir!!, dump, filePath!!, packageName!!, isFileFacade!!, composed, irDataPart)
             }
         }
     }
@@ -176,38 +236,39 @@ internal class AndroidProjectScanner(
         filePath: String,
         packageName: String,
         fileFacade: Boolean,
-        composed: Boolean
+        composed: Boolean,
+        irDataPart: IrDataPart
     ) {
-        uncommitedFilePaths.add(filePath)
-        val existingPackage = uncommitedPackageNamesByPath[filePath]
+        irDataPart.filePaths.add(filePath)
+        val existingPackage = irDataPart.packageNamesByPath[filePath]
         if (existingPackage != null) {
             if (packageName != existingPackage) {
                 log(Logger.Level.ERROR, TAG, "Package name different: $packageName, $existingPackage")
             }
         } else {
-            uncommitedPackageNamesByPath[filePath] = packageName
+            irDataPart.packageNamesByPath[filePath] = packageName
         }
         when {
-            fileFacade && composed -> uncommitedComposedIrFiles[filePath] = ir
-            fileFacade && !composed -> uncommitedOriginalIrFiles[filePath] = ir
+            fileFacade && composed -> irDataPart.composedIrFiles[filePath] = ir
+            fileFacade && !composed -> irDataPart.originalIrFiles[filePath] = ir
             !fileFacade && composed -> {
-                if (!uncommitedComposedIrTopLevelClasses.containsKey(filePath)) {
-                    uncommitedComposedIrTopLevelClasses[filePath] = mutableSetOf()
+                if (!irDataPart.composedIrTopLevelClasses.containsKey(filePath)) {
+                    irDataPart.composedIrTopLevelClasses[filePath] = mutableSetOf()
                 }
-                uncommitedComposedIrTopLevelClasses[filePath]!!.add(ir)
+                irDataPart.composedIrTopLevelClasses[filePath]!!.add(ir)
             }
             else -> {
-                if (!uncommitedOriginalIrTopLevelClasses.containsKey(filePath)) {
-                    uncommitedOriginalIrTopLevelClasses[filePath] = mutableSetOf()
+                if (!irDataPart.originalIrTopLevelClasses.containsKey(filePath)) {
+                    irDataPart.originalIrTopLevelClasses[filePath] = mutableSetOf()
                 }
-                uncommitedOriginalIrTopLevelClasses[filePath]!!.add(ir)
+                irDataPart.originalIrTopLevelClasses[filePath]!!.add(ir)
             }
         }
         if (dump.isNotEmpty()) {
-            if (composed && !uncommitedComposedIrDump.containsKey(filePath)) {
-                uncommitedComposedIrDump[filePath] = dump
+            if (composed && !irDataPart.composedIrDump.containsKey(filePath)) {
+                irDataPart.composedIrDump[filePath] = dump
             } else if (!composed && !uncommitedOriginalIrDump.containsKey(filePath)) {
-                uncommitedOriginalIrDump[filePath] = dump
+                irDataPart.originalIrDump[filePath] = dump
             }
         }
     }
@@ -270,3 +331,16 @@ internal class AndroidProjectScanner(
         private const val POST_COMPOSE_IR_SIGNATURE = "Lcom/decomposer/runtime/PostComposeIr;"
     }
 }
+
+internal class IrDataPart(
+    val filePaths: MutableSet<String> = mutableSetOf(),
+    val packageNamesByPath: MutableMap<String, String> = mutableMapOf(),
+    val composedIrFiles: MutableMap<String, List<String>> = mutableMapOf(),
+    val originalIrFiles: MutableMap<String, List<String>> = mutableMapOf(),
+    val composedIrTopLevelClasses: MutableMap<String, MutableSet<List<String>>> =
+        mutableMapOf(),
+    val originalIrTopLevelClasses: MutableMap<String, MutableSet<List<String>>> =
+        mutableMapOf(),
+    val composedIrDump: MutableMap<String, List<String>> = mutableMapOf(),
+    val originalIrDump: MutableMap<String, List<String>> = mutableMapOf(),
+)

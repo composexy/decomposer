@@ -8,7 +8,9 @@ class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) {
-            runtimeInit()
+            runtimeInit {
+                packagePrefixes = listOf(this@SampleApplication.packageName)
+            }
         }
     }
 }

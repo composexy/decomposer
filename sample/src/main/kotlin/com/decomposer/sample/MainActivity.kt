@@ -2,85 +2,72 @@ package com.decomposer.sample
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.width
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        ComposeView(this).also {
-            setContentView(it)
-        }.setContent {
-            val stateList = remember {
-                mutableStateListOf(12, 123)
+        setContent {
+            val selectedIndex = contentSelected
+            if (selectedIndex == null) {
+                ContentList()
+            } else {
+                contentList[selectedIndex].content()
             }
-            val stateMap = remember {
-                mutableStateMapOf(2 to "123", 4 to "123123")
-            }
-            Box {
-                Text("Lazy")
-            }
-            Empty()
-            Greeting(modifier = Modifier.width(100.dp), message = "HiHi")
-            Footer(modifier = Modifier.width(100.dp), message = "HiHi")
-            val state1 = remember {
-                mutableStateOf("Hi! ${stateList[0]} ${stateMap[2]}")
-            }
-            Text(modifier = Modifier, text = "${state1.value} ${textState.value}")
-            LazyColumn {
-                item {
-                    Text("Lazy")
-                }
-            }
-            Popup {
-                Text("Popup")
-            }
-            Dialog(
-                onDismissRequest = {}
-            ) {
-                Text("Dialog")
-            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (contentSelected == null) {
+            super.onBackPressed()
+        } else {
+            contentSelected = null
         }
     }
 }
 
-val textState = mutableStateOf("World")
-
 @Composable
-fun Empty() {
-    val color = LocalContentColor.current
+fun ContentList() {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(contentList.size) {
+            Text(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(16.dp)
+                    .clickable { contentSelected = it },
+                text = contentList[it].displayName,
+                textAlign = TextAlign.Center,
+                fontSize = 16.sp
+            )
+        }
+    }
 }
 
-@Composable
-fun Footer(modifier: Modifier, message: String) {
-    val footerState = remember {
-        mutableStateOf("Hi!")
-    }
-    Box {
-        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
-    }
-    Box {
-        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
-    }
-    Column {
-        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
-        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
-        Text(modifier = modifier, text = "${footerState.value} $message ${textState.value}")
-    }
-}
+var contentSelected: Int? by mutableStateOf(null)
+
+val contentList = listOf(
+    SampleContent(displayName = "Simple Text", content = { SimpleText() }),
+    SampleContent(displayName = "Simple Dialog", content = { SimpleDialog() }),
+    SampleContent(displayName = "Simple Popup", content = { SimplePopup() }),
+    SampleContent(displayName = "Simple BoxWithConstraints", content = { SimpleBoxWithConstraints() }),
+    SampleContent(displayName = "Simple LazyColumn", content = { SimpleLazyColumn() })
+)
+
+class SampleContent(
+    val displayName: String,
+    val content: @Composable () -> Unit
+)

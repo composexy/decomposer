@@ -104,83 +104,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.math.max
 
-enum class Keyword(val visual: String) {
-    THIS("this"),
-    DO("do"),
-    WHILE("while"),
-    IF("if"),
-    WHEN("when"),
-    ELSE("else"),
-    SAFE_AS("as?"),
-    IS("is"),
-    NOT_IS("!is"),
-    AS("as"),
-    THROW("throw"),
-    TRY("try"),
-    CATCH("catch"),
-    FINALLY("finally"),
-    CONTINUE("continue"),
-    BREAK("break"),
-    RETURN("return"),
-    CLASS("class"),
-    INTERFACE("interface"),
-    ENUM("enum"),
-    ANNOTATION("annotation"),
-    OBJECT("object"),
-    DATA("data"),
-    INNER("inner"),
-    COMPANION("companion"),
-    VALUE("value"),
-    INIT("init"),
-    FUN("fun"),
-    OVERRIDE("override"),
-    LATEINIT("lateinit"),
-    CONST("const"),
-    VAL("val"),
-    VAR("var"),
-    CROSSINLINE("crossline"),
-    NOINLINE("noinline"),
-    ACTUAL("actual"),
-    PRIVATE("private"),
-    INTERNAL("internal"),
-    PROTECTED("protected"),
-    IN("in"),
-    OUT("out"),
-    TYPEALIAS("typealias"),
-    SEALED("sealed"),
-    OPEN("open"),
-    ABSTRACT("abstract"),
-    EXPECT("expect"),
-    GET("get"),
-    SET("set"),
-    BY("by"),
-    STATIC("static"),
-    EXTERNAL("external"),
-    CONSTRUCTOR("constructor"),
-    OPERATOR("operator"),
-    INFIX("infix"),
-    INLINE("inline"),
-    TAILREC("tailrec"),
-    SUSPEND("suspend"),
-    REIFIED("reified"),
-    PACKAGE("package")
-}
-
-sealed interface AnnotationData
-
-@Serializable
-data class SourceLocation(
-    val sourceStartOffset: Int,
-    val sourceEndOffset: Int
-) : AnnotationData
-
-@Serializable
-data class Description(
-    val description: String
-) : AnnotationData
-
-class IrVisualData(val annotatedString: AnnotatedString)
-
 class IrVisualBuilder(
     private val kotlinFile: KotlinFile,
     private val packageName: String? = null,
@@ -653,7 +576,7 @@ class IrVisualBuilder(
     }
 
     private fun visualizeArguments(valueArguments: List<Expression?>, multiLine: Boolean = true) {
-        val trailingLambda = valueArguments.last()?.let {
+        val trailingLambda = valueArguments.lastOrNull()?.let {
             it.operation as? FunctionExpression
         }
         val normalArguments = if (trailingLambda != null) {
@@ -1766,3 +1689,80 @@ class IrVisualBuilder(
         private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
     }
 }
+
+enum class Keyword(val visual: String) {
+    THIS("this"),
+    DO("do"),
+    WHILE("while"),
+    IF("if"),
+    WHEN("when"),
+    ELSE("else"),
+    SAFE_AS("as?"),
+    IS("is"),
+    NOT_IS("!is"),
+    AS("as"),
+    THROW("throw"),
+    TRY("try"),
+    CATCH("catch"),
+    FINALLY("finally"),
+    CONTINUE("continue"),
+    BREAK("break"),
+    RETURN("return"),
+    CLASS("class"),
+    INTERFACE("interface"),
+    ENUM("enum"),
+    ANNOTATION("annotation"),
+    OBJECT("object"),
+    DATA("data"),
+    INNER("inner"),
+    COMPANION("companion"),
+    VALUE("value"),
+    INIT("init"),
+    FUN("fun"),
+    OVERRIDE("override"),
+    LATEINIT("lateinit"),
+    CONST("const"),
+    VAL("val"),
+    VAR("var"),
+    CROSSINLINE("crossline"),
+    NOINLINE("noinline"),
+    ACTUAL("actual"),
+    PRIVATE("private"),
+    INTERNAL("internal"),
+    PROTECTED("protected"),
+    IN("in"),
+    OUT("out"),
+    TYPEALIAS("typealias"),
+    SEALED("sealed"),
+    OPEN("open"),
+    ABSTRACT("abstract"),
+    EXPECT("expect"),
+    GET("get"),
+    SET("set"),
+    BY("by"),
+    STATIC("static"),
+    EXTERNAL("external"),
+    CONSTRUCTOR("constructor"),
+    OPERATOR("operator"),
+    INFIX("infix"),
+    INLINE("inline"),
+    TAILREC("tailrec"),
+    SUSPEND("suspend"),
+    REIFIED("reified"),
+    PACKAGE("package")
+}
+
+sealed interface AnnotationData
+
+@Serializable
+data class SourceLocation(
+    val sourceStartOffset: Int,
+    val sourceEndOffset: Int
+) : AnnotationData
+
+@Serializable
+data class Description(
+    val description: String
+) : AnnotationData
+
+class IrVisualData(val annotatedString: AnnotatedString)

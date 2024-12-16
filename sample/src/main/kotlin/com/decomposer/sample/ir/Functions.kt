@@ -4,6 +4,10 @@ fun empty() { }
 
 fun singleParameter(input: Int) { }
 
+private inline fun inlined(block: Printer.() -> Unit) {
+    Child().block()
+}
+
 fun interface Printer {
     fun print()
 }

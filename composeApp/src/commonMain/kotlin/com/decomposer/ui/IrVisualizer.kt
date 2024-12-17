@@ -204,6 +204,9 @@ class IrVisualBuilder(
         val name = type.symbol.declarationName
         symbol(name)
         visualizeTypeArguments(type.arguments)
+        if (type.nullability == SimpleType.Nullability.MARKED_NULLABLE) {
+            punctuation('?')
+        }
     }
 
     private fun visualizeTypeArguments(arguments: List<TypeArgument>) {
@@ -222,7 +225,7 @@ class IrVisualBuilder(
 
     private fun visualizeTypeArgument(argument: TypeArgument) {
         when (argument) {
-            StarProjection -> punctuation('*')
+            StarProjection -> symbol("*")
             is TypeProjection -> {
                 argument.variance.keyword?.let {
                     keyword(it)
@@ -384,9 +387,12 @@ class IrVisualBuilder(
         }
         visualizeValueParameters(functionBase.valueParameters)
         val type = types(functionBase.typeIndex)
-        punctuation(':')
+        if (!type.isUnit()) {
+            punctuation(':')
+            space()
+            visualizeType(type)
+        }
         space()
-        visualizeType(type)
         functionBase.bodyIndex?.let {
             val statementBody = bodies(it) as? StatementBody
             statementBody?.let {
@@ -460,15 +466,12 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeValueParameters(
-        declarations: List<ValueParameter>,
-        multiLine: Boolean = true
-    ) {
-        if (declarations.isNotEmpty()) {
-            withParentheses(multiLine) {
-                declarations.forEach {
-                    visualizeValueParameter(it)
-                }
+    private fun visualizeValueParameters(declarations: List<ValueParameter>) {
+        val multiLine = declarations.size > MAX_ARGUMENTS_SINGLE_LINE
+        withParentheses(multiLine = multiLine) {
+            declarations.forEach {
+                visualizeValueParameter(it)
+                if (multiLine) newLine()
             }
         }
     }
@@ -1143,7 +1146,6 @@ class IrVisualBuilder(
 
     private fun visualizeStatement(statement: Statement) {
         visualizeStatementBase(statement.statement)
-        newLine()
     }
 
     private fun visualizeStatementBase(statementBase: StatementBase) {
@@ -1161,9 +1163,16 @@ class IrVisualBuilder(
     private fun visualizeBranch(statement: Branch) = Unit
 
     private fun visualizeBlockBody(statement: BlockBody) {
-        statement.statements.forEach {
-            visualizeStatement(it)
-            newLine()
+        if (statement.statements.isEmpty()) {
+            withBraces(multiLine = false) { space() }
+        } else {
+            withBraces {
+                val statements = statement.statements
+                statements.forEachIndexed { index, statement ->
+                    visualizeStatement(statement)
+                    if (index != statements.size - 1) newLine()
+                }
+            }
         }
     }
 
@@ -1336,15 +1345,13 @@ class IrVisualBuilder(
     private fun withBraces(multiLine: Boolean = true, block: () -> Unit) {
         punctuation('{')
         if (!multiLine) {
-            space()
             block()
-            space()
         } else {
             increaseIndent {
                 newLine()
                 block()
-                newLine()
             }
+            newLine()
         }
         punctuation('}')
     }
@@ -1357,8 +1364,8 @@ class IrVisualBuilder(
             increaseIndent {
                 newLine()
                 block()
-                newLine()
             }
+            newLine()
         }
         punctuation(')')
     }
@@ -1687,6 +1694,7 @@ class IrVisualBuilder(
         private val LINE_SEPARATOR: String = System.lineSeparator()
         private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
         private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
+        private const val MAX_ARGUMENTS_SINGLE_LINE = 2
     }
 }
 

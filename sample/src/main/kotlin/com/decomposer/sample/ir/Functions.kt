@@ -1,8 +1,36 @@
 package com.decomposer.sample.ir
 
+import androidx.compose.runtime.Composable
+
 fun empty() { }
+fun empty2() = Unit
+
+fun nullable(): String? {
+    val random = Math.random().toInt()
+    return if (random == 0) "Hi" else null
+}
+
+fun annotated(): @Composable ((Int, String?, Map<String, *>?) -> Boolean)? {
+    return { i, _, m -> false }
+}
 
 fun singleParameter(input: Int) { }
+
+@SinceKotlin("1.3")
+fun <T : List<T>> complexParameters(
+    input1: String? = "Dave",
+    input2: MutableMap<*, *>? = myMap(),
+    input3: @Composable String.(@Composable Int.() -> Boolean) -> Unit,
+    input4: String.() -> Unit = if (input1 == "Dave") {
+        { }
+    } else {
+        { println("Non default") }
+    }
+): Boolean? {
+    return false
+}
+
+private fun myMap(): MutableMap<Int, List<String>> = mutableMapOf()
 
 val time = System.currentTimeMillis()
 

@@ -196,7 +196,6 @@ class IrVisualBuilder(
             appendSpaced('=')
             visualizeExpression(it)
         }
-        newLine()
     }
 
     private fun visualizeType(type: SimpleType) {
@@ -1109,11 +1108,16 @@ class IrVisualBuilder(
     private fun visualizeCall(operation: Call) {
         val dispatchReceiver = operation.memberAccess.dispatchReceiver
         val extensionReceiver = operation.memberAccess.extensionReceiver
-        dispatchReceiver ?: extensionReceiver?.let {
+        val receiver = dispatchReceiver ?: extensionReceiver
+        receiver?.let {
             visualizeExpression(it)
             punctuation('.')
         }
-        symbol(operation.symbol.declarationName)
+        if (receiver == null) {
+            symbol(operation.symbol.declarationName)
+        } else {
+            symbol(operation.symbol.simpleName)
+        }
         val types = operation.memberAccess.typeArgumentIndexes.map {
             types(it)
         }
@@ -1125,12 +1129,10 @@ class IrVisualBuilder(
             }
         }
         val valueArguments = operation.memberAccess.valueArguments
-        if (valueArguments.isNotEmpty()) {
-            withParentheses(false) {
-                valueArguments.forEach {
-                    it?.let {
-                        visualizeExpression(it)
-                    }
+        withParentheses(false) {
+            valueArguments.forEach {
+                it?.let {
+                    visualizeExpression(it)
                 }
             }
         }
@@ -1538,11 +1540,11 @@ class IrVisualBuilder(
         get() {
             return when (val signature = signatures(this.signatureId)) {
                 is CommonSignature -> buildString {
-                    signature.packageFqNameIndexes.forEach {
-                        append(strings(it))
-                        append('.')
-                    }
-                    append(strings(signature.declarationFqNameIndexes[0]))
+                    val packageName = signature.packageFqNameIndexes
+                        .joinToString(".") { strings(it) }
+                    append(packageName)
+                    append('.')
+                    append(declarationName)
                 }
                 else -> ""
             }
@@ -1550,7 +1552,27 @@ class IrVisualBuilder(
 
     private val Symbol.declarationName: String
         get() {
-            return this.fqName.split(".").last()
+            return when (val signature = signatures(this.signatureId)) {
+                is CommonSignature -> buildString {
+                    val declarationName = signature.declarationFqNameIndexes
+                        .joinToString(".") { strings(it) }
+                    append(declarationName)
+                }
+                else -> ""
+            }
+        }
+
+    private val Symbol.simpleName: String
+        get() {
+            return when (val signature = signatures(this.signatureId)) {
+                is CommonSignature -> buildString {
+                    val declarationName = signature.declarationFqNameIndexes.lastOrNull()?.let {
+                        strings(it)
+                    } ?: ""
+                    append(declarationName)
+                }
+                else -> ""
+            }
         }
 
     private val Declaration.range: Coordinate

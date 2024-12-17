@@ -28,6 +28,7 @@ import com.decomposer.ir.ConstructorCall
 import com.decomposer.ir.Continue
 import com.decomposer.ir.Coordinate
 import com.decomposer.ir.Declaration
+import com.decomposer.ir.DeclarationBase
 import com.decomposer.ir.DelegatingConstructorCall
 import com.decomposer.ir.DoWhile
 import com.decomposer.ir.DoubleConst
@@ -60,6 +61,7 @@ import com.decomposer.ir.LocalDelegatedProperty
 import com.decomposer.ir.LocalDelegatedPropertyReference
 import com.decomposer.ir.LocalVarFlags
 import com.decomposer.ir.LongConst
+import com.decomposer.ir.MemberAccess
 import com.decomposer.ir.Modality
 import com.decomposer.ir.NullConst
 import com.decomposer.ir.Property
@@ -102,6 +104,7 @@ import com.decomposer.ir.While
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOriginImpl
 import kotlin.math.max
 
 class IrVisualBuilder(
@@ -148,6 +151,7 @@ class IrVisualBuilder(
             space()
             simple(it)
             newLine(indent = false)
+            newLine(indent = false)
         }
         sortedDeclarations.forEach {
             withTable(it.value) { visualizeDeclaration(it.key) }
@@ -157,13 +161,13 @@ class IrVisualBuilder(
     private fun visualizeDeclaration(declaration: Declaration) {
         when (declaration) {
             is Function -> {
-                newLine()
                 visualizeFunction(declaration)
+                newLine()
             }
             is AnonymousInit -> visualizeAnonymousInit(declaration)
             is Class -> {
-                newLine()
                 visualizeClass(declaration)
+                newLine()
             }
             is Constructor -> visualizeConstructor(declaration)
             is EnumEntry -> visualizeEnumEntry(declaration)
@@ -262,40 +266,49 @@ class IrVisualBuilder(
         symbol(name)
         val typeIndex = declaration.backingField?.typeIndex ?: declaration.getter?.base?.typeIndex
         val type = types(typeIndex!!)
-        punctuationSpaced(':')
+        punctuation(':')
+        space()
         visualizeType(type)
+        declaration.backingField?.let { field ->
+            field.initializerIndex?.let {
+                punctuationSpaced('=')
+                visualizeBody(bodies(it))
+            }
+        }
         increaseIndent {
             declaration.getter?.let { getter ->
-                newLine()
-                visualizeAnnotations(getter.base.base.annotations)
-                keyword(Keyword.GET)
-                punctuationSpaced("()")
-                space()
-                getter.base.bodyIndex?.let {
-                    val body = bodies(it)
-                    visualizeBody(body)
+                if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
+                    newLine()
+                    visualizeAnnotations(getter.base.base.annotations)
+                    keyword(Keyword.GET)
+                    punctuation("()")
+                    space()
+                    getter.base.bodyIndex?.let {
+                        val body = bodies(it)
+                        visualizeBody(body)
+                    }
                 }
             }
             declaration.setter?.let { setter ->
-                newLine()
-                visualizeAnnotations(setter.base.base.annotations)
-                keyword(Keyword.SET)
-                punctuationSpaced("()")
-                space()
-                setter.base.bodyIndex?.let {
-                    val body = bodies(it)
-                    visualizeBody(body)
+                if (setter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
+                    newLine()
+                    visualizeAnnotations(setter.base.base.annotations)
+                    keyword(Keyword.SET)
+                    punctuation("()")
+                    space()
+                    setter.base.bodyIndex?.let {
+                        val body = bodies(it)
+                        visualizeBody(body)
+                    }
                 }
             }
         }
     }
 
     private fun visualizeBody(body: Body) {
-        withBraces {
-            when (body) {
-                is ExpressionBody -> visualizeExpressionBody(body)
-                is StatementBody -> visualizeStatementBody(body)
-            }
+        when (body) {
+            is ExpressionBody -> visualizeExpressionBody(body)
+            is StatementBody -> visualizeStatementBody(body)
         }
     }
 
@@ -746,6 +759,7 @@ class IrVisualBuilder(
     }
 
     private fun visualizePropertyReference(operation: PropertyReference) {
+        visualizeReceiver(operation.memberAccess)
         punctuation("::")
         symbol(operation.symbol.declarationName)
     }
@@ -985,13 +999,7 @@ class IrVisualBuilder(
     }
 
     private fun visualizeFunctionReference(operation: FunctionReference) {
-        val dispatchReceiver = operation.memberAccess.dispatchReceiver
-        val extensionReceiver = operation.memberAccess.extensionReceiver
-        if (dispatchReceiver != null) {
-            visualizeExpression(dispatchReceiver)
-        } else if (extensionReceiver != null) {
-            visualizeExpression(extensionReceiver)
-        }
+        visualizeReceiver(operation.memberAccess)
         punctuation("::")
         symbol(operation.symbol.declarationName)
     }
@@ -1106,17 +1114,11 @@ class IrVisualBuilder(
     }
 
     private fun visualizeCall(operation: Call) {
-        val dispatchReceiver = operation.memberAccess.dispatchReceiver
-        val extensionReceiver = operation.memberAccess.extensionReceiver
-        val receiver = dispatchReceiver ?: extensionReceiver
-        receiver?.let {
-            visualizeExpression(it)
+        if (visualizeReceiver(operation.memberAccess)) {
             punctuation('.')
-        }
-        if (receiver == null) {
-            symbol(operation.symbol.declarationName)
-        } else {
             symbol(operation.symbol.simpleName)
+        } else {
+            symbol(operation.symbol.declarationName)
         }
         val types = operation.memberAccess.typeArgumentIndexes.map {
             types(it)
@@ -1193,6 +1195,14 @@ class IrVisualBuilder(
         withBraces {
             visualizeExpression(statement.result)
         }
+    }
+
+    private fun visualizeReceiver(memberAccess: MemberAccess): Boolean {
+        val receiver = memberAccess.dispatchReceiver ?: memberAccess.extensionReceiver
+        return receiver?.let {
+            visualizeExpression(it)
+            true
+        } ?: false
     }
 
     private fun newLine(indent: Boolean = true) {
@@ -1391,6 +1401,14 @@ class IrVisualBuilder(
             it is Property && strings(nameIndex) == name
         } as? Property
     }
+
+    private val DeclarationBase.origin: DeclarationOrigin?
+        get() {
+            val originName = strings(originNameIndex)
+            return DeclarationOrigin.entries.firstOrNull { entry ->
+                entry.name == originName
+            }
+        }
 
     private val Modality.keyword: Keyword?
         get() {
@@ -1603,74 +1621,6 @@ class IrVisualBuilder(
         }
     }
 
-    enum class StatementOrigin(val value: String?) {
-        SAFE_CALL(null),
-        UMINUS("-"),
-        UPLUS("+"),
-        EXCL("!"),
-        EXCLEXCL("!!"),
-        ELVIS("?:"),
-        LT("<"),
-        GT(">"),
-        LTEQ("<="),
-        GTEQ(">="),
-        EQEQ("=="),
-        EQEQEQ("==="),
-        EXCLEQ("!="),
-        EXCLEQEQ("!=="),
-        IN("in"),
-        NOT_IN("!in"),
-        ANDAND("&&"),
-        OROR("||"),
-        PLUS("+"),
-        MINUS("-"),
-        MUL("*"),
-        DIV("/"),
-        PERC("%"),
-        RANGE(".."),
-        RANGE_UNTIL("until"),
-        INVOKE(null),
-        VARIABLE_AS_FUNCTION(null),
-        GET_ARRAY_ELEMENT(null),
-        PREFIX_INCR("++"),
-        PREFIX_DECR("--"),
-        POSTFIX_INCR("++"),
-        POSTFIX_DECR("--"),
-        EQ("="),
-        PLUSEQ("+="),
-        MINUSEQ("-="),
-        MULTEQ("*="),
-        DIVEQ("/="),
-        PERCEQ("%="),
-        ARGUMENTS_REORDERING_FOR_CALL(null),
-        DESTRUCTURING_DECLARATION(null),
-        GET_PROPERTY(null),
-        GET_LOCAL_PROPERTY(null),
-        IF(null),
-        WHEN(null),
-        WHEN_COMMA(null),
-        WHILE_LOOP(null),
-        DO_WHILE_LOOP(null),
-        FOR_LOOP(null),
-        FOR_LOOP_ITERATOR(null),
-        FOR_LOOP_INNER_WHILE(null),
-        FOR_LOOP_HAS_NEXT(null),
-        FOR_LOOP_NEXT(null),
-        LAMBDA(null),
-        DEFAULT_VALUE(null),
-        ANONYMOUS_FUNCTION(null),
-        OBJECT_LITERAL(null),
-        ADAPTED_FUNCTION_REFERENCE(null),
-        SUSPEND_CONVERSION(null),
-        FUN_INTERFACE_CONSTRUCTOR_REFERENCE(null),
-        INITIALIZE_PROPERTY_FROM_PARAMETER(null),
-        INITIALIZE_FIELD(null),
-        PROPERTY_REFERENCE_FOR_DELEGATE(null),
-        BRIDGE_DELEGATION(null),
-        SYNTHETIC_NOT_AUTOBOXED_CHECK(null),
-        PARTIAL_LINKAGE_RUNTIME_ERROR(null),
-    }
-
     private fun SimpleType.isAny(): Boolean = isNotNullClassType("kotlin.Any")
     private fun SimpleType.isNullableAny(): Boolean = isNullableClassType("kotlin.Any")
     private fun SimpleType.isString(): Boolean = isNotNullClassType("kotlin.String")
@@ -1718,6 +1668,149 @@ class IrVisualBuilder(
         private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
         private const val MAX_ARGUMENTS_SINGLE_LINE = 2
     }
+}
+
+enum class StatementOrigin(val value: String?) {
+    SAFE_CALL(null),
+    UMINUS("-"),
+    UPLUS("+"),
+    EXCL("!"),
+    EXCLEXCL("!!"),
+    ELVIS("?:"),
+    LT("<"),
+    GT(">"),
+    LTEQ("<="),
+    GTEQ(">="),
+    EQEQ("=="),
+    EQEQEQ("==="),
+    EXCLEQ("!="),
+    EXCLEQEQ("!=="),
+    IN("in"),
+    NOT_IN("!in"),
+    ANDAND("&&"),
+    OROR("||"),
+    PLUS("+"),
+    MINUS("-"),
+    MUL("*"),
+    DIV("/"),
+    PERC("%"),
+    RANGE(".."),
+    RANGE_UNTIL("until"),
+    INVOKE(null),
+    VARIABLE_AS_FUNCTION(null),
+    GET_ARRAY_ELEMENT(null),
+    PREFIX_INCR("++"),
+    PREFIX_DECR("--"),
+    POSTFIX_INCR("++"),
+    POSTFIX_DECR("--"),
+    EQ("="),
+    PLUSEQ("+="),
+    MINUSEQ("-="),
+    MULTEQ("*="),
+    DIVEQ("/="),
+    PERCEQ("%="),
+    ARGUMENTS_REORDERING_FOR_CALL(null),
+    DESTRUCTURING_DECLARATION(null),
+    GET_PROPERTY(null),
+    GET_LOCAL_PROPERTY(null),
+    IF(null),
+    WHEN(null),
+    WHEN_COMMA(null),
+    WHILE_LOOP(null),
+    DO_WHILE_LOOP(null),
+    FOR_LOOP(null),
+    FOR_LOOP_ITERATOR(null),
+    FOR_LOOP_INNER_WHILE(null),
+    FOR_LOOP_HAS_NEXT(null),
+    FOR_LOOP_NEXT(null),
+    LAMBDA(null),
+    DEFAULT_VALUE(null),
+    ANONYMOUS_FUNCTION(null),
+    OBJECT_LITERAL(null),
+    ADAPTED_FUNCTION_REFERENCE(null),
+    SUSPEND_CONVERSION(null),
+    FUN_INTERFACE_CONSTRUCTOR_REFERENCE(null),
+    INITIALIZE_PROPERTY_FROM_PARAMETER(null),
+    INITIALIZE_FIELD(null),
+    PROPERTY_REFERENCE_FOR_DELEGATE(null),
+    BRIDGE_DELEGATION(null),
+    SYNTHETIC_NOT_AUTOBOXED_CHECK(null),
+    PARTIAL_LINKAGE_RUNTIME_ERROR(null),
+}
+
+enum class DeclarationOrigin {
+    DEFINED,
+    FAKE_OVERRIDE,
+    FOR_LOOP_ITERATOR,
+    FOR_LOOP_VARIABLE,
+    FOR_LOOP_IMPLICIT_VARIABLE,
+    PROPERTY_BACKING_FIELD,
+    DEFAULT_PROPERTY_ACCESSOR,
+    DELEGATE,
+    PROPERTY_DELEGATE,
+    DELEGATED_PROPERTY_ACCESSOR,
+    DELEGATED_MEMBER,
+    ENUM_CLASS_SPECIAL_MEMBER,
+    FUNCTION_FOR_DEFAULT_PARAMETER,
+    MASK_FOR_DEFAULT_FUNCTION,
+    DEFAULT_CONSTRUCTOR_MARKER,
+    METHOD_HANDLER_IN_DEFAULT_FUNCTION,
+    MOVED_DISPATCH_RECEIVER,
+    MOVED_EXTENSION_RECEIVER,
+    MOVED_CONTEXT_RECEIVER,
+    FILE_CLASS,
+    SYNTHETIC_FILE_CLASS,
+    JVM_MULTIFILE_CLASS,
+    ERROR_CLASS,
+    SCRIPT_CLASS,
+    SCRIPT_THIS_RECEIVER,
+    SCRIPT_STATEMENT,
+    SCRIPT_EARLIER_SCRIPTS,
+    SCRIPT_CALL_PARAMETER,
+    SCRIPT_IMPLICIT_RECEIVER,
+    SCRIPT_PROVIDED_PROPERTY,
+    SCRIPT_RESULT_PROPERTY,
+    GENERATED_DATA_CLASS_MEMBER,
+    GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER,
+    GENERATED_MULTI_FIELD_VALUE_CLASS_MEMBER,
+    LOCAL_FUNCTION,
+    LOCAL_FUNCTION_FOR_LAMBDA,
+    CATCH_PARAMETER,
+    UNDERSCORE_PARAMETER,
+    DESTRUCTURED_OBJECT_PARAMETER,
+    INSTANCE_RECEIVER,
+    PRIMARY_CONSTRUCTOR_PARAMETER,
+    IR_DESTRUCTURED_PARAMETER_VARIABLE,
+    IR_TEMPORARY_VARIABLE,
+    IR_TEMPORARY_VARIABLE_FOR_INLINED_PARAMETER,
+    IR_TEMPORARY_VARIABLE_FOR_INLINED_EXTENSION_RECEIVER,
+    IR_EXTERNAL_DECLARATION_STUB,
+    IR_EXTERNAL_JAVA_DECLARATION_STUB,
+    IR_BUILTINS_STUB,
+    BRIDGE,
+    BRIDGE_SPECIAL,
+    GENERATED_SETTER_GETTER,
+    FIELD_FOR_ENUM_ENTRY,
+    SYNTHETIC_HELPER_FOR_ENUM_VALUES,
+    SYNTHETIC_HELPER_FOR_ENUM_ENTRIES,
+    FIELD_FOR_ENUM_VALUES,
+    FIELD_FOR_ENUM_ENTRIES,
+    PROPERTY_FOR_ENUM_ENTRIES,
+    FIELD_FOR_OBJECT_INSTANCE,
+    FIELD_FOR_CLASS_CONTEXT_RECEIVER,
+    ADAPTER_FOR_CALLABLE_REFERENCE,
+    ADAPTER_PARAMETER_FOR_CALLABLE_REFERENCE,
+    ADAPTER_FOR_SUSPEND_CONVERSION,
+    ADAPTER_PARAMETER_FOR_SUSPEND_CONVERSION,
+    ADAPTER_FOR_FUN_INTERFACE_CONSTRUCTOR,
+    GENERATED_SAM_IMPLEMENTATION,
+    SYNTHETIC_GENERATED_SAM_IMPLEMENTATION,
+    SYNTHETIC_JAVA_PROPERTY_DELEGATE,
+    FIELD_FOR_OUTER_THIS,
+    CONTINUATION,
+    LOWERED_SUSPEND_FUNCTION,
+    SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT,
+    SYNTHETIC_ACCESSOR,
 }
 
 enum class Keyword(val visual: String) {

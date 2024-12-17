@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-
+/*
 val simpleProp = 12
 private lateinit var lateVar: String
 val withGetter: Int
@@ -23,10 +23,11 @@ var withSetter: Int = 111
 @JvmField
 var jvmField: String = "Hey"
 
-var reference = ::withSetter.get()
+var reference = ::withSetter.get()*/
 var reference2 = Data::prop2
 val data = Data(prop2 = false)
 val reference3 = data::prop3
+val reference4 = Data.DataInner::prop6
 
 var getNoBackingField: String = ""
     get() {
@@ -51,4 +52,8 @@ data class Data(
     val prop6: String by lazy {
         "Hi"
     }
+
+    class DataInner(
+        val prop6: String
+    )
 }

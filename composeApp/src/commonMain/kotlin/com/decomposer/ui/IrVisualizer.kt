@@ -104,7 +104,6 @@ import com.decomposer.ir.While
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOriginImpl
 import kotlin.math.max
 
 class IrVisualBuilder(
@@ -760,8 +759,9 @@ class IrVisualBuilder(
 
     private fun visualizePropertyReference(operation: PropertyReference) {
         visualizeReceiver(operation.memberAccess)
+        symbol(operation.symbol.base)
         punctuation("::")
-        symbol(operation.symbol.declarationName)
+        symbol(operation.symbol.name)
     }
 
     private fun visualizeLocalDelegatedPropertyReference(
@@ -1116,7 +1116,7 @@ class IrVisualBuilder(
     private fun visualizeCall(operation: Call) {
         if (visualizeReceiver(operation.memberAccess)) {
             punctuation('.')
-            symbol(operation.symbol.simpleName)
+            symbol(operation.symbol.name)
         } else {
             symbol(operation.symbol.declarationName)
         }
@@ -1580,7 +1580,19 @@ class IrVisualBuilder(
             }
         }
 
-    private val Symbol.simpleName: String
+    private val Symbol.base: String
+        get() {
+            return when (val signature = signatures(this.signatureId)) {
+                is CommonSignature -> buildString {
+                    val declarationName = signature.declarationFqNameIndexes.dropLast(1)
+                        .joinToString(".") { strings(it) }
+                    append(declarationName)
+                }
+                else -> ""
+            }
+        }
+
+    private val Symbol.name: String
         get() {
             return when (val signature = signatures(this.signatureId)) {
                 is CommonSignature -> buildString {

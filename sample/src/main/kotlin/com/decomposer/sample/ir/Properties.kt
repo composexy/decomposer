@@ -71,6 +71,7 @@ var initWithExpression: Long = System.currentTimeMillis() / 10
 
 var propDelegated: Int by mutableIntStateOf(123)
 */
+
 class Data(
     val prop1: Int = Math.random().toInt(),
     val prop2: Boolean,
@@ -107,4 +108,10 @@ class Data(
     companion object {
         const val companion1 = "companion1"
     }
+}
+
+class This(
+    val value: String = "1234"
+) {
+    fun fetch(): String = "$value $this ${this.value}"
 }

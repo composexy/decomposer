@@ -394,6 +394,12 @@ class IrVisualBuilder(
     }
 
     private fun visualizeFunctionBase(functionBase: FunctionBase) {
+        functionBase.dispatchReceiver?.let {
+            signatureNames[it.base.symbol.signatureId] = it.nameIndex
+        }
+        functionBase.extensionReceiver?.let {
+            signatureNames[it.base.symbol.signatureId] = it.nameIndex
+        }
         visualizeAnnotations(functionBase.base.annotations)
         val flags = (functionBase.base.flags as? FunctionFlags).keywords
         val isConstructor = functionBase.base.symbol.kind == Symbol.Kind.CONSTRUCTOR_SYMBOL
@@ -432,6 +438,9 @@ class IrVisualBuilder(
     }
 
     private fun visualizeClass(declaration: Class) {
+        declaration.thisReceiver?.let {
+            signatureNames[it.base.symbol.signatureId] = it.nameIndex
+        }
         visualizeAnnotations(declaration.base.annotations)
         val primaryConstructor = declaration.declarations.firstOrNull {
             it is Constructor && it.isPrimary
@@ -831,7 +840,8 @@ class IrVisualBuilder(
     private fun visualizeGetValue(operation: GetValue) {
         val signatureId = operation.symbol.signatureId
         val name = signatureNames[signatureId]?.let {
-            strings(it)
+            val original = strings(it)
+            if (original == "<this>") "this" else original
         } ?: ""
         symbol(name)
     }
@@ -1174,11 +1184,15 @@ class IrVisualBuilder(
     }
 
     private fun visualizeCall(operation: Call) {
-        if (visualizeReceiver(operation.memberAccess)) {
-            punctuation('.')
-            symbol(operation.symbol.name)
-        } else {
-            symbol(operation.symbol.declarationName)
+        when {
+            operation.memberAccess.receiverIsThis -> {
+                symbol(operation.symbol.name)
+            }
+            visualizeReceiver(operation.memberAccess) -> {
+                punctuation('.')
+                symbol(operation.symbol.name)
+            }
+            else -> symbol(operation.symbol.declarationName)
         }
         val callOrigin = operation.originNameIndex.statementOrigin
         when (callOrigin) {
@@ -1277,6 +1291,16 @@ class IrVisualBuilder(
             true
         } ?: false
     }
+
+    private val MemberAccess.receiverIsThis: Boolean
+        get() {
+            val getThis = this.dispatchReceiver?.operation as? GetValue
+            return getThis?.symbol?.signatureId?.let {
+                return signatureNames[it]?.let {
+                    strings(it) == "<this>"
+                } ?: false
+            } ?: false
+        }
 
     private fun newLine(indent: Boolean = true) {
         annotatedStringBuilder.append(LINE_SEPARATOR)

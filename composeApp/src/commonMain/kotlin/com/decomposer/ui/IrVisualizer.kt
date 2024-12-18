@@ -284,7 +284,7 @@ class IrVisualBuilder(
                     newLine()
                     visualizeAnnotations(getter.base.base.annotations)
                     keyword(Keyword.GET)
-                    punctuation("()")
+                    visualizeValueParameters(getter.base.valueParameters)
                     space()
                     getter.base.bodyIndex?.let {
                         val body = bodies(it)
@@ -297,9 +297,7 @@ class IrVisualBuilder(
                     newLine()
                     visualizeAnnotations(setter.base.base.annotations)
                     keyword(Keyword.SET)
-                    punctuation('(')
-                    symbol("value")
-                    punctuation(')')
+                    visualizeValueParameters(setter.base.valueParameters, nameOnly = true)
                     space()
                     setter.base.valueParameters.forEach {
                         val signatureId = it.base.symbol.signatureId
@@ -490,17 +488,27 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeValueParameters(declarations: List<ValueParameter>) {
+    private fun visualizeValueParameters(
+        declarations: List<ValueParameter>,
+        nameOnly: Boolean = false
+    ) {
         val multiLine = declarations.size > MAX_ARGUMENTS_SINGLE_LINE
         withParentheses(multiLine = multiLine) {
-            declarations.forEach {
-                visualizeValueParameter(it)
-                if (multiLine) newLine()
+            declarations.forEachIndexed { index, declaration ->
+                visualizeValueParameter(declaration = declaration, nameOnly = nameOnly)
+                if (index != declarations.size - 1){
+                    append(',')
+                    if (multiLine) {
+                        newLine()
+                    } else {
+                        space()
+                    }
+                }
             }
         }
     }
 
-    private fun visualizeValueParameter(declaration: ValueParameter) {
+    private fun visualizeValueParameter(declaration: ValueParameter, nameOnly: Boolean = false) {
         val flags = (declaration.base.flags as? ValueParameterFlags).keywords
         flags.forEach {
             keyword(it)
@@ -510,10 +518,12 @@ class IrVisualBuilder(
         signatureNames[declaration.base.symbol.signatureId] = declaration.nameIndex
         val name = strings(declaration.nameIndex)
         symbol(name)
-        punctuation(':')
-        space()
-        val type = types(declaration.typeIndex)
-        visualizeType(type)
+        if (!nameOnly) {
+            punctuation(':')
+            space()
+            val type = types(declaration.typeIndex)
+            visualizeType(type)
+        }
         declaration.defaultValueIndex?.let {
             val expressionBody = bodies(it) as? ExpressionBody ?: return@let
             punctuationSpaced('=')
@@ -770,8 +780,9 @@ class IrVisualBuilder(
         function("run")
         space()
         withBraces {
-            operation.statements.forEach {
-                visualizeStatement(it)
+            operation.statements.forEachIndexed { index, statement ->
+                visualizeStatement(statement)
+                if (index != operation.statements.size - 1) newLine()
             }
         }
     }
@@ -1158,9 +1169,18 @@ class IrVisualBuilder(
                     }
                 }
                 val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
-                withParentheses(multiLine = valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE) {
-                    valueArguments.forEach {
-                        visualizeExpression(it)
+                val multiLine = valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE
+                withParentheses(multiLine = multiLine) {
+                    valueArguments.forEachIndexed { index, argument ->
+                        visualizeExpression(argument)
+                        if (index != valueArguments.size - 1){
+                            append(',')
+                            if (multiLine) {
+                                newLine()
+                            } else {
+                                space()
+                            }
+                        }
                     }
                 }
             }
@@ -1199,8 +1219,9 @@ class IrVisualBuilder(
         } else {
             withBraces {
                 val statements = statement.statements
-                statements.forEach { statement ->
+                statements.forEachIndexed { index, statement ->
                     visualizeStatement(statement)
+                    if (index != statements.size - 1) newLine()
                 }
             }
         }
@@ -1301,6 +1322,8 @@ class IrVisualBuilder(
 
     private inline fun withSimple(block: () -> Unit) = withStyle(theme.code.simple, block)
 
+    private inline fun withFunction(block: () -> Unit) = withStyle(theme.code.function, block)
+
     private fun keyword(keyword: Keyword) = keyword(keyword.visual)
 
     private fun keywordSpaced(keyword: Keyword) = withKeyword { appendSpaced(keyword.visual) }
@@ -1327,7 +1350,7 @@ class IrVisualBuilder(
 
     private fun simple(text: String) = withSimple { append(text) }
 
-    private fun function(text: String) = simple(text)
+    private fun function(text: String) = withFunction { append(text) }
 
     private fun symbol(text: String) = simple(text)
 

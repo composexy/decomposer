@@ -34,7 +34,7 @@ val reference4 = Data.DataInner::prop6
 val reference5 = data.inner::prop6
 private val reference6 = data::prop3
 val reference7 = data::prop8
-val reference8 = data::prop9*/
+val reference8 = data::prop9
 var getterSetter: String = "World"
     get() {
         val value = field.length
@@ -50,13 +50,13 @@ object Object1 {
     internal val three = "three"
     internal const val four = "four"
 }
-
+*/
 val annotatedAccessor: String
     @Composable
     get() {
         return LocalView.current.transitionName
     }
-
+/*
 @get:SinceKotlin("1.3")
 var annotatedAccessor2: String = ""
     get() {
@@ -101,3 +101,4 @@ data class Data(
         const val companion1 = "companion1"
     }
 }
+*/

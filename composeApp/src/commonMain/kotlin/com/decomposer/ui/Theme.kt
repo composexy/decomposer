@@ -9,6 +9,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
 
 @Immutable
 data class Theme(
@@ -23,6 +24,7 @@ data class Theme(
         val punctuation: SpanStyle,
         val annotation: SpanStyle,
         val comment: SpanStyle,
+        val function: SpanStyle,
         val highlight: SpanStyle
     )
 
@@ -39,6 +41,7 @@ data class Theme(
                 punctuation = SpanStyle(Color(0xFFA1C17E)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
                 comment = SpanStyle(Color(0xFF808080)),
+                function = SpanStyle(Color(0xFFC9D7E6), fontStyle = FontStyle.Italic),
                 highlight = SpanStyle(background = Color(0xAA569CD6))
             )
         )
@@ -55,6 +58,7 @@ data class Theme(
                 punctuation = SpanStyle(Color(0xFFA1A1A1)),
                 annotation = SpanStyle(Color(0xFFBBB529)),
                 comment = SpanStyle(Color(0xFF808080)),
+                function = SpanStyle(Color(0xFF000000), fontStyle = FontStyle.Italic),
                 highlight = SpanStyle(background = Color(0xAA569CD6))
             )
         )

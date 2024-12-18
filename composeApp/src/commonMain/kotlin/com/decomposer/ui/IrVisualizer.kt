@@ -5,6 +5,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
+import com.decomposer.ir.AccessorSignature
 import com.decomposer.ir.AnonymousInit
 import com.decomposer.ir.Block
 import com.decomposer.ir.BlockBody
@@ -68,6 +69,7 @@ import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
 import com.decomposer.ir.Return
+import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.SetField
 import com.decomposer.ir.SetValue
 import com.decomposer.ir.ShortConst
@@ -275,6 +277,7 @@ class IrVisualBuilder(
             }
         }
         increaseIndent {
+            var visualizedAccessor = false
             declaration.getter?.let { getter ->
                 if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
                     newLine()
@@ -286,6 +289,7 @@ class IrVisualBuilder(
                         val body = bodies(it)
                         visualizeBody(body)
                     }
+                    visualizedAccessor = true
                 }
             }
             declaration.setter?.let { setter ->
@@ -299,8 +303,10 @@ class IrVisualBuilder(
                         val body = bodies(it)
                         visualizeBody(body)
                     }
+                    visualizedAccessor = true
                 }
             }
+            if (visualizedAccessor) newLine()
         }
     }
 
@@ -565,27 +571,32 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeAnnotation(
-        annotation: ConstructorCall,
-        multiLine: Boolean = true
-    ) = withAnnotation {
+    private fun visualizeAnnotation(annotation: ConstructorCall) = withAnnotation {
         punctuation('@')
-        visualizeConstructorCall(annotation, isAnnotation = true, multiLine = multiLine)
+        visualizeConstructorCall(annotation, isAnnotation = true)
     }
 
     private fun visualizeConstructorCall(
         call: ConstructorCall,
-        isAnnotation: Boolean = false,
-        multiLine: Boolean = false
+        isAnnotation: Boolean = false
     ) {
         call.memberAccess.dispatchReceiver?.let {
             visualizeExpression(it)
             punctuation('.')
         }
-        symbol(call.symbol.declarationName)
+        val parts = call.symbol.declarationName.split('.')
+        val name = if (parts.lastOrNull() == "<init>") {
+            parts.dropLast(1).joinToString(",")
+        } else {
+            parts.joinToString(",")
+        }
+        symbol(name)
         val shouldVisualize = !isAnnotation || call.memberAccess.valueArguments.any { it != null }
         if (shouldVisualize) {
-            visualizeArguments(call.memberAccess.valueArguments, multiLine)
+            visualizeArguments(
+                valueArguments = call.memberAccess.valueArguments,
+                multiLine = call.memberAccess.valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE
+            )
         }
     }
 
@@ -758,8 +769,9 @@ class IrVisualBuilder(
     }
 
     private fun visualizePropertyReference(operation: PropertyReference) {
-        visualizeReceiver(operation.memberAccess)
-        symbol(operation.symbol.base)
+        if (!visualizeReceiver(operation.memberAccess)) {
+            symbol(operation.symbol.base)
+        }
         punctuation("::")
         symbol(operation.symbol.name)
     }
@@ -787,7 +799,7 @@ class IrVisualBuilder(
             visualizeExpression(receiver)
             punctuation('.')
         }
-        symbol(operation.fieldAccess.symbol.declarationName)
+        symbol("field")
     }
 
     private fun visualizeGetEnumValue(operation: GetEnumValue) {
@@ -813,8 +825,7 @@ class IrVisualBuilder(
             visualizeExpression(it)
             punctuation('.')
         }
-        val name = operation.fieldAccess.symbol.declarationName
-        symbol(name)
+        symbol("field")
         punctuationSpaced('=')
         visualizeExpression(operation.value)
     }
@@ -830,7 +841,7 @@ class IrVisualBuilder(
         withQuotes {
             operation.arguments.forEach {
                 when (it.operation) {
-                    is StringConst -> visualizeConst(it.operation)
+                    is StringConst -> value(strings(it.operation.valueIndex))
                     is GetValue -> {
                         punctuation('$')
                         visualizeGetValue(it.operation)
@@ -1120,21 +1131,25 @@ class IrVisualBuilder(
         } else {
             symbol(operation.symbol.declarationName)
         }
-        val types = operation.memberAccess.typeArgumentIndexes.map {
-            types(it)
-        }
-        if (types.isNotEmpty()) {
-            withAngleBrackets {
-                types.forEach {
-                    visualizeType(it)
+        val callOrigin = operation.originNameIndex.statementOrigin
+        when (callOrigin) {
+            StatementOrigin.GET_PROPERTY -> Unit
+            else -> {
+                val types = operation.memberAccess.typeArgumentIndexes.map {
+                    types(it)
                 }
-            }
-        }
-        val valueArguments = operation.memberAccess.valueArguments
-        withParentheses(false) {
-            valueArguments.forEach {
-                it?.let {
-                    visualizeExpression(it)
+                if (types.isNotEmpty()) {
+                    withAngleBrackets {
+                        types.forEach {
+                            visualizeType(it)
+                        }
+                    }
+                }
+                val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
+                withParentheses(multiLine = valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE) {
+                    valueArguments.forEach {
+                        visualizeExpression(it)
+                    }
                 }
             }
         }
@@ -1172,9 +1187,8 @@ class IrVisualBuilder(
         } else {
             withBraces {
                 val statements = statement.statements
-                statements.forEachIndexed { index, statement ->
+                statements.forEach { statement ->
                     visualizeStatement(statement)
-                    if (index != statements.size - 1) newLine()
                 }
             }
         }
@@ -1218,7 +1232,7 @@ class IrVisualBuilder(
         for (i in 0 until indentLevel) annotatedStringBuilder.append(indentUnit)
     }
 
-    private fun increaseIndent(block: () -> Unit) {
+    private inline fun increaseIndent(block: () -> Unit) {
         indentLevel += 1
         block()
         indentLevel -= 1
@@ -1229,7 +1243,7 @@ class IrVisualBuilder(
         return fqName == PRE_COMPOSE_IR_FQ_NAME || fqName == POST_COMPOSE_IR_FQ_NAME
     }
 
-    private fun withTable(table: TopLevelTable, block: () -> Unit) {
+    private inline fun withTable(table: TopLevelTable, block: () -> Unit) {
         val previous = currentTable
         currentTable = table
         block()
@@ -1257,23 +1271,23 @@ class IrVisualBuilder(
         return currentTable!!.types.data[index]
     }
 
-    private fun withQuotes(block: () -> Unit) {
+    private inline fun withQuotes(block: () -> Unit) {
         punctuation('"')
         block()
         punctuation('"')
     }
 
-    private fun withPunctuation(block: () -> Unit) = withStyle(theme.code.punctuation, block)
+    private inline fun withPunctuation(block: () -> Unit) = withStyle(theme.code.punctuation, block)
 
-    private fun withKeyword(block: () -> Unit) = withStyle(theme.code.keyword, block)
+    private inline fun withKeyword(block: () -> Unit) = withStyle(theme.code.keyword, block)
 
-    private fun withValue(block: () -> Unit) = withStyle(theme.code.value, block)
+    private inline fun withValue(block: () -> Unit) = withStyle(theme.code.value, block)
 
-    private fun withAnnotation(block: () -> Unit) = withStyle(theme.code.annotation, block)
+    private inline fun withAnnotation(block: () -> Unit) = withStyle(theme.code.annotation, block)
 
-    private fun withComment(block: () -> Unit) = withStyle(theme.code.comment, block)
+    private inline fun withComment(block: () -> Unit) = withStyle(theme.code.comment, block)
 
-    private fun withSimple(block: () -> Unit) = withStyle(theme.code.simple, block)
+    private inline fun withSimple(block: () -> Unit) = withStyle(theme.code.simple, block)
 
     private fun keyword(keyword: Keyword) = keyword(keyword.visual)
 
@@ -1305,24 +1319,24 @@ class IrVisualBuilder(
 
     private fun symbol(text: String) = simple(text)
 
-    private fun highlight(block: () -> Unit) {
+    private inline fun highlight(block: () -> Unit) {
         withStyle(style = theme.code.highlight, block)
     }
 
-    private fun withStyle(style: SpanStyle, block: () -> Unit) {
+    private inline fun withStyle(style: SpanStyle, block: () -> Unit) {
         annotatedStringBuilder.pushStyle(style)
         block()
         annotatedStringBuilder.pop()
     }
 
-    private fun withSourceLocation(sourceLocation: SourceLocation, block: () -> Unit) {
+    private inline fun withSourceLocation(sourceLocation: SourceLocation, block: () -> Unit) {
         val annotationString = Json.encodeToString(sourceLocation)
         annotatedStringBuilder.pushStringAnnotation(TAG_SOURCE_LOCATION, annotationString)
         block()
         annotatedStringBuilder.pop()
     }
 
-    private fun withDescription(description: Description, block: () -> Unit) {
+    private inline fun withDescription(description: Description, block: () -> Unit) {
         val link = LinkAnnotation.Clickable(
             TAG_DESCRIPTION,
             TextLinkStyles(style = theme.code.value.copy(textDecoration = TextDecoration.Underline))
@@ -1354,7 +1368,7 @@ class IrVisualBuilder(
         append(' ')
     }
 
-    private fun withBraces(multiLine: Boolean = true, block: () -> Unit) {
+    private inline fun withBraces(multiLine: Boolean = true, block: () -> Unit) {
         punctuation('{')
         if (!multiLine) {
             block()
@@ -1368,7 +1382,7 @@ class IrVisualBuilder(
         punctuation('}')
     }
 
-    private fun withParentheses(multiLine: Boolean = true, block: () -> Unit) {
+    private inline fun withParentheses(multiLine: Boolean = true, block: () -> Unit) {
         punctuation('(')
         if (!multiLine) {
             block()
@@ -1382,7 +1396,7 @@ class IrVisualBuilder(
         punctuation(')')
     }
 
-    private fun withAngleBrackets(multiLine: Boolean = false, block: () -> Unit) {
+    private inline fun withAngleBrackets(multiLine: Boolean = false, block: () -> Unit) {
         punctuation('<')
         if (!multiLine) {
             block()
@@ -1407,6 +1421,16 @@ class IrVisualBuilder(
             val originName = strings(originNameIndex)
             return DeclarationOrigin.entries.firstOrNull { entry ->
                 entry.name == originName
+            }
+        }
+
+    private val Int?.statementOrigin: StatementOrigin?
+        get() {
+            return this?.let {
+                val originName = strings(this)
+                return StatementOrigin.entries.firstOrNull { entry ->
+                    entry.name == originName
+                }
             }
         }
 
@@ -1532,12 +1556,12 @@ class IrVisualBuilder(
             this.visibility.keyword?.let { keywords.add(it) }
             this.modality.keyword?.let { keywords.add(it) }
             if (this.isInner) keywords.add(Keyword.INNER)
-            if (this.isExpect) keyword(Keyword.EXPECT)
-            if (this.isExternal) keyword(Keyword.EXTERNAL)
-            if (this.isData) keyword(Keyword.DATA)
-            if (this.isValue) keyword(Keyword.VALUE)
-            if (this.isFun) keyword(Keyword.FUN)
-            if (this.isCompanion) keyword(Keyword.COMPANION)
+            if (this.isExpect) keywords.add(Keyword.EXPECT)
+            if (this.isExternal) keywords.add(Keyword.EXTERNAL)
+            if (this.isData) keywords.add(Keyword.DATA)
+            if (this.isValue) keywords.add(Keyword.VALUE)
+            if (this.isFun) keywords.add(Keyword.FUN)
+            if (this.isCompanion) keywords.add(Keyword.COMPANION)
             keywords.addAll(this.kind.keywords)
             return keywords
         }
@@ -1554,56 +1578,69 @@ class IrVisualBuilder(
             }
         }
 
-    private val Symbol.fqName: String
+    private val CommonSignature.fqName: String
         get() {
-            return when (val signature = signatures(this.signatureId)) {
-                is CommonSignature -> buildString {
-                    val packageName = signature.packageFqNameIndexes
-                        .joinToString(".") { strings(it) }
-                    append(packageName)
-                    append('.')
-                    append(declarationName)
-                }
-                else -> ""
+            return buildString {
+                val packageName = this@fqName.packageFqNameIndexes
+                    .joinToString(".") { strings(it) }
+                append(packageName)
+                append('.')
+                append(declarationName)
+            }
+        }
+
+    private val Signature.commonSignature: CommonSignature?
+        get() {
+            return when (this) {
+                is CommonSignature -> this
+                is AccessorSignature -> signatures(this.propertySignatureIndex).commonSignature
+                is ScopedLocalSignature -> signatures(this.signatureId).commonSignature
+                else -> null
+            }
+        }
+
+    private val Symbol.commonSignature: CommonSignature?
+        get() = signatures(this.signatureId).commonSignature
+
+    private val Symbol.fqName: String
+        get() = commonSignature?.fqName ?: ""
+
+    private val CommonSignature.declarationName: String
+        get() {
+            return buildString {
+                val declarationName = this@declarationName.declarationFqNameIndexes
+                    .joinToString(".") { strings(it) }
+                append(declarationName)
             }
         }
 
     private val Symbol.declarationName: String
+        get() = commonSignature?.declarationName ?: ""
+
+    private val CommonSignature.base: String
         get() {
-            return when (val signature = signatures(this.signatureId)) {
-                is CommonSignature -> buildString {
-                    val declarationName = signature.declarationFqNameIndexes
-                        .joinToString(".") { strings(it) }
-                    append(declarationName)
-                }
-                else -> ""
+            return buildString {
+                val declarationName = this@base.declarationFqNameIndexes.dropLast(1)
+                    .joinToString(".") { strings(it) }
+                append(declarationName)
             }
         }
 
     private val Symbol.base: String
+        get() = commonSignature?.base ?: ""
+
+    private val CommonSignature.name: String
         get() {
-            return when (val signature = signatures(this.signatureId)) {
-                is CommonSignature -> buildString {
-                    val declarationName = signature.declarationFqNameIndexes.dropLast(1)
-                        .joinToString(".") { strings(it) }
-                    append(declarationName)
-                }
-                else -> ""
+            return buildString {
+                val declarationName = this@name.declarationFqNameIndexes.lastOrNull()?.let {
+                    strings(it)
+                } ?: ""
+                append(declarationName)
             }
         }
 
     private val Symbol.name: String
-        get() {
-            return when (val signature = signatures(this.signatureId)) {
-                is CommonSignature -> buildString {
-                    val declarationName = signature.declarationFqNameIndexes.lastOrNull()?.let {
-                        strings(it)
-                    } ?: ""
-                    append(declarationName)
-                }
-                else -> ""
-            }
-        }
+        get() = commonSignature?.name ?: ""
 
     private val Declaration.range: Coordinate
         get() = when (this) {
@@ -1676,8 +1713,8 @@ class IrVisualBuilder(
         const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
         const val TAG_DESCRIPTION = "DESCRIPTION"
         private val LINE_SEPARATOR: String = System.lineSeparator()
-        private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr"
-        private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr"
+        private const val PRE_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PreComposeIr.<init>"
+        private const val POST_COMPOSE_IR_FQ_NAME = "com.decomposer.runtime.PostComposeIr.<init>"
         private const val MAX_ARGUMENTS_SINGLE_LINE = 2
     }
 }

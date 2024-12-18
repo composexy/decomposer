@@ -1,9 +1,12 @@
 package com.decomposer.sample.ir
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
+
 /*
 val simpleProp = 12
 private lateinit var lateVar: String
@@ -23,18 +26,37 @@ var withSetter: Int = 111
 @JvmField
 var jvmField: String = "Hey"
 
-var reference = ::withSetter.get()*/
+var reference = ::withSetter.get()
 var reference2 = Data::prop2
 val data = Data(prop2 = false)
 val reference3 = data::prop3
 val reference4 = Data.DataInner::prop6
-
-var getNoBackingField: String = ""
+val reference5 = data.inner::prop6
+private val reference6 = data::prop3
+val reference7 = data::prop8
+val reference8 = data::prop9*/
+var getterSetter: String = "World"
     get() {
-        return "Hello"
+        val value = field.length
+        return "Hello $value"
     }
     set(value) {
         field = ""
+    }
+
+val annotatedAccessor: String
+    @Composable
+    get() {
+        return LocalView.current.transitionName
+    }
+
+@get:SinceKotlin("1.3")
+var annotatedAccessor2: String = ""
+    get() {
+        return "annotatedAccessor2"
+    }
+    set(value) {
+        field = "$value $value"
     }
 
 var initWithExpression: Long = System.currentTimeMillis() / 10
@@ -52,8 +74,19 @@ data class Data(
     val prop6: String by lazy {
         "Hi"
     }
+    val prop8: IntArray = IntArray(1)
+    val prop9 = arrayOf(1, 3, 4)
+    val inner: DataInner = DataInner("Hello")
 
     class DataInner(
         val prop6: String
     )
+
+    fun accessProperties() {
+        val prop7 = prop3 + prop4
+        val reference = prop6::class
+        val reference2 = prop6::class.simpleName
+        val reference3 = ::prop4
+        val prop8 = prop7 + prop1 + getterSetter
+    }
 }

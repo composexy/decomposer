@@ -106,6 +106,7 @@ import com.decomposer.ir.While
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.jetbrains.kotlin.backend.wasm.ir2wasm.bind
 import kotlin.math.max
 
 class IrVisualBuilder(
@@ -272,41 +273,49 @@ class IrVisualBuilder(
         punctuation(':')
         space()
         visualizeType(type)
+        val delegated =
+            declaration.backingField?.base?.origin == DeclarationOrigin.PROPERTY_DELEGATE
         declaration.backingField?.let { field ->
             field.initializerIndex?.let {
-                punctuationSpaced('=')
+                if (delegated) {
+                    keywordSpaced(Keyword.BY)
+                } else {
+                    punctuationSpaced('=')
+                }
                 visualizeBody(bodies(it))
             }
         }
-        increaseIndent {
-            declaration.getter?.let { getter ->
-                if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
-                    newLine()
-                    visualizeAnnotations(getter.base.base.annotations)
-                    keyword(Keyword.GET)
-                    visualizeValueParameters(getter.base.valueParameters)
-                    space()
-                    getter.base.bodyIndex?.let {
-                        val body = bodies(it)
-                        visualizeBody(body)
+        if (!delegated) {
+            increaseIndent {
+                declaration.getter?.let { getter ->
+                    if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
+                        newLine()
+                        visualizeAnnotations(getter.base.base.annotations)
+                        keyword(Keyword.GET)
+                        visualizeValueParameters(getter.base.valueParameters)
+                        space()
+                        getter.base.bodyIndex?.let {
+                            val body = bodies(it)
+                            visualizeBody(body)
+                        }
                     }
                 }
-            }
-            declaration.setter?.let { setter ->
-                if (setter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
-                    newLine()
-                    visualizeAnnotations(setter.base.base.annotations)
-                    keyword(Keyword.SET)
-                    visualizeValueParameters(setter.base.valueParameters, nameOnly = true)
-                    space()
-                    setter.base.valueParameters.forEach {
-                        val signatureId = it.base.symbol.signatureId
-                        val nameIndex = it.nameIndex
-                        signatureNames[signatureId] = nameIndex
-                    }
-                    setter.base.bodyIndex?.let {
-                        val body = bodies(it)
-                        visualizeBody(body)
+                declaration.setter?.let { setter ->
+                    if (setter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
+                        newLine()
+                        visualizeAnnotations(setter.base.base.annotations)
+                        keyword(Keyword.SET)
+                        visualizeValueParameters(setter.base.valueParameters, nameOnly = true)
+                        space()
+                        setter.base.valueParameters.forEach {
+                            val signatureId = it.base.symbol.signatureId
+                            val nameIndex = it.nameIndex
+                            signatureNames[signatureId] = nameIndex
+                        }
+                        setter.base.bodyIndex?.let {
+                            val body = bodies(it)
+                            visualizeBody(body)
+                        }
                     }
                 }
             }
@@ -438,25 +447,25 @@ class IrVisualBuilder(
         if (declaration.typeParameters.isNotEmpty()) {
             visualizeTypeParameters(declaration.typeParameters)
         }
-        val constructorProperties = mutableListOf<Property>()
+        val constructorProperties = mutableListOf<Property?>()
         primaryConstructor?.let {
             val valueParameters = it.base.valueParameters
             if (valueParameters.isNotEmpty()) {
-                withParentheses {
-                    valueParameters.forEachIndexed { index, parameter ->
-                        val paramName = strings(parameter.nameIndex)
-                        val property = declaration.findPropertyWithName(paramName)
-                        if (property != null) {
-                            constructorProperties.add(property)
-                            visualizeProperty(property)
-                        }
-                        if (index != valueParameters.size - 1) {
-                            punctuation(',')
-                        }
-                        newLine()
+                valueParameters.forEach { parameter ->
+                    val paramName = strings(parameter.nameIndex)
+                    val property = declaration.findPropertyWithName(paramName)
+                    if (property != null) {
+                        constructorProperties.add(property)
+                    }  else {
+                        constructorProperties.add(null)
                     }
                 }
             }
+            visualizeValueParameters(
+                declarations = valueParameters,
+                nameOnly = false,
+                bindingProperties = constructorProperties
+            )
         }
         space()
         val superTypes = declaration.superTypeIndexes
@@ -475,7 +484,7 @@ class IrVisualBuilder(
             space()
         }
         val remainingDeclarations = declarationsNoPrimary.toMutableList()
-        remainingDeclarations.removeAll(constructorProperties)
+        remainingDeclarations.removeAll(constructorProperties.filterNotNull())
         if (remainingDeclarations.isNotEmpty()) {
             withBraces {
                 remainingDeclarations.forEachIndexed { index, declaration ->
@@ -490,13 +499,18 @@ class IrVisualBuilder(
 
     private fun visualizeValueParameters(
         declarations: List<ValueParameter>,
-        nameOnly: Boolean = false
+        nameOnly: Boolean = false,
+        bindingProperties: List<Property?>? = null
     ) {
         val multiLine = declarations.size > MAX_ARGUMENTS_SINGLE_LINE
         withParentheses(multiLine = multiLine) {
             declarations.forEachIndexed { index, declaration ->
-                visualizeValueParameter(declaration = declaration, nameOnly = nameOnly)
-                if (index != declarations.size - 1){
+                visualizeValueParameter(
+                    declaration = declaration,
+                    nameOnly = nameOnly,
+                    propertyFlags = bindingProperties?.get(index)?.base?.flags as? PropertyFlags
+                )
+                if (index != declarations.size - 1) {
                     append(',')
                     if (multiLine) {
                         newLine()
@@ -508,7 +522,17 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeValueParameter(declaration: ValueParameter, nameOnly: Boolean = false) {
+    private fun visualizeValueParameter(
+        declaration: ValueParameter,
+        nameOnly: Boolean = false,
+        propertyFlags: PropertyFlags? = null,
+    ) {
+        propertyFlags?.keywords?.let { flags ->
+            flags.forEach {
+                keyword(it)
+                space()
+            }
+        }
         val flags = (declaration.base.flags as? ValueParameterFlags).keywords
         flags.forEach {
             keyword(it)
@@ -990,18 +1014,20 @@ class IrVisualBuilder(
             else -> {
                 val branches = operation.branches.map { it.statement as Branch }
                 keyword(Keyword.WHEN)
+                space()
                 withBraces {
-                    branches.forEach {
-                        val isElse = (it.condition.operation as? BooleanConst)?.value == true
+                    branches.forEachIndexed { index, branch ->
+                        val isElse = (branch.condition.operation as? BooleanConst)?.value == true
                         if (isElse) {
                             keyword(Keyword.ELSE)
                         } else {
-                            visualizeExpression(it.condition)
+                            visualizeExpression(branch.condition)
                         }
                         punctuationSpaced("->")
                         withBraces {
-                            visualizeExpression(it.result)
+                            visualizeExpression(branch.result)
                         }
+                        if (index != branches.size - 1) newLine()
                     }
                 }
             }
@@ -1441,7 +1467,7 @@ class IrVisualBuilder(
 
     private fun Class.findPropertyWithName(name: String): Property? {
         return this.declarations.firstOrNull {
-            it is Property && strings(nameIndex) == name
+            it is Property && strings(it.nameIndex) == name
         } as? Property
     }
 

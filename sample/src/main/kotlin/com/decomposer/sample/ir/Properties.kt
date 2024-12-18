@@ -1,5 +1,6 @@
 package com.decomposer.sample.ir
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,7 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
 
 
-val simpleProp = 12/*
+/*val simpleProp = 12
 private lateinit var lateVar: String
 val withGetter: Int
     get() {
@@ -50,13 +51,13 @@ object Object1 {
     internal val three = "three"
     internal const val four = "four"
 }
-*/
+
 val annotatedAccessor: String
     @Composable
     get() {
         return LocalView.current.transitionName
     }
-/*
+
 @get:SinceKotlin("1.3")
 var annotatedAccessor2: String = ""
     get() {
@@ -69,10 +70,11 @@ var annotatedAccessor2: String = ""
 var initWithExpression: Long = System.currentTimeMillis() / 10
 
 var propDelegated: Int by mutableIntStateOf(123)
-
-data class Data(
+*/
+class Data(
     val prop1: Int = Math.random().toInt(),
-    val prop2: Boolean
+    val prop2: Boolean,
+    value: String
 ) {
     val prop3: String = "Inner"
     val prop4: String
@@ -83,7 +85,12 @@ data class Data(
     }
     val prop8: IntArray = IntArray(1)
     val prop9 = arrayOf(1, 3, 4)
+    val prop10 = "$value $value"
     val inner: DataInner = DataInner("Hello")
+
+    init {
+        Log.w("Data", "constructing Data")
+    }
 
     class DataInner(
         val prop6: String
@@ -94,11 +101,10 @@ data class Data(
         val reference = prop6::class
         val reference2 = prop6::class.simpleName
         val reference3 = ::prop4
-        val prop8 = prop7 + prop1 + getterSetter
+        val prop8 = prop7 + prop1
     }
 
     companion object {
         const val companion1 = "companion1"
     }
 }
-*/

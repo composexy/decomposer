@@ -23,6 +23,7 @@ import com.decomposer.ir.ClassKind
 import com.decomposer.ir.ClassReference
 import com.decomposer.ir.CommonSignature
 import com.decomposer.ir.Composite
+import com.decomposer.ir.CompositeSignature
 import com.decomposer.ir.Const
 import com.decomposer.ir.Constructor
 import com.decomposer.ir.ConstructorCall
@@ -69,7 +70,6 @@ import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
 import com.decomposer.ir.Return
-import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.SetField
 import com.decomposer.ir.SetValue
 import com.decomposer.ir.ShortConst
@@ -124,6 +124,7 @@ class IrVisualBuilder(
     }
     private var indentLevel = 0
     private var currentTable: TopLevelTable? = null
+    private val signatureNames = mutableMapOf<Int, Int>()
 
     fun visualize(): IrVisualData {
         if (used) throw IllegalArgumentException("Reusing $this is not allowed!")
@@ -154,22 +155,23 @@ class IrVisualBuilder(
             newLine(indent = false)
             newLine(indent = false)
         }
-        sortedDeclarations.forEach {
-            withTable(it.value) { visualizeDeclaration(it.key) }
+        sortedDeclarations.toList().forEachIndexed { index, entry ->
+            withTable(entry.second) {
+                val declaration = entry.first
+                val needsExtraLine = declaration is Function || declaration is Class
+                if (needsExtraLine && index != 0) newLine()
+                visualizeDeclaration(declaration)
+                newLine()
+                if (needsExtraLine && index != sortedDeclarations.size - 1) newLine()
+            }
         }
     }
 
     private fun visualizeDeclaration(declaration: Declaration) {
         when (declaration) {
-            is Function -> {
-                visualizeFunction(declaration)
-                newLine()
-            }
+            is Function -> visualizeFunction(declaration)
             is AnonymousInit -> visualizeAnonymousInit(declaration)
-            is Class -> {
-                visualizeClass(declaration)
-                newLine()
-            }
+            is Class -> visualizeClass(declaration)
             is Constructor -> visualizeConstructor(declaration)
             is EnumEntry -> visualizeEnumEntry(declaration)
             is ErrorDeclaration -> visualizeErrorDeclaration(declaration)
@@ -181,7 +183,6 @@ class IrVisualBuilder(
             is ValueParameter -> visualizeValueParameter(declaration)
             is Variable -> visualizeVariable(declaration)
         }
-        newLine()
     }
 
     private fun visualizeVariable(declaration: Variable) {
@@ -190,6 +191,7 @@ class IrVisualBuilder(
             keyword(it)
             space()
         }
+        signatureNames[declaration.base.symbol.signatureId] = declaration.nameIndex
         val name = strings(declaration.nameIndex)
         symbol(name)
         val type = types(declaration.typeIndex)
@@ -198,7 +200,7 @@ class IrVisualBuilder(
         visualizeType(type)
 
         declaration.initializer?.let {
-            appendSpaced('=')
+            appendSpaced("=")
             visualizeExpression(it)
         }
     }
@@ -277,7 +279,6 @@ class IrVisualBuilder(
             }
         }
         increaseIndent {
-            var visualizedAccessor = false
             declaration.getter?.let { getter ->
                 if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
                     newLine()
@@ -289,7 +290,6 @@ class IrVisualBuilder(
                         val body = bodies(it)
                         visualizeBody(body)
                     }
-                    visualizedAccessor = true
                 }
             }
             declaration.setter?.let { setter ->
@@ -297,16 +297,21 @@ class IrVisualBuilder(
                     newLine()
                     visualizeAnnotations(setter.base.base.annotations)
                     keyword(Keyword.SET)
-                    punctuation("()")
+                    punctuation('(')
+                    symbol("value")
+                    punctuation(')')
                     space()
+                    setter.base.valueParameters.forEach {
+                        val signatureId = it.base.symbol.signatureId
+                        val nameIndex = it.nameIndex
+                        signatureNames[signatureId] = nameIndex
+                    }
                     setter.base.bodyIndex?.let {
                         val body = bodies(it)
                         visualizeBody(body)
                     }
-                    visualizedAccessor = true
                 }
             }
-            if (visualizedAccessor) newLine()
         }
     }
 
@@ -349,7 +354,7 @@ class IrVisualBuilder(
         declaration.initializerIndex?.let {
             val expressionBody = bodies(it) as? ExpressionBody
             expressionBody?.let {
-                punctuation('=')
+                punctuationSpaced('=')
                 visualizeExpressionBody(expressionBody)
             }
         }
@@ -369,8 +374,9 @@ class IrVisualBuilder(
         }
         declaration.correspondingClass?.let { clazz ->
             withBraces {
-                clazz.declarations.forEach { declaration ->
+                clazz.declarations.forEachIndexed { index, declaration ->
                     visualizeDeclaration(declaration)
+                    if (index < clazz.declarations.size - 1) newLine()
                 }
             }
         }
@@ -474,8 +480,9 @@ class IrVisualBuilder(
         remainingDeclarations.removeAll(constructorProperties)
         if (remainingDeclarations.isNotEmpty()) {
             withBraces {
-                remainingDeclarations.forEach { declaration ->
+                remainingDeclarations.forEachIndexed { index, declaration ->
                     visualizeDeclaration(declaration)
+                    if (index < remainingDeclarations.size - 1) newLine()
                 }
             }
         } else {
@@ -500,6 +507,7 @@ class IrVisualBuilder(
             space()
         }
         visualizeAnnotations(declaration.base.annotations, multiLine = false)
+        signatureNames[declaration.base.symbol.signatureId] = declaration.nameIndex
         val name = strings(declaration.nameIndex)
         symbol(name)
         punctuation(':')
@@ -786,7 +794,11 @@ class IrVisualBuilder(
     private fun visualizeInstanceInitializerCall(operation: InstanceInitializerCall) = Unit
 
     private fun visualizeGetValue(operation: GetValue) {
-        symbol(operation.symbol.declarationName)
+        val signatureId = operation.symbol.signatureId
+        val name = signatureNames[signatureId]?.let {
+            strings(it)
+        } ?: ""
+        symbol(name)
     }
 
     private fun visualizeGetObject(operation: GetObject) {
@@ -1356,12 +1368,6 @@ class IrVisualBuilder(
         annotatedStringBuilder.append(string)
     }
 
-    private fun appendSpaced(char: Char) = with(annotatedStringBuilder) {
-        append(' ')
-        append(char)
-        append(' ')
-    }
-
     private fun appendSpaced(string: String) = with(annotatedStringBuilder) {
         append(' ')
         append(string)
@@ -1594,7 +1600,7 @@ class IrVisualBuilder(
             return when (this) {
                 is CommonSignature -> this
                 is AccessorSignature -> signatures(this.propertySignatureIndex).commonSignature
-                is ScopedLocalSignature -> signatures(this.signatureId).commonSignature
+                is CompositeSignature -> signatures(this.innerSignatureIndex).commonSignature
                 else -> null
             }
         }

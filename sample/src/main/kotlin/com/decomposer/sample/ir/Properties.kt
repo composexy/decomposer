@@ -7,8 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
 
-/*
-val simpleProp = 12
+
+val simpleProp = 12/*
 private lateinit var lateVar: String
 val withGetter: Int
     get() {
@@ -38,11 +38,18 @@ val reference8 = data::prop9*/
 var getterSetter: String = "World"
     get() {
         val value = field.length
-        return "Hello $value"
+        return "Hello $value $simpleProp"
     }
     set(value) {
-        field = ""
+        field = "$value ${Object1.two} ${Data.companion1}"
     }
+
+object Object1 {
+    private val one = "one"
+    val two = "two"
+    internal val three = "three"
+    internal const val four = "four"
+}
 
 val annotatedAccessor: String
     @Composable
@@ -88,5 +95,9 @@ data class Data(
         val reference2 = prop6::class.simpleName
         val reference3 = ::prop4
         val prop8 = prop7 + prop1 + getterSetter
+    }
+
+    companion object {
+        const val companion1 = "companion1"
     }
 }

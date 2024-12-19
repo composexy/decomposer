@@ -37,7 +37,6 @@ import com.decomposer.ir.DoWhile
 import com.decomposer.ir.DoubleConst
 import com.decomposer.ir.DynamicMemberExpression
 import com.decomposer.ir.DynamicOperatorExpression
-import com.decomposer.ir.EmptySignature
 import com.decomposer.ir.EnumConstructorCall
 import com.decomposer.ir.EnumEntry
 import com.decomposer.ir.ErrorCallExpression
@@ -47,8 +46,6 @@ import com.decomposer.ir.Expression
 import com.decomposer.ir.ExpressionBody
 import com.decomposer.ir.Field
 import com.decomposer.ir.FieldFlags
-import com.decomposer.ir.FileLocalSignature
-import com.decomposer.ir.FileSignature
 import com.decomposer.ir.FloatConst
 import com.decomposer.ir.Function
 import com.decomposer.ir.FunctionBase
@@ -75,7 +72,6 @@ import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
 import com.decomposer.ir.Return
-import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.SetField
 import com.decomposer.ir.SetValue
 import com.decomposer.ir.ShortConst
@@ -423,9 +419,10 @@ class IrVisualBuilder(
         functionBase.typeParameters.forEach {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
+        signatureNames[functionBase.base.symbol.signatureId] = functionBase.nameIndex
     }
 
-    private fun visualizeFunctionBase(functionBase: FunctionBase) {
+    private fun visualizeFunctionBase(functionBase: FunctionBase, hasOverride: Boolean = false) {
         recordSignatures(functionBase)
         visualizeAnnotations(functionBase.base.annotations)
         val flags = (functionBase.base.flags as? FunctionFlags).keywords
@@ -437,6 +434,10 @@ class IrVisualBuilder(
             }
             keyword(Keyword.CONSTRUCTOR)
         } else {
+            if (hasOverride) {
+                keyword(Keyword.OVERRIDE)
+                space()
+            }
             flags.forEach {
                 keyword(it)
                 space()
@@ -485,6 +486,15 @@ class IrVisualBuilder(
     }
 
     private fun visualizeClass(declaration: Class) = withScope(ClassScope(declaration)) {
+        fun DeclarationOrigin.shouldHide(): Boolean {
+            return when(this) {
+                DeclarationOrigin.GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER,
+                DeclarationOrigin.GENERATED_MULTI_FIELD_VALUE_CLASS_MEMBER,
+                DeclarationOrigin.FAKE_OVERRIDE,
+                DeclarationOrigin.GENERATED_DATA_CLASS_MEMBER -> true
+                else -> false
+            }
+        }
         declaration.thisReceiver?.let {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
@@ -558,6 +568,10 @@ class IrVisualBuilder(
         }
         val remainingDeclarations = declarationsNoPrimary.toMutableList()
         remainingDeclarations.removeAll(constructorProperties.filterNotNull())
+        val functionsToHide = declarationsNoPrimary.filter {
+            it is Function && it.base.base.origin?.shouldHide() == true
+        }
+        remainingDeclarations.removeAll(functionsToHide)
         if (remainingDeclarations.isNotEmpty()) {
             withBraces {
                 remainingDeclarations.forEachIndexed { index, declaration ->
@@ -565,8 +579,6 @@ class IrVisualBuilder(
                     if (index < remainingDeclarations.size - 1) newLine()
                 }
             }
-        } else {
-            newLine()
         }
     }
 
@@ -807,11 +819,10 @@ class IrVisualBuilder(
         } != null
         val block = {
             withSourceLocation(SourceLocation(startOffset, endOffset)) {
-                if (declaration.overriden.isNotEmpty()) {
-                    keyword(Keyword.OVERRIDE)
-                    space()
-                }
-                visualizeFunctionBase(declaration.base)
+                visualizeFunctionBase(
+                    functionBase = declaration.base,
+                    hasOverride = declaration.overriden.isNotEmpty()
+                )
             }
         }
         if (highlighting) {
@@ -1788,7 +1799,10 @@ class IrVisualBuilder(
         }
 
     private val Symbol.declarationName: String
-        get() = signatures(this.signatureId).declarationName
+        get() {
+            val name = signatures(this.signatureId).declarationName
+            return name.ifEmpty { signatureNames[this.signatureId]?.let { strings(it) } ?: "" }
+        }
 
     private val Signature.base: String
         get() = this.declarationName.split(".").dropLast(1).joinToString(".")
@@ -1800,7 +1814,10 @@ class IrVisualBuilder(
         get() = this.declarationName.split(".").lastOrNull() ?: ""
 
     private val Symbol.name: String
-        get() = signatures(this.signatureId).name
+        get() {
+            val name = signatures(this.signatureId).name
+            return name.ifEmpty { signatureNames[this.signatureId]?.let { strings(it) } ?: "" }
+        }
 
     private val Declaration.range: Coordinate
         get() = when (this) {

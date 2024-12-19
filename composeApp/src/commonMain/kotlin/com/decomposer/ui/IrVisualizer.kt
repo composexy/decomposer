@@ -5,6 +5,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.util.fastForEachReversed
 import com.decomposer.ir.AccessorSignature
 import com.decomposer.ir.AnonymousInit
 import com.decomposer.ir.Block
@@ -36,6 +37,7 @@ import com.decomposer.ir.DoWhile
 import com.decomposer.ir.DoubleConst
 import com.decomposer.ir.DynamicMemberExpression
 import com.decomposer.ir.DynamicOperatorExpression
+import com.decomposer.ir.EmptySignature
 import com.decomposer.ir.EnumConstructorCall
 import com.decomposer.ir.EnumEntry
 import com.decomposer.ir.ErrorCallExpression
@@ -45,6 +47,8 @@ import com.decomposer.ir.Expression
 import com.decomposer.ir.ExpressionBody
 import com.decomposer.ir.Field
 import com.decomposer.ir.FieldFlags
+import com.decomposer.ir.FileLocalSignature
+import com.decomposer.ir.FileSignature
 import com.decomposer.ir.FloatConst
 import com.decomposer.ir.Function
 import com.decomposer.ir.FunctionBase
@@ -61,6 +65,7 @@ import com.decomposer.ir.IntConst
 import com.decomposer.ir.KotlinFile
 import com.decomposer.ir.LocalDelegatedProperty
 import com.decomposer.ir.LocalDelegatedPropertyReference
+import com.decomposer.ir.LocalSignature
 import com.decomposer.ir.LocalVarFlags
 import com.decomposer.ir.LongConst
 import com.decomposer.ir.MemberAccess
@@ -70,6 +75,7 @@ import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
 import com.decomposer.ir.Return
+import com.decomposer.ir.ScopedLocalSignature
 import com.decomposer.ir.SetField
 import com.decomposer.ir.SetValue
 import com.decomposer.ir.ShortConst
@@ -125,6 +131,16 @@ class IrVisualBuilder(
     private var indentLevel = 0
     private var currentTable: TopLevelTable? = null
     private val signatureNames = mutableMapOf<Int, Int>()
+    private val scopeStack = mutableListOf<Scope>(RootScope)
+    private val currentScope: Scope
+        get() = scopeStack.last()
+    private val currentClassScope: ClassScope?
+        get() {
+            scopeStack.fastForEachReversed {
+                if (it is ClassScope) return it
+            }
+            return null
+        }
 
     fun visualize(): IrVisualData {
         if (used) throw IllegalArgumentException("Reusing $this is not allowed!")
@@ -212,7 +228,7 @@ class IrVisualBuilder(
 
     private fun visualizeType(type: SimpleType) {
         visualizeAnnotations(type.annotations, multiLine = false)
-        val name = type.symbol.declarationName
+        val name = type.typeName
         symbol(name)
         visualizeTypeArguments(type.arguments)
         if (type.nullability == SimpleType.Nullability.MARKED_NULLABLE) {
@@ -404,6 +420,9 @@ class IrVisualBuilder(
         functionBase.valueParameters.forEach {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
+        functionBase.typeParameters.forEach {
+            signatureNames[it.base.symbol.signatureId] = it.nameIndex
+        }
     }
 
     private fun visualizeFunctionBase(functionBase: FunctionBase) {
@@ -412,6 +431,10 @@ class IrVisualBuilder(
         val flags = (functionBase.base.flags as? FunctionFlags).keywords
         val isConstructor = functionBase.base.symbol.kind == Symbol.Kind.CONSTRUCTOR_SYMBOL
         if (isConstructor) {
+            flags.forEach {
+                keyword(it)
+                space()
+            }
             keyword(Keyword.CONSTRUCTOR)
         } else {
             flags.forEach {
@@ -419,11 +442,15 @@ class IrVisualBuilder(
                 space()
             }
             keyword(Keyword.FUN)
+            val typeParameters = functionBase.typeParameters
+            if (typeParameters.isNotEmpty()) {
+                space()
+                visualizeTypeParameters(typeParameters)
+            }
             space()
-            visualizeTypeParameters(functionBase.typeParameters)
             functionBase.extensionReceiver?.let {
-                val name = strings(it.nameIndex)
-                symbol(name)
+                val type = types(it.typeIndex)
+                visualizeType(type)
                 punctuation('.')
             }
             val name = strings(functionBase.nameIndex)
@@ -431,7 +458,7 @@ class IrVisualBuilder(
         }
         visualizeValueParameters(functionBase.valueParameters)
         val type = types(functionBase.typeIndex)
-        if (!type.isUnit()) {
+        if (!type.isUnit() && !isConstructor) {
             punctuation(':')
             space()
             visualizeType(type)
@@ -440,12 +467,24 @@ class IrVisualBuilder(
         functionBase.bodyIndex?.let {
             val statementBody = bodies(it) as? StatementBody
             statementBody?.let {
-                visualizeStatementBody(statementBody)
+                val statements = statementBody.statements
+                if (statements.size == 1) {
+                    val operation = (statements.single() as? Expression)?.operation
+                    if (operation is DelegatingConstructorCall) {
+                        punctuation(':')
+                        space()
+                        visualizeDelegatingConstructorCall(operation)
+                    } else {
+                        visualizeStatementBody(statementBody)
+                    }
+                } else {
+                    visualizeStatementBody(statementBody)
+                }
             }
         }
     }
 
-    private fun visualizeClass(declaration: Class) {
+    private fun visualizeClass(declaration: Class) = withScope(ClassScope(declaration)) {
         declaration.thisReceiver?.let {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
@@ -464,9 +503,10 @@ class IrVisualBuilder(
         if (declaration.typeParameters.isNotEmpty()) {
             visualizeTypeParameters(declaration.typeParameters)
         }
+        val delegatingConstructorCalls = mutableListOf<DelegatingConstructorCall>()
         val constructorProperties = mutableListOf<Property?>()
-        primaryConstructor?.let {
-            val valueParameters = it.base.valueParameters
+        primaryConstructor?.let { constructor ->
+            val valueParameters = constructor.base.valueParameters
             if (valueParameters.isNotEmpty()) {
                 valueParameters.forEach { parameter ->
                     val paramName = strings(parameter.nameIndex)
@@ -477,22 +517,38 @@ class IrVisualBuilder(
                         constructorProperties.add(null)
                     }
                 }
+                visualizeValueParameters(
+                    declarations = valueParameters,
+                    nameOnly = false,
+                    bindingProperties = constructorProperties
+                )
             }
-            visualizeValueParameters(
-                declarations = valueParameters,
-                nameOnly = false,
-                bindingProperties = constructorProperties
-            )
+            val bodyStatements = constructor.base.bodyIndex?.let { bodies(it) }?.statements
+            bodyStatements?.let {
+                delegatingConstructorCalls.addAll(
+                    bodyStatements.filterIsInstance<Expression>()
+                        .map { it.operation }
+                        .filterIsInstance<DelegatingConstructorCall>()
+                )
+            }
         }
         space()
         val superTypes = declaration.superTypeIndexes
             .map { types(it) }
             .filter { !it.isAny() }
+        val delegatingTypeNames = delegatingConstructorCalls.map { it.symbol.base }
         if (superTypes.isNotEmpty()) {
             punctuation(':')
             space()
             superTypes.forEachIndexed { index, type ->
-                visualizeType(type)
+                val delegateIndex = delegatingTypeNames.indexOfFirst { it == type.typeName }
+                if (delegateIndex == -1) {
+                    visualizeType(type)
+                } else {
+                    visualizeDelegatingConstructorCall(
+                        delegatingConstructorCalls[delegateIndex]
+                    )
+                }
                 if (index != superTypes.size - 1) {
                     punctuation(',')
                     space()
@@ -586,8 +642,16 @@ class IrVisualBuilder(
     ) {
         if (declarations.isNotEmpty()) {
             withAngleBrackets(multiLine) {
-                declarations.forEach {
-                    visualizeTypeParameter(it)
+                declarations.forEachIndexed { index, parameter ->
+                    visualizeTypeParameter(parameter)
+                    if (index != declarations.size - 1) {
+                        append(',')
+                        if (multiLine) {
+                            newLine()
+                        } else {
+                            space()
+                        }
+                    }
                 }
             }
         }
@@ -601,7 +665,9 @@ class IrVisualBuilder(
         }
         val name = strings(declaration.nameIndex)
         symbol(name)
-        val superTypes = declaration.superTypeIndexes.map { types(it) }
+        val superTypes = declaration.superTypeIndexes
+            .map { types(it) }
+            .filter { !it.isNullableAny() }
         if (superTypes.isNotEmpty()) {
             punctuationSpaced(':')
             superTypes.forEachIndexed { index, type ->
@@ -652,11 +718,11 @@ class IrVisualBuilder(
         symbol(name)
         val valueArguments = call.memberAccess.valueArguments.filterNotNull()
         if (!isAnnotation || valueArguments.isNotEmpty()) {
-            visualizeArguments(valueArguments = valueArguments)
+            visualizeValueArguments(valueArguments = valueArguments)
         }
     }
 
-    private fun visualizeArguments(valueArguments: List<Expression>) {
+    private fun visualizeValueArguments(valueArguments: List<Expression>) {
         val trailingLambda = valueArguments.lastOrNull()?.let {
             it.operation as? FunctionExpression
         }
@@ -1102,15 +1168,13 @@ class IrVisualBuilder(
     }
 
     private fun visualizeDelegatingConstructorCall(operation: DelegatingConstructorCall) {
-        keyword(Keyword.THIS)
-        val arguments = operation.memberAccess.valueArguments
-        withParentheses(false) {
-            arguments.forEach {
-                it?.let {
-                    visualizeExpression(it)
-                }
-            }
+        if (currentClassScope?.clazz?.base?.symbol?.declarationName == operation.symbol.base) {
+            keyword(Keyword.THIS)
+        } else {
+            symbol(operation.symbol.base)
         }
+        val arguments = operation.memberAccess.valueArguments
+        visualizeValueArguments(arguments.filterNotNull())
     }
 
     private fun visualizeContinue(operation: Continue) {
@@ -1202,7 +1266,7 @@ class IrVisualBuilder(
                     }
                 }
                 val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
-                visualizeArguments(valueArguments = valueArguments)
+                visualizeValueArguments(valueArguments = valueArguments)
             }
         }
     }
@@ -1238,7 +1302,7 @@ class IrVisualBuilder(
             withBraces(multiLine = false, prefix = prefix) { space() }
         } else {
             withBraces(prefix = prefix) {
-                val statements = statement.statements
+                val statements = statement.statements.filter { it.canVisualize() }
                 statements.forEachIndexed { index, statement ->
                     visualizeStatement(statement)
                     if (index != statements.size - 1) newLine()
@@ -1280,6 +1344,17 @@ class IrVisualBuilder(
                     strings(name) == "<this>"
                 } ?: false
             } ?: false
+        }
+
+    private val Body.statements: List<StatementBase>
+        get() {
+            return when(this) {
+                is ExpressionBody -> emptyList()
+                is StatementBody -> {
+                    val blockBody = this.statement.statement as? BlockBody
+                    blockBody?.statements?.map { it.statement } ?: emptyList()
+                }
+            }
         }
 
     private fun newLine(indent: Boolean = true) {
@@ -1413,6 +1488,12 @@ class IrVisualBuilder(
         annotatedStringBuilder.pop()
     }
 
+    private inline fun withScope(scope: Scope, block: Scope.() -> Unit) {
+        scopeStack.add(scope)
+        scope.block()
+        scopeStack.removeLast()
+    }
+
     private fun append(char: Char) {
         annotatedStringBuilder.append(char)
     }
@@ -1479,6 +1560,19 @@ class IrVisualBuilder(
             it is Property && strings(it.nameIndex) == name
         } as? Property
     }
+
+    private val SimpleType.typeName: String
+        get() {
+            val name = this.symbol.declarationName
+            return if (name == "<TP>") {
+                val tpName = signatureNames[this.symbol.signatureId]?.let {
+                    strings(it)
+                } ?: ""
+                tpName
+            } else {
+                name
+            }
+        }
 
     private val DeclarationBase.origin: DeclarationOrigin?
         get() {
@@ -1642,69 +1736,59 @@ class IrVisualBuilder(
             }
         }
 
-    private val CommonSignature.fqName: String
+    private val Signature.fqName: String
         get() {
-            return buildString {
-                val packageName = this@fqName.packageFqNameIndexes
-                    .joinToString(".") { strings(it) }
-                append(packageName)
-                append('.')
-                append(declarationName)
+            return when(this) {
+                is AccessorSignature -> signatures(this.propertySignatureIndex).fqName
+                is CommonSignature -> buildString {
+                    val packageName = this@fqName.packageFqNameIndexes
+                        .joinToString(".") { strings(it) }
+                    append(packageName)
+                    append('.')
+                    append(declarationName)
+                }
+                is CompositeSignature -> signatures(this.innerSignatureIndex).fqName
+                is LocalSignature -> this.declarationName
+                else -> ""
             }
         }
-
-    private val Signature.commonSignature: CommonSignature?
-        get() {
-            return when (this) {
-                is CommonSignature -> this
-                is AccessorSignature -> signatures(this.propertySignatureIndex).commonSignature
-                is CompositeSignature -> signatures(this.innerSignatureIndex).commonSignature
-                else -> null
-            }
-        }
-
-    private val Symbol.commonSignature: CommonSignature?
-        get() = signatures(this.signatureId).commonSignature
 
     private val Symbol.fqName: String
-        get() = commonSignature?.fqName ?: ""
+        get() = signatures(this.signatureId).fqName
 
-    private val CommonSignature.declarationName: String
+    private val Signature.declarationName: String
         get() {
-            return buildString {
-                val declarationName = this@declarationName.declarationFqNameIndexes
-                    .joinToString(".") { strings(it) }
-                append(declarationName)
+            return when(this) {
+                is AccessorSignature -> signatures(this.propertySignatureIndex).name
+                is CommonSignature -> buildString {
+                    val declarationName = this@declarationName.declarationFqNameIndexes
+                        .joinToString(".") { strings(it) }
+                    append(declarationName)
+                }
+                is CompositeSignature -> signatures(this.innerSignatureIndex).name
+                is LocalSignature -> buildString {
+                    val declarationName = this@declarationName.localFqNameIndexes
+                        .joinToString(".") { strings(it) }
+                    append(declarationName)
+                }
+                else -> ""
             }
         }
 
     private val Symbol.declarationName: String
-        get() = commonSignature?.declarationName ?: ""
+        get() = signatures(this.signatureId).declarationName
 
-    private val CommonSignature.base: String
-        get() {
-            return buildString {
-                val declarationName = this@base.declarationFqNameIndexes.dropLast(1)
-                    .joinToString(".") { strings(it) }
-                append(declarationName)
-            }
-        }
+    private val Signature.base: String
+        get() = this.declarationName.split(".").dropLast(1).joinToString(".")
 
     private val Symbol.base: String
-        get() = commonSignature?.base ?: ""
+        get() = signatures(this.signatureId).base
 
-    private val CommonSignature.name: String
-        get() {
-            return buildString {
-                val declarationName = this@name.declarationFqNameIndexes.lastOrNull()?.let {
-                    strings(it)
-                } ?: ""
-                append(declarationName)
-            }
-        }
+    private val Signature.name: String
+        get() = this.declarationName.split(".").lastOrNull() ?: ""
 
     private val Symbol.name: String
-        get() = commonSignature?.name ?: ""
+        get() = signatures(this.signatureId).name
 
     private val Declaration.range: Coordinate
         get() = when (this) {
@@ -1738,6 +1822,20 @@ class IrVisualBuilder(
         return when(name) {
             "\$unused\$var\$" -> "_"
             else -> name
+        }
+    }
+
+    private fun Statement.canVisualize(): Boolean {
+        return when(val expression = this.statement as? Expression) {
+            null -> true
+            else -> when (expression.operation) {
+                is DynamicMemberExpression,
+                is DynamicOperatorExpression,
+                is ErrorCallExpression,
+                is ErrorExpression,
+                is InstanceInitializerCall -> false
+                else -> true
+            }
         }
     }
 
@@ -1994,6 +2092,12 @@ enum class Keyword(val visual: String) {
     REIFIED("reified"),
     PACKAGE("package")
 }
+
+private sealed interface Scope
+
+private class ClassScope(val clazz: Class) : Scope
+
+private data object RootScope : Scope
 
 sealed interface AnnotationData
 

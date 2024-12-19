@@ -1242,6 +1242,11 @@ class IrVisualBuilder(
 
     private fun visualizeCall(operation: Call) {
         when {
+            operation.superSymbol != null -> {
+                visualizeSuperSymbol(operation.superSymbol)
+                punctuation('.')
+                symbol(operation.symbol.name)
+            }
             operation.memberAccess.receiverIsThis -> {
                 symbol(operation.symbol.name)
             }
@@ -1268,6 +1273,13 @@ class IrVisualBuilder(
                 val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
                 visualizeValueArguments(valueArguments = valueArguments)
             }
+        }
+    }
+
+    private fun visualizeSuperSymbol(superSymbol: Symbol) {
+        keyword(Keyword.SUPER)
+        withAngleBrackets(multiLine = false) {
+            symbol(superSymbol.name)
         }
     }
 
@@ -2032,6 +2044,7 @@ enum class DeclarationOrigin {
 }
 
 enum class Keyword(val visual: String) {
+    SUPER("super"),
     THIS("this"),
     DO("do"),
     WHILE("while"),

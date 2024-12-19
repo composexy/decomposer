@@ -8,8 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
 
-
-/*val simpleProp = 12
+val simpleProp = 12
 private lateinit var lateVar: String
 val withGetter: Int
     get() {
@@ -26,10 +25,9 @@ var withSetter: Int = 111
 
 @JvmField
 var jvmField: String = "Hey"
-
 var reference = ::withSetter.get()
 var reference2 = Data::prop2
-val data = Data(prop2 = false)
+val data = Data(prop2 = false, value = "value")
 val reference3 = data::prop3
 val reference4 = Data.DataInner::prop6
 val reference5 = data.inner::prop6
@@ -70,7 +68,6 @@ var annotatedAccessor2: String = ""
 var initWithExpression: Long = System.currentTimeMillis() / 10
 
 var propDelegated: Int by mutableIntStateOf(123)
-*/
 
 class Data(
     val prop1: Int = Math.random().toInt(),

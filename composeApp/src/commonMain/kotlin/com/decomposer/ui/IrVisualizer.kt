@@ -288,6 +288,7 @@ class IrVisualBuilder(
         if (!delegated) {
             increaseIndent {
                 declaration.getter?.let { getter ->
+                    recordSignatures(getter.base)
                     if (getter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
                         newLine()
                         visualizeAnnotations(getter.base.base.annotations)
@@ -301,17 +302,13 @@ class IrVisualBuilder(
                     }
                 }
                 declaration.setter?.let { setter ->
+                    recordSignatures(setter.base)
                     if (setter.base.base.origin != DeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) {
                         newLine()
                         visualizeAnnotations(setter.base.base.annotations)
                         keyword(Keyword.SET)
                         visualizeValueParameters(setter.base.valueParameters, nameOnly = true)
                         space()
-                        setter.base.valueParameters.forEach {
-                            val signatureId = it.base.symbol.signatureId
-                            val nameIndex = it.nameIndex
-                            signatureNames[signatureId] = nameIndex
-                        }
                         setter.base.bodyIndex?.let {
                             val body = bodies(it)
                             visualizeBody(body)
@@ -322,10 +319,10 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeBody(body: Body) {
+    private fun visualizeBody(body: Body, prefix: () -> Unit = { }) {
         when (body) {
             is ExpressionBody -> visualizeExpressionBody(body)
-            is StatementBody -> visualizeStatementBody(body)
+            is StatementBody -> visualizeStatementBody(body, prefix)
         }
     }
 
@@ -393,13 +390,20 @@ class IrVisualBuilder(
         visualizeFunctionBase(declaration.base)
     }
 
-    private fun visualizeFunctionBase(functionBase: FunctionBase) {
+    private fun recordSignatures(functionBase: FunctionBase) {
         functionBase.dispatchReceiver?.let {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
         functionBase.extensionReceiver?.let {
             signatureNames[it.base.symbol.signatureId] = it.nameIndex
         }
+        functionBase.valueParameters.forEach {
+            signatureNames[it.base.symbol.signatureId] = it.nameIndex
+        }
+    }
+
+    private fun visualizeFunctionBase(functionBase: FunctionBase) {
+        recordSignatures(functionBase)
         visualizeAnnotations(functionBase.base.annotations)
         val flags = (functionBase.base.flags as? FunctionFlags).keywords
         val isConstructor = functionBase.base.symbol.kind == Symbol.Kind.CONSTRUCTOR_SYMBOL
@@ -568,8 +572,8 @@ class IrVisualBuilder(
         visualizeExpression(expressionBody.expression)
     }
 
-    private fun visualizeStatementBody(statementBody: StatementBody) {
-        visualizeStatement(statementBody.statement)
+    private fun visualizeStatementBody(statementBody: StatementBody, prefix: () -> Unit = { }) {
+        visualizeStatement(statementBody.statement, prefix)
     }
 
     private fun visualizeTypeParameters(
@@ -637,57 +641,39 @@ class IrVisualBuilder(
         }
         val parts = call.symbol.declarationName.split('.')
         val name = if (parts.lastOrNull() == "<init>") {
-            parts.dropLast(1).joinToString(",")
+            parts.dropLast(1).joinToString(".")
         } else {
-            parts.joinToString(",")
+            parts.joinToString(".")
         }
         symbol(name)
-        val shouldVisualize = !isAnnotation || call.memberAccess.valueArguments.any { it != null }
-        if (shouldVisualize) {
-            visualizeArguments(
-                valueArguments = call.memberAccess.valueArguments,
-                multiLine = call.memberAccess.valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE
-            )
+        val valueArguments = call.memberAccess.valueArguments.filterNotNull()
+        if (!isAnnotation || valueArguments.isNotEmpty()) {
+            visualizeArguments(valueArguments = valueArguments)
         }
     }
 
-    private fun visualizeArguments(valueArguments: List<Expression?>, multiLine: Boolean = true) {
+    private fun visualizeArguments(valueArguments: List<Expression>) {
         val trailingLambda = valueArguments.lastOrNull()?.let {
             it.operation as? FunctionExpression
         }
         val normalArguments = if (trailingLambda != null) {
             valueArguments.dropLast(1)
         } else valueArguments
-
-        if (normalArguments.isNotEmpty()) {
-            punctuation('(')
-            withSimple {
-                if (multiLine) {
-                    increaseIndent {
-                        normalArguments.forEachIndexed { index, expression ->
+        val multiLine = normalArguments.size > MAX_ARGUMENTS_SINGLE_LINE
+        if (normalArguments.isNotEmpty() || trailingLambda == null) {
+            withParentheses(multiLine = multiLine) {
+                normalArguments.forEachIndexed { index, expression ->
+                    visualizeExpression(expression)
+                    if (index != normalArguments.size - 1) {
+                        append(',')
+                        if (multiLine) {
                             newLine()
-                            if (expression != null) {
-                                visualizeExpression(expression)
-                                if (index != normalArguments.size - 1) {
-                                    punctuation(',')
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    normalArguments.forEachIndexed { index, expression ->
-                        if (expression != null) {
-                            visualizeExpression(expression)
-                            if (index != normalArguments.size - 1) {
-                                punctuation(',')
-                                space()
-                            }
+                        } else {
+                            space()
                         }
                     }
                 }
             }
-            if (multiLine) newLine()
-            punctuation(')')
         }
         if (trailingLambda != null) {
             space()
@@ -707,25 +693,23 @@ class IrVisualBuilder(
         } != null
         val block = {
             withSourceLocation(SourceLocation(startOffset, endOffset)) {
-                punctuation('{')
-                if (function.valueParameters.isNotEmpty()) {
-                    space()
-                    function.valueParameters.forEachIndexed { index, parameter ->
-                        visualizeValueParameter(parameter)
-                        if (index != function.valueParameters.size - 1) {
-                            punctuation(',')
-                            space()
+                val prefixBlock = {
+                    if (function.valueParameters.isNotEmpty()) {
+                        space()
+                        function.valueParameters.forEachIndexed { index, parameter ->
+                            visualizeValueParameter(parameter)
+                            if (index != function.valueParameters.size - 1) {
+                                punctuation(',')
+                                space()
+                            }
                         }
+                        space()
+                        punctuation("->")
                     }
-                    space()
-                    punctuation("->")
                 }
-                newLine()
                 function.bodyIndex?.let {
-                    val body = bodies(it) as? StatementBody
-                    if (body != null) {
-                        visualizeBody(body)
-                    }
+                    val body = bodies(it)
+                    visualizeBody(body, prefixBlock)
                 }
             }
         }
@@ -739,11 +723,9 @@ class IrVisualBuilder(
     private fun visualizeAnonymousInit(declaration: AnonymousInit) {
         keyword(Keyword.INIT)
         space()
-        withBraces {
-            val statementBody = bodies(declaration.bodyIndex) as? StatementBody
-            statementBody?.let {
-                visualizeStatementBody(statementBody)
-            }
+        val statementBody = bodies(declaration.bodyIndex) as? StatementBody
+        statementBody?.let {
+            visualizeStatementBody(statementBody)
         }
     }
 
@@ -809,10 +791,17 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeBlock(operation: Block) {
-        function("run")
-        space()
-        withBraces {
+    private fun visualizeBlock(operation: Block, wrapBlock: Boolean = false) {
+        if (wrapBlock) {
+            function("run")
+            space()
+            withBraces {
+                operation.statements.forEachIndexed { index, statement ->
+                    visualizeStatement(statement)
+                    if (index != operation.statements.size - 1) newLine()
+                }
+            }
+        } else {
             operation.statements.forEachIndexed { index, statement ->
                 visualizeStatement(statement)
                 if (index != operation.statements.size - 1) newLine()
@@ -1209,20 +1198,7 @@ class IrVisualBuilder(
                     }
                 }
                 val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
-                val multiLine = valueArguments.size > MAX_ARGUMENTS_SINGLE_LINE
-                withParentheses(multiLine = multiLine) {
-                    valueArguments.forEachIndexed { index, argument ->
-                        visualizeExpression(argument)
-                        if (index != valueArguments.size - 1){
-                            append(',')
-                            if (multiLine) {
-                                newLine()
-                            } else {
-                                space()
-                            }
-                        }
-                    }
-                }
+                visualizeArguments(valueArguments = valueArguments)
             }
         }
     }
@@ -1235,14 +1211,14 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeStatement(statement: Statement) {
-        visualizeStatementBase(statement.statement)
+    private fun visualizeStatement(statement: Statement, prefix: () -> Unit = { }) {
+        visualizeStatementBase(statement.statement, prefix)
     }
 
-    private fun visualizeStatementBase(statementBase: StatementBase) {
+    private fun visualizeStatementBase(statementBase: StatementBase, prefix: () -> Unit = { }) {
         when (statementBase) {
             is Declaration -> visualizeDeclaration(statementBase)
-            is BlockBody -> visualizeBlockBody(statementBase)
+            is BlockBody -> visualizeBlockBody(statementBase, prefix)
             is Branch -> visualizeBranch(statementBase)
             is Catch -> visualizeCatch(statementBase)
             is Expression -> visualizeExpression(statementBase)
@@ -1253,11 +1229,11 @@ class IrVisualBuilder(
     private fun visualizeSyntheticBody(statement: SyntheticBody) = Unit
     private fun visualizeBranch(statement: Branch) = Unit
 
-    private fun visualizeBlockBody(statement: BlockBody) {
+    private fun visualizeBlockBody(statement: BlockBody, prefix: (() -> Unit) = { }) {
         if (statement.statements.isEmpty()) {
-            withBraces(multiLine = false) { space() }
+            withBraces(multiLine = false, prefix = prefix) { space() }
         } else {
-            withBraces {
+            withBraces(prefix = prefix) {
                 val statements = statement.statements
                 statements.forEachIndexed { index, statement ->
                     visualizeStatement(statement)
@@ -1296,8 +1272,8 @@ class IrVisualBuilder(
         get() {
             val getThis = this.dispatchReceiver?.operation as? GetValue
             return getThis?.symbol?.signatureId?.let {
-                return signatureNames[it]?.let {
-                    strings(it) == "<this>"
+                return signatureNames[it]?.let { name ->
+                    strings(name) == "<this>"
                 } ?: false
             } ?: false
         }
@@ -1447,8 +1423,13 @@ class IrVisualBuilder(
         append(' ')
     }
 
-    private inline fun withBraces(multiLine: Boolean = true, block: () -> Unit) {
+    private inline fun withBraces(
+        multiLine: Boolean = true,
+        prefix: () -> Unit = { },
+        block: () -> Unit
+    ) {
         punctuation('{')
+        prefix()
         if (!multiLine) {
             block()
         } else {

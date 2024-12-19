@@ -106,7 +106,6 @@ import com.decomposer.ir.While
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.jetbrains.kotlin.backend.wasm.ir2wasm.bind
 import kotlin.math.max
 
 class IrVisualBuilder(
@@ -156,14 +155,19 @@ class IrVisualBuilder(
             newLine(indent = false)
             newLine(indent = false)
         }
-        sortedDeclarations.toList().forEachIndexed { index, entry ->
+        val declarationList = sortedDeclarations.toList()
+        declarationList.forEachIndexed { index, entry ->
             withTable(entry.second) {
                 val declaration = entry.first
-                val needsExtraLine = declaration is Function || declaration is Class
-                if (needsExtraLine && index != 0) newLine()
+                val currentExtraNewLine = declaration is Function || declaration is Class
+                val previous = if (index == 0) null else declarationList[index - 1].first
+                val previousExtraNewLine = previous?.let {
+                    previous is Function || previous is Class
+                } ?: false
+                if (currentExtraNewLine && index != 0) newLine()
+                else if (previousExtraNewLine) newLine()
                 visualizeDeclaration(declaration)
                 newLine()
-                if (needsExtraLine && index != sortedDeclarations.size - 1) newLine()
             }
         }
     }
@@ -554,7 +558,7 @@ class IrVisualBuilder(
         visualizeAnnotations(declaration.base.annotations, multiLine = false)
         signatureNames[declaration.base.symbol.signatureId] = declaration.nameIndex
         val name = strings(declaration.nameIndex)
-        symbol(name)
+        symbol(mapSpecial(name))
         if (!nameOnly) {
             punctuation(':')
             space()
@@ -791,7 +795,7 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeBlock(operation: Block, wrapBlock: Boolean = false) {
+    private fun visualizeBlock(operation: Block, wrapBlock: Boolean = true) {
         if (wrapBlock) {
             function("run")
             space()
@@ -1727,6 +1731,13 @@ class IrVisualBuilder(
             TypeOperator.INSTANCEOF -> Keyword.IS
             TypeOperator.NOT_INSTANCEOF -> Keyword.NOT_IS
             else -> null
+        }
+    }
+
+    private fun mapSpecial(name: String): String {
+        return when(name) {
+            "\$unused\$var\$" -> "_"
+            else -> name
         }
     }
 

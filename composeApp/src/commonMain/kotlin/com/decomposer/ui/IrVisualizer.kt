@@ -115,6 +115,7 @@ class IrVisualBuilder(
     private val packageName: String? = null,
     private val indentSize: Int = 2,
     private val theme: Theme = Theme.dark,
+    private val wrapCodeBlock: Boolean = false,
     private val highlights: List<Pair<Int, Int>> = emptyList(),
     private val onClickDescription: (Description) -> Unit,
 ) {
@@ -873,8 +874,8 @@ class IrVisualBuilder(
         }
     }
 
-    private fun visualizeBlock(operation: Block, wrapBlock: Boolean = true) {
-        if (wrapBlock) {
+    private fun visualizeBlock(operation: Block) {
+        if (wrapCodeBlock) {
             function("run")
             space()
             withBraces {
@@ -1119,6 +1120,7 @@ class IrVisualBuilder(
         operation.loop.labelIndex?.let {
             symbol(strings(it))
             punctuation('@')
+            space()
         }
         keyword(Keyword.WHILE)
         space()
@@ -1174,7 +1176,7 @@ class IrVisualBuilder(
             }
         }
         keywordSpaced(Keyword.WHILE)
-        withParentheses {
+        withParentheses(multiLine = false) {
             visualizeExpression(operation.loop.condition)
         }
     }

@@ -1,5 +1,7 @@
 package com.decomposer.sample.ir
 
+typealias A = Map<String, Map<Int, String>>
+
 enum class Lists {
     LIST1, LIST2, LIST3
 }
@@ -14,8 +16,10 @@ enum class State(private val state: String) {
 }
 
 fun needState(state: State) {
+    val data = DataClass("A", true)
+    val real = RealType("real")
     if (state == State.BAD) {
-        println("${Lists.LIST1} ${Lists.LIST3}")
+        println("${Lists.LIST1} ${Lists.LIST3} $data ${real.id}")
     } else {
         Lists.entries.forEach {
             println("$it")
@@ -34,7 +38,7 @@ internal class ToString {
     }
 
     operator fun get(index: Int): String {
-        return "ToString ${Real.INDEX} ${Real.DEFAULT}"
+        return "ToString ${Real.INDEX} ${Real.DEFAULT} $EmptyType"
     }
 }
 
@@ -96,4 +100,4 @@ class Real : MyBase<List<String>>(
 
 sealed interface Type
 data object EmptyType : Type
-class RealType(val id: String) : Type
+private class RealType(val id: String) : Type

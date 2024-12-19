@@ -59,6 +59,7 @@ fun IrPanel(
 ) {
     var compose by remember { mutableStateOf(true) }
     var kotlinLike by remember { mutableStateOf(true) }
+    var wrapCodeBlock by remember { mutableStateOf(true) }
     var kotlinLikeIr by remember { mutableStateOf<AnnotatedString?>(null) }
     var standardIr by remember { mutableStateOf<String?>(null) }
 
@@ -91,6 +92,13 @@ fun IrPanel(
                             kotlinLike = !kotlinLike
                         }
                     )
+                    ComposeToggle(
+                        text = "Wrap code block",
+                        checked = wrapCodeBlock,
+                        onCheckedChanged = {
+                            wrapCodeBlock = !wrapCodeBlock
+                        }
+                    )
                 }
                 CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike, highlight)
             }
@@ -99,7 +107,7 @@ fun IrPanel(
 
     val theme = LocalTheme.current
 
-    LaunchedEffect(filePath, compose, session.sessionId, highlight) {
+    LaunchedEffect(filePath, compose, session.sessionId, highlight, wrapCodeBlock) {
         if (filePath != null) {
             val packageName = projectSnapshot.packagesByPath[filePath]
             val virtualFileIr = session.getVirtualFileIr(filePath)
@@ -113,6 +121,7 @@ fun IrPanel(
                 val irVisualBuilder = IrVisualBuilder(
                     kotlinFile = kotlinFile,
                     packageName = packageName,
+                    wrapCodeBlock = wrapCodeBlock,
                     theme = theme,
                     highlights = highlight?.let { listOf(it) } ?: emptyList()
                 ) {

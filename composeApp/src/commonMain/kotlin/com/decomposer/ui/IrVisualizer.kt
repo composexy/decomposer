@@ -488,6 +488,7 @@ class IrVisualBuilder(
     private fun visualizeClass(declaration: Class) = withScope(ClassScope(declaration)) {
         fun DeclarationOrigin.shouldHide(): Boolean {
             return when(this) {
+                DeclarationOrigin.ENUM_CLASS_SPECIAL_MEMBER,
                 DeclarationOrigin.GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER,
                 DeclarationOrigin.GENERATED_MULTI_FIELD_VALUE_CLASS_MEMBER,
                 DeclarationOrigin.FAKE_OVERRIDE,
@@ -569,7 +570,7 @@ class IrVisualBuilder(
         val remainingDeclarations = declarationsNoPrimary.toMutableList()
         remainingDeclarations.removeAll(constructorProperties.filterNotNull())
         val functionsToHide = declarationsNoPrimary.filter {
-            it is Function && it.base.base.origin?.shouldHide() == true
+            it.base.origin?.shouldHide() == true
         }
         remainingDeclarations.removeAll(functionsToHide)
         if (remainingDeclarations.isNotEmpty()) {
@@ -1281,7 +1282,16 @@ class IrVisualBuilder(
                         }
                     }
                 }
-                val valueArguments = operation.memberAccess.valueArguments.filterNotNull()
+                val valueArguments = operation.memberAccess.valueArguments
+                    .filterNotNull()
+                    .filter {
+                        if (it.operation is Composite) {
+                            val origin = it.operation.originNameIndex?.statementOrigin
+                            origin != StatementOrigin.DEFAULT_VALUE
+                        } else {
+                            true
+                        }
+                    }
                 visualizeValueArguments(valueArguments = valueArguments)
             }
         }
@@ -1820,20 +1830,23 @@ class IrVisualBuilder(
         }
 
     private val Declaration.range: Coordinate
+        get() = this.base.coordinate
+
+    private val Declaration.base: DeclarationBase
         get() = when (this) {
-            is Function -> this.base.base.coordinate
-            is AnonymousInit -> this.base.coordinate
-            is Class -> this.base.coordinate
-            is Constructor -> this.base.base.coordinate
-            is EnumEntry -> this.base.coordinate
-            is ErrorDeclaration -> this.coordinate
-            is Field -> this.base.coordinate
-            is LocalDelegatedProperty -> this.base.coordinate
-            is Property -> this.base.coordinate
-            is TypeAlias -> this.base.coordinate
-            is TypeParameter -> this.base.coordinate
-            is ValueParameter -> this.base.coordinate
-            is Variable -> this.base.coordinate
+            is Function -> this.base.base
+            is AnonymousInit -> this.base
+            is Class -> this.base
+            is Constructor -> this.base.base
+            is EnumEntry -> this.base
+            is ErrorDeclaration -> this.base
+            is Field -> this.base
+            is LocalDelegatedProperty -> this.base
+            is Property -> this.base
+            is TypeAlias -> this.base
+            is TypeParameter -> this.base
+            is ValueParameter -> this.base
+            is Variable -> this.base
         }
 
     private fun TypeOperator.mapKeyword(): Keyword? {

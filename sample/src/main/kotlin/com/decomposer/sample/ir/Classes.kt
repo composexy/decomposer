@@ -1,5 +1,28 @@
 package com.decomposer.sample.ir
 
+enum class Lists {
+    LIST1, LIST2, LIST3
+}
+
+enum class State(private val state: String) {
+    GOOD("good"),
+    BAD("bad");
+
+    fun printState() {
+        println("$state ${GOOD.state}")
+    }
+}
+
+fun needState(state: State) {
+    if (state == State.BAD) {
+        println("${Lists.LIST1} ${Lists.LIST3}")
+    } else {
+        Lists.entries.forEach {
+            println("$it")
+        }
+    }
+}
+
 data class DataClass(
     val data1: String,
     val data2: Boolean = false

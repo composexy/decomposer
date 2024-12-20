@@ -770,6 +770,7 @@ class IrVisualBuilder(
     }
 
     private fun visualizeLambda(function: FunctionBase) {
+        recordSignatures(function)
         val startOffset = function.base.coordinate.startOffset
         val endOffset = function.base.coordinate.endOffset
         val highlighting = highlights.firstOrNull {
@@ -911,11 +912,22 @@ class IrVisualBuilder(
 
     private fun visualizeGetValue(operation: GetValue) {
         val signatureId = operation.symbol.signatureId
-        val name = signatureNames[signatureId]?.let {
+        signatureNames[signatureId]?.let {
             val original = strings(it)
+            when {
+                original == "<this>" -> keyword(Keyword.THIS)
+                original.startsWith("\$this") -> {
+                    val parts = original.substring(1).split("$")
+                    keyword(Keyword.THIS)
+                    if (parts.size > 1) {
+                        punctuation('@')
+                        symbol(parts[1])
+                    }
+                }
+                else -> symbol(original)
+            }
             if (original == "<this>") "this" else original
-        } ?: ""
-        symbol(name)
+        }
     }
 
     private fun visualizeGetObject(operation: GetObject) {

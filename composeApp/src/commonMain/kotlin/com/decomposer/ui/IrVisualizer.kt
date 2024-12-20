@@ -1328,9 +1328,14 @@ class IrVisualBuilder(
                 wrap("in", expression, opReceiver)
             }
             "equals", "EQEQ" -> {
-                val left = operation.memberAccess.valueArguments[0]!!
-                val right = operation.memberAccess.valueArguments[1]!!
-                wrap("==", left, right)
+                val opReceiver = operation.memberAccess.receiver
+                val first = operation.memberAccess.valueArguments[0]!!
+                if (opReceiver != null) {
+                    wrap("==", opReceiver, first)
+                } else {
+                    val second = operation.memberAccess.valueArguments[1]!!
+                    wrap("==", first, second)
+                }
             }
             "EQEQEQ" -> {
                 val left = operation.memberAccess.valueArguments[0]!!

@@ -3,7 +3,7 @@
 set -e
 
 ALL_PROJECTS=(
-":compiler-plugin"
+  ":compiler-plugin"
   ":compiler-plugin-gradle"
   ":runtime"
 )

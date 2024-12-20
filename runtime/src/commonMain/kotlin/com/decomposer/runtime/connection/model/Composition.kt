@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 class CompositionRoots(
     val compositionData: List<CompositionRoot>,
     val stateTable: List<ComposeState>,
+    val snapshotObserverStateTable: Map<Int, List<Int>>,
     val stringTable: List<String>,
     val dataTable: List<Data>,
     val groupTable: List<Group>

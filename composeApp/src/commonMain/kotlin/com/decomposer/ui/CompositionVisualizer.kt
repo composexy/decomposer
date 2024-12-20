@@ -11,9 +11,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -626,8 +628,9 @@ private fun ExpandedRecomposeScope(
 @Composable
 private fun ExpandedStatesTable(
     states: List<ComposeState>,
-    contexts: Contexts
-) {
+    contexts: Contexts,
+    snapshotObservers: Map<Int, List<Int>> = emptyMap()
+) = with(contexts) {
     val verticalScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val expandedMap: SnapshotStateMap<Int, Boolean> = remember {
@@ -656,6 +659,47 @@ private fun ExpandedStatesTable(
                         }
                     ) {
                         expandedMap[it] = !(expandedMap[it] ?: false)
+                    }
+                }
+            }
+
+            if (snapshotObservers.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.fillMaxWidth().height(AppSetting.fontSize.dp))
+                }
+                item {
+                    DefaultPanelText(text = "Snapshot state observer maps")
+                }
+                val totalScopes = snapshotObservers.size
+                val totalStates = snapshotObservers.values.sumOf { it.size }
+                var stateIndex = -1
+                snapshotObservers.toList().forEachIndexed { index, pair ->
+                    val scope = data(pair.first)
+                    val statesInScope = pair.second.map { state(it) }
+                    item {
+                        RowWithLineNumber(lineNumber = index + 1, lines = totalScopes) {
+                            DataItem(
+                                data = scope,
+                                contexts = contexts,
+                                expanded = false,
+                                showIcon = false,
+                                clickable = false
+                            )
+                        }
+                    }
+                    items(statesInScope.size) {
+                        stateIndex++
+                        Box(modifier = Modifier.padding(start = AppSetting.fontSize.dp)) {
+                            RowWithLineNumber(lineNumber = stateIndex + 1, lines = totalStates) {
+                                StateItem(
+                                    modifier = Modifier.padding(4.dp),
+                                    state = statesInScope[it],
+                                    expanded = false,
+                                    clickable = false,
+                                    contexts = contexts
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -724,7 +768,11 @@ private fun ExpandedRoots(
     rootsNode: CompositionRoots,
     contexts: Contexts
 ) {
-    ExpandedStatesTable(rootsNode.stateTable.toList(), contexts)
+    ExpandedStatesTable(
+        rootsNode.stateTable.toList(),
+        contexts,
+        rootsNode.snapshotObserverStateTable
+    )
 }
 
 @Composable

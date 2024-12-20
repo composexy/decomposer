@@ -6,6 +6,8 @@ import androidx.collection.ScatterMap
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collection.MutableVector
+import androidx.compose.runtime.snapshots.SnapshotStateObserver
 import androidx.compose.runtime.snapshots.StateObject
 import androidx.compose.runtime.tooling.CompositionData
 import androidx.compose.ui.Modifier
@@ -533,6 +535,59 @@ internal class CompositionContextHolderReflection(
     companion object {
         private const val COMPOSITION_CONTEXT_HOLDER_REF = "ref"
         private const val TAG = "CompositionContextHolderReflection"
+    }
+}
+
+internal class SnapshotStateObserverReflection(
+    private val snapshotStateObserver: SnapshotStateObserver,
+    private val logger: Logger
+) {
+    val stateMap: Map<Any, List<Any>>
+        get() {
+            val observedScopeMapClazz = snapshotStateObserver::class
+            val observedScopeMapProperty = observedScopeMapClazz.declaredMembers
+                .find { it.name == OBSERVED_SCOPE_MAP } as? KProperty1<Any, *>
+            if (observedScopeMapProperty == null) {
+                logger.log(Logger.Level.WARNING, TAG, "Cannot find observedScopeMaps property!")
+                return emptyMap()
+            }
+            observedScopeMapProperty.isAccessible = true
+            val observedScopeMaps = observedScopeMapProperty.get(snapshotStateObserver) as? MutableVector<Any>
+            if (observedScopeMaps == null){
+                logger.log(Logger.Level.WARNING, TAG, "Cannot get observedScopeMaps!")
+                return emptyMap()
+            }
+            val result = mutableMapOf<Any, List<Any>>()
+            observedScopeMaps.forEach { scopeMap ->
+                val scopeMapClazz = scopeMap::class
+                val scopeToValuesProperty = scopeMapClazz.declaredMembers
+                    .find { it.name == SCOPE_TO_VALUES } as? KProperty1<Any, *>
+                if (scopeToValuesProperty == null) {
+                    logger.log(Logger.Level.WARNING, TAG, "Cannot find scopeToValues property!")
+                    return@forEach
+                }
+                scopeToValuesProperty.isAccessible = true
+                val map = scopeToValuesProperty.get(scopeMap) as? ScatterMap<Any, ObjectIntMap<Any>>
+                if (map == null) {
+                    logger.log(Logger.Level.WARNING, TAG, "Cannot get scopeToValues value!")
+                    return@forEach
+                }
+                val values = map.asMap().mapValues {
+                    val states = mutableListOf<Any>()
+                    it.value.forEachKey { state ->
+                        states.add(state)
+                    }
+                    states
+                }
+                result.putAll(values)
+            }
+            return result
+        }
+
+    companion object {
+        private const val OBSERVED_SCOPE_MAP = "observedScopeMaps"
+        private const val SCOPE_TO_VALUES = "scopeToValues"
+        private const val TAG = "SnapshotStateObserverReflection"
     }
 }
 

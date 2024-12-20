@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.State
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.runtime.snapshots.SnapshotStateObserver
 import androidx.compose.runtime.tooling.CompositionData
 import androidx.compose.runtime.tooling.CompositionGroup
 import androidx.compose.ui.Modifier
@@ -39,18 +40,49 @@ internal abstract class CompositionNormalizer(
 
     abstract suspend fun extractCompositionRoots(): CompositionRoots
 
-    protected fun map(compositions: List<Composition>): CompositionRoots {
+    protected fun map(
+        compositions: List<Composition>,
+        snapshotStateObservers: List<SnapshotStateObserver>
+    ): CompositionRoots {
         val context = NormalizerContext()
+        val snapshotObserverStateTable = map(snapshotStateObservers, context)
         val roots = compositions.map { composition ->
             map(composition, context)
         }
         return CompositionRoots(
             compositionData = roots,
             stateTable = context.stateTable,
+            snapshotObserverStateTable = snapshotObserverStateTable,
             stringTable = context.stringTable,
             dataTable = context.dataTable,
             groupTable = context.groupTable
         )
+    }
+
+    private fun map(
+        snapshotStateObservers: List<SnapshotStateObserver>,
+        context: NormalizerContext
+    ): Map<Int, List<Int>> {
+        return with(context) {
+            val map = mutableMapOf<Int, List<Int>>()
+            snapshotStateObservers.forEach {
+                val reflection = SnapshotStateObserverReflection(it, logger)
+                reflection.stateMap.forEach { entry ->
+                    val scope = data(entry.key) { scope ->
+                        mapData(scope, emptyMap(), context)
+                    }
+                    val states = entry.value.mapNotNull { state ->
+                        if (state is State<*>) {
+                            state(state) {
+                                mapState(state, emptyMap(), context)
+                            }
+                        } else null
+                    }
+                    map[scope] = states
+                }
+            }
+            map
+        }
     }
 
     private fun map(composition: Composition, context: NormalizerContext): CompositionRoot {

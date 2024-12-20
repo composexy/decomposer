@@ -1228,7 +1228,7 @@ class IrVisualBuilder(
                 value("${operation.value}f")
             }
             is IntConst -> {
-                withDescription(Description(operation.value.toString(2))) {
+                withDescription(DescriptionBuilder.buildDescription(operation)) {
                     value(operation.value.toString())
                 }
             }
@@ -2398,3 +2398,34 @@ data class Description(
 ) : AnnotationData
 
 class IrVisualData(val annotatedString: AnnotatedString)
+
+private object DescriptionBuilder {
+    fun buildDescription(intConst: IntConst): Description {
+        // Assume the intConst is for changed bits
+        val changed = intConst.value.toUInt().toString(2).padStart(32, '0')
+        val last = changed.last()
+        val remaining = changed.dropLast(1)
+        val firstPartSize = remaining.length % 3
+        val parts = if (firstPartSize == 0) {
+            remaining.chunked(3) + last
+        } else {
+            listOf(remaining.take(firstPartSize)) + remaining.drop(firstPartSize).chunked(3) + last
+        }
+        return Description(
+            """
+                ${intConst.value} in binary format: ${parts.joinToString(" ")} 
+                
+                Stability bits:
+                0b100 -> Unstable
+                0b000 -> Stable
+                
+                Changed bits:
+                0b000 -> Uncertain
+                0b001 -> Same
+                0b010 -> Different
+                0b011 -> Static
+                0b100 -> Unknown
+            """.trimIndent()
+        )
+    }
+}

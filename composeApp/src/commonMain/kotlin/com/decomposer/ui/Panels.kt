@@ -151,6 +151,7 @@ fun Panels(
                                 projectSnapshot = projectSnapshot,
                                 highlight = highlight,
                                 onShowPopup = { panelsState.currentPopup = it },
+                                onShowWindow = { panelsState.addWindow(it) }
                             )
                         }
                         if (panelsState.compositionViewerVisible) {

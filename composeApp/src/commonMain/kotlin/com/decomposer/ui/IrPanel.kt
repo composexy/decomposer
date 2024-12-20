@@ -2,6 +2,7 @@ package com.decomposer.ui
 
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,6 +39,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decomposer.ir.IrProcessor
@@ -55,7 +58,8 @@ fun IrPanel(
     filePath: String?,
     projectSnapshot: ProjectSnapshot,
     highlight: Pair<Int, Int>?,
-    onShowPopup: (@Composable () -> Unit) -> Unit
+    onShowPopup: (@Composable () -> Unit) -> Unit,
+    onShowWindow: (Pair<String, @Composable () -> Unit>) -> Unit
 ) {
     var compose by remember { mutableStateOf(true) }
     var kotlinLike by remember { mutableStateOf(true) }
@@ -134,7 +138,9 @@ fun IrPanel(
                     theme = theme,
                     highlights = highlight?.let { listOf(it) } ?: emptyList()
                 ) {
-                    onShowPopup @Composable { IrDescription(it.description) }
+                    onShowWindow(
+                        "Binary format" to @Composable { IrDescription(it.description) }
+                    )
                 }
                 kotlinLikeIr = irVisualBuilder.visualize().annotatedString
                 standardIr = kotlinFile.standardIrDump
@@ -148,7 +154,18 @@ fun IrPanel(
 
 @Composable
 private fun IrDescription(text: String) {
-    DefaultPanelText(text)
+    val fontSize = AppSetting.fontSize
+    Text(
+        modifier = Modifier.fillMaxSize(),
+        text = text,
+        textAlign = TextAlign.Start,
+        fontFamily = Fonts.jetbrainsMono(),
+        fontSize = fontSize.sp,
+        fontWeight = FontWeight.Light,
+        lineHeight = (fontSize * 1.5).sp,
+        overflow = TextOverflow.Ellipsis,
+        maxLines = Int.MAX_VALUE
+    )
 }
 
 private val VirtualFileIr.isEmpty: Boolean

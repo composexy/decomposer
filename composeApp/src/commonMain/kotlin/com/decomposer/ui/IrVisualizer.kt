@@ -68,6 +68,7 @@ import com.decomposer.ir.LongConst
 import com.decomposer.ir.MemberAccess
 import com.decomposer.ir.Modality
 import com.decomposer.ir.NullConst
+import com.decomposer.ir.Operation
 import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
@@ -115,7 +116,8 @@ class IrVisualBuilder(
     private val packageName: String? = null,
     private val indentSize: Int = 2,
     private val theme: Theme = Theme.dark,
-    private val wrapCodeBlock: Boolean = false,
+    private val wrapCodeBlock: Boolean = true,
+    private val renderOperator: Boolean = true,
     private val highlights: List<Pair<Int, Int>> = emptyList(),
     private val onClickDescription: (Description) -> Unit,
 ) {
@@ -1159,9 +1161,6 @@ class IrVisualBuilder(
         symbol(operation.symbol.declarationName)
     }
 
-    private fun visualizeErrorExpression(operation: ErrorExpression) = Unit
-    private fun visualizeErrorCallExpression(operation: ErrorCallExpression) = Unit
-
     private fun visualizeEnumConstructorCall(operation: EnumConstructorCall) {
         val valueArguments = operation.memberAccess.valueArguments
 
@@ -1175,9 +1174,6 @@ class IrVisualBuilder(
             }
         }
     }
-
-    private fun visualizeDynamicOperatorExpression(operation: DynamicOperatorExpression) = Unit
-    private fun visualizeDynamicMemberExpression(operation: DynamicMemberExpression) = Unit
 
     private fun visualizeDoWhile(operation: DoWhile) {
         keyword(Keyword.DO)
@@ -1266,7 +1262,119 @@ class IrVisualBuilder(
         keyword(Keyword.CLASS)
     }
 
-    private fun visualizeCall(operation: Call) {
+    private fun visualizeCallRich(operation: Call) {
+        fun String.asOperator(): String {
+            return when(this) {
+                "rem" -> "%"
+                "plus" -> "+"
+                "minus" -> "-"
+                "times" -> "*"
+                "div" -> "/"
+                "greater" -> ">"
+                "less" -> "<"
+                "greaterOrEqual" -> ">="
+                "lessOrEqual" -> "<="
+                "to" -> "to"
+                "until" -> "until"
+                "rangeTo" -> ".."
+                else -> ""
+            }
+        }
+
+        val origin = operation.originNameIndex?.statementOrigin
+        val fqName = operation.symbol.fqName
+        val name = operation.symbol.name
+        if (!fqName.startsWith("kotlin")) return visualizeCallPlain(operation)
+        when(name) {
+            "not" -> {
+                val receiver = operation.memberAccess.dispatchReceiver
+                val op = receiver?.operation
+                if (op is Call) {
+                    val opFq = op.symbol.fqName
+                    val opName = op.symbol.name
+                    when {
+                        opFq.startsWith("kotlin") && opName == "contains" -> {
+                            val opReceiver = op.memberAccess.receiver!!
+                            val expression = op.memberAccess.valueArguments[0]!!
+                            wrap("!in", expression, opReceiver)
+                        }
+                        opFq.startsWith("kotlin")
+                                && (opName == "equals" || opName == "EQEQ") -> {
+                            val left = op.memberAccess.valueArguments[0]!!
+                            val right = op.memberAccess.valueArguments[1]!!
+                            wrap("!=", left, right)
+                        }
+                        opFq.startsWith("kotlin") && opName == "EQEQEQ" -> {
+                            val left = op.memberAccess.valueArguments[0]!!
+                            val right = op.memberAccess.valueArguments[1]!!
+                            wrap("!==", left, right)
+                        }
+                    }
+                }
+            }
+            "contains" -> {
+                val opReceiver = operation.memberAccess.receiver!!
+                val expression = operation.memberAccess.valueArguments[0]!!
+                wrap("in", expression, opReceiver)
+            }
+            "equals", "EQEQ" -> {
+                val left = operation.memberAccess.valueArguments[0]!!
+                val right = operation.memberAccess.valueArguments[1]!!
+                wrap("==", left, right)
+            }
+            "EQEQEQ" -> {
+                val left = operation.memberAccess.valueArguments[0]!!
+                val right = operation.memberAccess.valueArguments[1]!!
+                wrap("===", left, right)
+            }
+            "unaryMinus" -> {
+                unaryPre("-", operation.memberAccess.receiver!!)
+            }
+            "unaryPlus" -> {
+                unaryPre("+", operation.memberAccess.receiver!!)
+            }
+            "dec" -> {
+                if (origin == StatementOrigin.PREFIX_DECR) {
+                    unaryPre("--", operation.memberAccess.receiver!!)
+                } else {
+                    visualizeCallPlain(operation)
+                }
+            }
+            "inc" -> {
+                if (origin == StatementOrigin.PREFIX_DECR) {
+                    unaryPre("++", operation.memberAccess.receiver!!)
+                } else {
+                    visualizeCallPlain(operation)
+                }
+            }
+            "get" -> {
+                val index = operation.memberAccess.valueArguments[0]!!
+                wrap("[", "]", operation.memberAccess.receiver!!, index)
+            }
+            "greater",
+            "less",
+            "greaterOrEqual",
+            "lessOrEqual" -> {
+                val left = operation.memberAccess.valueArguments[0]!!
+                val right = operation.memberAccess.valueArguments[1]!!
+                wrap(name.asOperator(), left, right)
+            }
+            "rem",
+            "plus",
+            "minus",
+            "times",
+            "div",
+            "to",
+            "until",
+            "rangeTo" -> {
+                val value = operation.memberAccess.valueArguments[0]!!
+                wrap(name.asOperator(), operation.memberAccess.receiver!!, value)
+            }
+            else -> visualizeCallPlain(operation)
+        }
+    }
+
+    private fun visualizeCallPlain(operation: Call) {
         when {
             operation.superSymbol != null -> {
                 visualizeSuperSymbol(operation.superSymbol)
@@ -1308,6 +1416,14 @@ class IrVisualBuilder(
                     }
                 visualizeValueArguments(valueArguments = valueArguments)
             }
+        }
+    }
+
+    private fun visualizeCall(operation: Call) {
+        if (renderOperator) {
+            visualizeCallRich(operation)
+        } else {
+            visualizeCallPlain(operation)
         }
     }
 
@@ -1454,6 +1570,29 @@ class IrVisualBuilder(
 
     private fun types(index: Int): SimpleType {
         return currentTable!!.types.data[index]
+    }
+
+    private fun wrap(operator: String, left: Expression, right: Expression) {
+        visualizeExpression(left)
+        punctuationSpaced(operator)
+        visualizeExpression(right)
+    }
+
+    private fun wrap(opLeft: String, opRight: String, left: Expression, right: Expression) {
+        visualizeExpression(left)
+        punctuation(opLeft)
+        visualizeExpression(right)
+        punctuation(opRight)
+    }
+
+    private fun unaryPre(operator: String, expression: Expression) {
+        punctuation(operator)
+        visualizeExpression(expression)
+    }
+
+    private fun unaryPost(operator: String, expression: Expression) {
+        visualizeExpression(expression)
+        punctuation(operator)
     }
 
     private inline fun withQuotes(block: () -> Unit) {
@@ -1649,6 +1788,8 @@ class IrVisualBuilder(
             }
         }
 
+    private val MemberAccess.receiver: Expression?
+        get() = this.dispatchReceiver ?: this.extensionReceiver
 
     private val Visibility.keyword: Keyword?
         get() {
@@ -1934,6 +2075,11 @@ class IrVisualBuilder(
         return fqName == this.symbol.fqName && this.isMarkedNullable()
     }
 
+    private fun visualizeErrorExpression(operation: ErrorExpression) = Unit
+    private fun visualizeErrorCallExpression(operation: ErrorCallExpression) = Unit
+    private fun visualizeDynamicOperatorExpression(operation: DynamicOperatorExpression) = Unit
+    private fun visualizeDynamicMemberExpression(operation: DynamicMemberExpression) = Unit
+
     companion object {
         const val TAG_SOURCE_LOCATION = "SOURCE_LOCATION"
         const val TAG_DESCRIPTION = "DESCRIPTION"
@@ -1944,72 +2090,72 @@ class IrVisualBuilder(
     }
 }
 
-enum class StatementOrigin(val value: String?) {
-    SAFE_CALL(null),
-    UMINUS("-"),
-    UPLUS("+"),
-    EXCL("!"),
-    EXCLEXCL("!!"),
-    ELVIS("?:"),
-    LT("<"),
-    GT(">"),
-    LTEQ("<="),
-    GTEQ(">="),
-    EQEQ("=="),
-    EQEQEQ("==="),
-    EXCLEQ("!="),
-    EXCLEQEQ("!=="),
-    IN("in"),
-    NOT_IN("!in"),
-    ANDAND("&&"),
-    OROR("||"),
-    PLUS("+"),
-    MINUS("-"),
-    MUL("*"),
-    DIV("/"),
-    PERC("%"),
-    RANGE(".."),
-    RANGE_UNTIL("until"),
-    INVOKE(null),
-    VARIABLE_AS_FUNCTION(null),
-    GET_ARRAY_ELEMENT(null),
-    PREFIX_INCR("++"),
-    PREFIX_DECR("--"),
-    POSTFIX_INCR("++"),
-    POSTFIX_DECR("--"),
-    EQ("="),
-    PLUSEQ("+="),
-    MINUSEQ("-="),
-    MULTEQ("*="),
-    DIVEQ("/="),
-    PERCEQ("%="),
-    ARGUMENTS_REORDERING_FOR_CALL(null),
-    DESTRUCTURING_DECLARATION(null),
-    GET_PROPERTY(null),
-    GET_LOCAL_PROPERTY(null),
-    IF(null),
-    WHEN(null),
-    WHEN_COMMA(null),
-    WHILE_LOOP(null),
-    DO_WHILE_LOOP(null),
-    FOR_LOOP(null),
-    FOR_LOOP_ITERATOR(null),
-    FOR_LOOP_INNER_WHILE(null),
-    FOR_LOOP_HAS_NEXT(null),
-    FOR_LOOP_NEXT(null),
-    LAMBDA(null),
-    DEFAULT_VALUE(null),
-    ANONYMOUS_FUNCTION(null),
-    OBJECT_LITERAL(null),
-    ADAPTED_FUNCTION_REFERENCE(null),
-    SUSPEND_CONVERSION(null),
-    FUN_INTERFACE_CONSTRUCTOR_REFERENCE(null),
-    INITIALIZE_PROPERTY_FROM_PARAMETER(null),
-    INITIALIZE_FIELD(null),
-    PROPERTY_REFERENCE_FOR_DELEGATE(null),
-    BRIDGE_DELEGATION(null),
-    SYNTHETIC_NOT_AUTOBOXED_CHECK(null),
-    PARTIAL_LINKAGE_RUNTIME_ERROR(null),
+enum class StatementOrigin {
+    SAFE_CALL,
+    UMINUS,
+    UPLUS,
+    EXCL,
+    EXCLEXCL,
+    ELVIS,
+    LT,
+    GT,
+    LTEQ,
+    GTEQ,
+    EQEQ,
+    EQEQEQ,
+    EXCLEQ,
+    EXCLEQEQ,
+    IN,
+    NOT_IN,
+    ANDAND,
+    OROR,
+    PLUS,
+    MINUS,
+    MUL,
+    DIV,
+    PERC,
+    RANGE,
+    RANGE_UNTIL,
+    INVOKE,
+    VARIABLE_AS_FUNCTION,
+    GET_ARRAY_ELEMENT,
+    PREFIX_INCR,
+    PREFIX_DECR,
+    POSTFIX_INCR,
+    POSTFIX_DECR,
+    EQ,
+    PLUSEQ,
+    MINUSEQ,
+    MULTEQ,
+    DIVEQ,
+    PERCEQ,
+    ARGUMENTS_REORDERING_FOR_CALL,
+    DESTRUCTURING_DECLARATION,
+    GET_PROPERTY,
+    GET_LOCAL_PROPERTY,
+    IF,
+    WHEN,
+    WHEN_COMMA,
+    WHILE_LOOP,
+    DO_WHILE_LOOP,
+    FOR_LOOP,
+    FOR_LOOP_ITERATOR,
+    FOR_LOOP_INNER_WHILE,
+    FOR_LOOP_HAS_NEXT,
+    FOR_LOOP_NEXT,
+    LAMBDA,
+    DEFAULT_VALUE,
+    ANONYMOUS_FUNCTION,
+    OBJECT_LITERAL,
+    ADAPTED_FUNCTION_REFERENCE,
+    SUSPEND_CONVERSION,
+    FUN_INTERFACE_CONSTRUCTOR_REFERENCE,
+    INITIALIZE_PROPERTY_FROM_PARAMETER,
+    INITIALIZE_FIELD,
+    PROPERTY_REFERENCE_FOR_DELEGATE,
+    BRIDGE_DELEGATION,
+    SYNTHETIC_NOT_AUTOBOXED_CHECK,
+    PARTIAL_LINKAGE_RUNTIME_ERROR;
 }
 
 enum class DeclarationOrigin {

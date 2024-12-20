@@ -1794,13 +1794,13 @@ class IrVisualBuilder(
     private val Signature.declarationName: String
         get() {
             return when(this) {
-                is AccessorSignature -> signatures(this.propertySignatureIndex).name
+                is AccessorSignature -> signatures(this.propertySignatureIndex).declarationName
                 is CommonSignature -> buildString {
                     val declarationName = this@declarationName.declarationFqNameIndexes
                         .joinToString(".") { strings(it) }
                     append(declarationName)
                 }
-                is CompositeSignature -> signatures(this.innerSignatureIndex).name
+                is CompositeSignature -> signatures(this.innerSignatureIndex).declarationName
                 is LocalSignature -> buildString {
                     val declarationName = this@declarationName.localFqNameIndexes
                         .joinToString(".") { strings(it) }

@@ -32,7 +32,7 @@ fun SimpleBoxWithConstraints() {
 @Composable
 fun SimpleLazyColumn() {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(100) {
+        items(200) {
             Text(
                 modifier = Modifier.wrapContentHeight().fillMaxWidth(),
                 text = "Index $it",

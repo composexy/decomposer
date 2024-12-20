@@ -64,7 +64,8 @@ val contentList = listOf(
     SampleContent(displayName = "Simple Dialog", content = { SimpleDialog() }),
     SampleContent(displayName = "Simple Popup", content = { SimplePopup() }),
     SampleContent(displayName = "Simple BoxWithConstraints", content = { SimpleBoxWithConstraints() }),
-    SampleContent(displayName = "Simple LazyColumn", content = { SimpleLazyColumn() })
+    SampleContent(displayName = "Simple LazyColumn", content = { SimpleLazyColumn() }),
+    SampleContent(displayName = "Simple State Reader", content = { SimpleStateReader() })
 )
 
 class SampleContent(

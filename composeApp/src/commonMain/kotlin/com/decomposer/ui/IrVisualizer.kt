@@ -1301,20 +1301,35 @@ class IrVisualBuilder(
                     val opName = op.symbol.name
                     when {
                         opFq.startsWith("kotlin") && opName == "contains" -> {
-                            val opReceiver = op.memberAccess.receiver!!
-                            val expression = op.memberAccess.valueArguments[0]!!
-                            wrap("!in", expression, opReceiver)
+                            val opReceiver = op.memberAccess.receiver
+                            val expression = op.memberAccess.valueArguments.firstOrNull()
+                            if (opReceiver == null || expression == null) {
+                                visualizeCallPlain(operation)
+                            } else {
+                                wrap("!in", expression, opReceiver)
+                            }
                         }
                         opFq.startsWith("kotlin")
                                 && (opName == "equals" || opName == "EQEQ") -> {
-                            val left = op.memberAccess.valueArguments[0]!!
-                            val right = op.memberAccess.valueArguments[1]!!
-                            wrap("!=", left, right)
+                            val opReceiver = op.memberAccess.receiver
+                            val first = op.memberAccess.valueArguments.firstOrNull()
+                            val second = op.memberAccess.valueArguments.getOrNull(1)
+                            if (opReceiver != null && first != null) {
+                                wrap("!=", opReceiver, first)
+                            } else if (first != null && second != null) {
+                                wrap("!=", first, second)
+                            } else {
+                                visualizeCallPlain(operation)
+                            }
                         }
                         opFq.startsWith("kotlin") && opName == "EQEQEQ" -> {
-                            val left = op.memberAccess.valueArguments[0]!!
-                            val right = op.memberAccess.valueArguments[1]!!
-                            wrap("!==", left, right)
+                            val left = op.memberAccess.valueArguments.firstOrNull()
+                            val right = op.memberAccess.valueArguments.getOrNull(1)
+                            if (left == null || right == null) {
+                                visualizeCallPlain(operation)
+                            } else {
+                                wrap("!==", left, right)
+                            }
                         }
                         else -> {
                             unaryPre("!", receiver)
@@ -1323,49 +1338,66 @@ class IrVisualBuilder(
                 }
             }
             "contains" -> {
-                val opReceiver = operation.memberAccess.receiver!!
-                val expression = operation.memberAccess.valueArguments[0]!!
-                wrap("in", expression, opReceiver)
+                val opReceiver = operation.memberAccess.receiver
+                val expression = operation.memberAccess.valueArguments.firstOrNull()
+                if (opReceiver == null || expression == null) {
+                    visualizeCallPlain(operation)
+                } else {
+                    wrap("in", expression, opReceiver)
+                }
             }
             "equals", "EQEQ" -> {
                 val opReceiver = operation.memberAccess.receiver
-                val first = operation.memberAccess.valueArguments[0]!!
-                if (opReceiver != null) {
+                val first = operation.memberAccess.valueArguments.firstOrNull()
+                val second = operation.memberAccess.valueArguments.getOrNull(1)
+                if (opReceiver != null && first != null) {
                     wrap("==", opReceiver, first)
-                } else {
-                    val second = operation.memberAccess.valueArguments[1]!!
+                } else if (first != null && second != null) {
                     wrap("==", first, second)
+                } else {
+                    visualizeCallPlain(operation)
                 }
             }
             "EQEQEQ" -> {
-                val left = operation.memberAccess.valueArguments[0]!!
-                val right = operation.memberAccess.valueArguments[1]!!
-                wrap("===", left, right)
+                val left = operation.memberAccess.valueArguments.firstOrNull()
+                val right = operation.memberAccess.valueArguments.getOrNull(1)
+                if (left == null || right == null) {
+                    visualizeCallPlain(operation)
+                } else {
+                    wrap("===", left, right)
+                }
             }
             "unaryMinus" -> {
-                unaryPre("-", operation.memberAccess.receiver!!)
+                operation.memberAccess.receiver?.let {
+                    unaryPre("-", it)
+                } ?: visualizeCallPlain(operation)
             }
             "unaryPlus" -> {
-                unaryPre("+", operation.memberAccess.receiver!!)
+                operation.memberAccess.receiver?.let {
+                    unaryPre("+", it)
+                } ?: visualizeCallPlain(operation)
             }
             "dec" -> {
-                if (origin == StatementOrigin.PREFIX_DECR) {
-                    unaryPre("--", operation.memberAccess.receiver!!)
+                val receiver = operation.memberAccess.receiver
+                if (origin == StatementOrigin.PREFIX_DECR && receiver != null) {
+                    unaryPre("--", receiver)
                 } else {
                     visualizeCallPlain(operation)
                 }
             }
             "inc" -> {
-                if (origin == StatementOrigin.PREFIX_DECR) {
+                val receiver = operation.memberAccess.receiver
+                if (origin == StatementOrigin.PREFIX_INCR && receiver != null) {
                     unaryPre("++", operation.memberAccess.receiver!!)
                 } else {
                     visualizeCallPlain(operation)
                 }
             }
             "get" -> {
-                if (origin == StatementOrigin.GET_ARRAY_ELEMENT) {
-                    val index = operation.memberAccess.valueArguments[0]!!
-                    wrap("[", "]", operation.memberAccess.receiver!!, index)
+                val receiver = operation.memberAccess.receiver
+                val index = operation.memberAccess.valueArguments.firstOrNull()
+                if (origin == StatementOrigin.GET_ARRAY_ELEMENT && index != null && receiver != null) {
+                    wrap("[", "]", receiver, index)
                 } else {
                     visualizeCallPlain(operation)
                 }
@@ -1374,9 +1406,13 @@ class IrVisualBuilder(
             "less",
             "greaterOrEqual",
             "lessOrEqual" -> {
-                val left = operation.memberAccess.valueArguments[0]!!
-                val right = operation.memberAccess.valueArguments[1]!!
-                wrap(name.asOperator(), left, right)
+                val left = operation.memberAccess.valueArguments.firstOrNull()
+                val right = operation.memberAccess.valueArguments.getOrNull(1)
+                if (left == null || right == null) {
+                    visualizeCallPlain(operation)
+                } else {
+                    wrap(name.asOperator(), left, right)
+                }
             }
             "and",
             "or",
@@ -1392,8 +1428,13 @@ class IrVisualBuilder(
             "to",
             "until",
             "rangeTo" -> {
-                val value = operation.memberAccess.valueArguments[0]!!
-                wrap(name.asOperator(), operation.memberAccess.receiver!!, value)
+                val receiver = operation.memberAccess.receiver
+                val value = operation.memberAccess.valueArguments.firstOrNull()
+                if (receiver == null || value == null) {
+                    visualizeCallPlain(operation)
+                } else {
+                    wrap(name.asOperator(), receiver, value)
+                }
             }
             else -> visualizeCallPlain(operation)
         }

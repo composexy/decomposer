@@ -26,8 +26,16 @@ var u = 10 % 2
 var w = 1 .. 11
 val x = mapOf("1" to 12, "12" to 11)
 var y = x["123"] ?: x["1"] ?: "11"
+var z = a and c
+val aa = z or z
+var ab = z xor z
+var ac = z shl 2
+var ad = z shr 1
+var ae = z ushr 2
+var af = x["12"]
 
 fun test() {
+    u = a
     u += 1
     u -= a
     u *= e

@@ -68,7 +68,6 @@ import com.decomposer.ir.LongConst
 import com.decomposer.ir.MemberAccess
 import com.decomposer.ir.Modality
 import com.decomposer.ir.NullConst
-import com.decomposer.ir.Operation
 import com.decomposer.ir.Property
 import com.decomposer.ir.PropertyFlags
 import com.decomposer.ir.PropertyReference
@@ -1064,9 +1063,11 @@ class IrVisualBuilder(
             }
             StatementOrigin.ANDAND -> {
                 val branches = operation.branches.map { it.statement as Branch }
-                visualizeExpression(branches[0].condition)
-                punctuationSpaced("&&")
-                visualizeExpression(branches[0].result)
+                withParentheses(multiLine = false) {
+                    visualizeExpression(branches[0].condition)
+                    punctuationSpaced("&&")
+                    visualizeExpression(branches[0].result)
+                }
             }
             StatementOrigin.IF -> {
                 val branches = operation.branches.map { it.statement as Branch }
@@ -1277,6 +1278,12 @@ class IrVisualBuilder(
                 "to" -> "to"
                 "until" -> "until"
                 "rangeTo" -> ".."
+                "and" -> "and"
+                "or" -> "or"
+                "xor" -> "xor"
+                "shl" -> "shl"
+                "shr" -> "shr"
+                "ushr" -> "ushr"
                 else -> ""
             }
         }
@@ -1308,6 +1315,9 @@ class IrVisualBuilder(
                             val left = op.memberAccess.valueArguments[0]!!
                             val right = op.memberAccess.valueArguments[1]!!
                             wrap("!==", left, right)
+                        }
+                        else -> {
+                            unaryPre("!", receiver)
                         }
                     }
                 }
@@ -1348,8 +1358,12 @@ class IrVisualBuilder(
                 }
             }
             "get" -> {
-                val index = operation.memberAccess.valueArguments[0]!!
-                wrap("[", "]", operation.memberAccess.receiver!!, index)
+                if (origin == StatementOrigin.GET_ARRAY_ELEMENT) {
+                    val index = operation.memberAccess.valueArguments[0]!!
+                    wrap("[", "]", operation.memberAccess.receiver!!, index)
+                } else {
+                    visualizeCallPlain(operation)
+                }
             }
             "greater",
             "less",
@@ -1359,6 +1373,12 @@ class IrVisualBuilder(
                 val right = operation.memberAccess.valueArguments[1]!!
                 wrap(name.asOperator(), left, right)
             }
+            "and",
+            "or",
+            "xor",
+            "shl",
+            "shr",
+            "ushr",
             "rem",
             "plus",
             "minus",
@@ -1391,8 +1411,46 @@ class IrVisualBuilder(
             else -> symbol(operation.symbol.declarationName)
         }
         val callOrigin = operation.originNameIndex.statementOrigin
-        when (callOrigin) {
-            StatementOrigin.GET_PROPERTY -> Unit
+        val propertySetter = operation.symbol.propertySetter
+        val propertyGetter = operation.symbol.propertyGetter
+        when {
+            callOrigin == StatementOrigin.GET_PROPERTY -> Unit
+            propertyGetter != null -> Unit
+            propertySetter != null -> {
+                val operator = when(callOrigin) {
+                    StatementOrigin.PLUSEQ -> "+="
+                    StatementOrigin.MINUSEQ -> "-="
+                    StatementOrigin.MULTEQ -> "*="
+                    StatementOrigin.DIVEQ -> "/="
+                    StatementOrigin.PERCEQ -> "%="
+                    StatementOrigin.EQ -> "="
+                    else -> "="
+                }
+                punctuationSpaced(operator)
+                when (callOrigin) {
+                    StatementOrigin.PLUSEQ,
+                    StatementOrigin.MINUSEQ,
+                    StatementOrigin.MULTEQ,
+                    StatementOrigin.DIVEQ,
+                    StatementOrigin.PERCEQ -> {
+                        val op = operation.memberAccess.valueArguments.firstOrNull()?.operation
+                        op as Call?
+                        op?.memberAccess?.valueArguments?.firstOrNull()?.let {
+                            visualizeExpression(it)
+                        }
+                    }
+                    StatementOrigin.EQ -> {
+                        operation.memberAccess.valueArguments.firstOrNull()?.let {
+                            visualizeExpression(it)
+                        }
+                    }
+                    else -> {
+                        operation.memberAccess.valueArguments.firstOrNull()?.let {
+                            visualizeExpression(it)
+                        }
+                    }
+                }
+            }
             else -> {
                 val types = operation.memberAccess.typeArgumentIndexes.map {
                     types(it)
@@ -1573,9 +1631,11 @@ class IrVisualBuilder(
     }
 
     private fun wrap(operator: String, left: Expression, right: Expression) {
-        visualizeExpression(left)
-        punctuationSpaced(operator)
-        visualizeExpression(right)
+        withParentheses(multiLine = false) {
+            visualizeExpression(left)
+            punctuationSpaced(operator)
+            visualizeExpression(right)
+        }
     }
 
     private fun wrap(opLeft: String, opRight: String, left: Expression, right: Expression) {
@@ -1943,6 +2003,28 @@ class IrVisualBuilder(
 
     private val Symbol.fqName: String
         get() = signatures(this.signatureId).fqName
+
+    private val Symbol.propertySetter: String?
+        get() {
+            val signature = signatures(this.signatureId)
+            return if (signature is AccessorSignature) {
+                val name = strings(signature.nameIndex)
+                if (name.startsWith("<set-")) {
+                    name.substring(5, name.length - 1) // <set-prop> -> prop
+                } else null
+            } else null
+        }
+
+    private val Symbol.propertyGetter: String?
+        get() {
+            val signature = signatures(this.signatureId)
+            return if (signature is AccessorSignature) {
+                val name = strings(signature.nameIndex)
+                if (name.startsWith("<get-")) {
+                    name.substring(5, name.length - 1) // <get-prop> -> prop
+                } else null
+            } else null
+        }
 
     private val Signature.declarationName: String
         get() {

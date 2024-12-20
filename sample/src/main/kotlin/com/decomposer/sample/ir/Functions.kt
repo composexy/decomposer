@@ -5,8 +5,14 @@ import androidx.compose.runtime.Composable
 fun empty() { }
 fun empty2() = Unit
 
+var outer = 10
+
 fun nullable(): String? {
-    val random = Math.random().toInt()
+    outer = 15
+    var random = Math.random().toInt()
+    random += outer
+    var variable = 21L
+    variable = (outer + random).toLong()
     return if (random == 0) "Hi" else null
 }
 

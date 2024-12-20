@@ -60,6 +60,7 @@ fun IrPanel(
     var compose by remember { mutableStateOf(true) }
     var kotlinLike by remember { mutableStateOf(true) }
     var wrapCodeBlock by remember { mutableStateOf(true) }
+    var renderOperator by remember { mutableStateOf(true) }
     var kotlinLikeIr by remember { mutableStateOf<AnnotatedString?>(null) }
     var standardIr by remember { mutableStateOf<String?>(null) }
 
@@ -99,6 +100,13 @@ fun IrPanel(
                             wrapCodeBlock = !wrapCodeBlock
                         }
                     )
+                    ComposeToggle(
+                        text = "Render operators",
+                        checked = renderOperator,
+                        onCheckedChanged = {
+                            renderOperator = !renderOperator
+                        }
+                    )
                 }
                 CodeContent(filePath, kotlinLikeIrDump, standardIrDump, kotlinLike, highlight)
             }
@@ -107,7 +115,7 @@ fun IrPanel(
 
     val theme = LocalTheme.current
 
-    LaunchedEffect(filePath, compose, session.sessionId, highlight, wrapCodeBlock) {
+    LaunchedEffect(filePath, compose, session.sessionId, highlight, wrapCodeBlock, renderOperator) {
         if (filePath != null) {
             val packageName = projectSnapshot.packagesByPath[filePath]
             val virtualFileIr = session.getVirtualFileIr(filePath)
@@ -122,6 +130,7 @@ fun IrPanel(
                     kotlinFile = kotlinFile,
                     packageName = packageName,
                     wrapCodeBlock = wrapCodeBlock,
+                    renderOperator = renderOperator,
                     theme = theme,
                     highlights = highlight?.let { listOf(it) } ?: emptyList()
                 ) {

@@ -34,7 +34,7 @@ There are three main components of this tool:
 
 ### Steps
 1. Clone the repository
-2. Download android studio and install the kmm plugin: https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform
+2. Download android studio and install the [kotlin multi-platform plugin](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform).
 3. Import the project. After importing, there should be two run configuration imported by android studio. The first one is the decomposer desktop app and the second one is a sample android app to use as a playground.
 4. You can also run the desktop app via command line: ```./gradlew :composeApp:run```. Now you can run the sample app on an android device that is connected to the PC via usb cable. This makes sure the desktop app can find the device via adb command.
 5. Optionally, you can create an installer for the desktop app via ```./gradlew package```.

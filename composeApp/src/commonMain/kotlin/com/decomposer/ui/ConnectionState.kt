@@ -17,6 +17,10 @@ class ConnectionState(port: Int) {
     val adbConnectState: StateFlow<AdbConnectResult> = _adbConnectState
 
     val sessionState = server.sessionStateFlow
+
+    fun skipConnect() {
+        _adbConnectState.value = AdbConnectResult.Skipped
+    }
     
     fun adbConnect() {
         val connectResult = adbConnection.connect()

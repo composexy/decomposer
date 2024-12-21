@@ -33,10 +33,10 @@ fun MainApp() {
     Surface(modifier = Modifier.fillMaxSize()) {
         val contentState = remember {
             derivedStateOf {
-                if (adbConnectState is AdbConnectResult.Success) {
-                    PanelContentState.Editor
-                } else {
-                    PanelContentState.DeviceDiscovery
+                when (adbConnectState) {
+                    AdbConnectResult.Success,
+                    AdbConnectResult.Skipped -> PanelContentState.Editor
+                    else -> PanelContentState.DeviceDiscovery
                 }
             }
         }
@@ -52,6 +52,11 @@ fun MainApp() {
                                 if (adbConnectState != AdbConnectResult.Success) {
                                     connectionState.adbConnect()
                                 }
+                            }
+                        },
+                        onSkip = {
+                            if (adbConnectState != AdbConnectResult.Success) {
+                                connectionState.skipConnect()
                             }
                         }
                     )
@@ -99,7 +104,7 @@ object AppSetting {
 }
 
 object Versions {
-    val version = "0.1.0"
-    val targetComposeRuntime = "1.7.1"
-    val targetKotlin = "2.1.0"
+    const val DECOMPOSER_VERSION = "0.1.0"
+    const val TARGET_COMPOSE_RUNTIME_VERSION = "1.7.1"
+    const val TARGET_KOTLIN_VERSION = "2.1.0"
 }

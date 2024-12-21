@@ -27,7 +27,8 @@ fun DeviceDiscovery(
     modifier: Modifier,
     versions: Versions,
     adbState: AdbConnectResult,
-    onConnect: () -> Unit
+    onConnect: () -> Unit,
+    onSkip: () -> Unit
 ) {
     Column(
         modifier = modifier.wrapContentHeight(),
@@ -41,9 +42,9 @@ fun DeviceDiscovery(
         )
         DefaultText(
             text = """
-                Version: ${versions.version}
-                Target compose runtime: ${versions.targetComposeRuntime}
-                Target kotlin: ${versions.targetKotlin}
+                Version: ${versions.DECOMPOSER_VERSION}
+                Target compose runtime: ${versions.TARGET_COMPOSE_RUNTIME_VERSION}
+                Target kotlin: ${versions.TARGET_KOTLIN_VERSION}
             """.trimIndent(),
         )
         when (adbState) {
@@ -71,20 +72,19 @@ fun DeviceDiscovery(
                 DefaultText(
                     text = """
                         Please connect one and only one android device to this PC then click "Connect".
-                        The server runs on port 9801.
+                        The server runs on port 9801. Or you can run "adb reverse tcp:9801 tcp:9801"
+                        manually then click the "Skip" button.
                         If you cannot make this port available, set DECOMPOSER_SERVER_PORT to override
                         the port number.
                     """.trimIndent()
                 )
                 Spacer(modifier = Modifier.height(60.dp))
-                Button(
-                    onClick = {
-                        onConnect()
-                    }
-                ) {
-                    DefaultText(
-                        text = "Connect"
-                    )
+                Button(onClick = { onConnect() }) {
+                    DefaultText(text = "Connect")
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(onClick = { onSkip() }) {
+                    DefaultText(text = "Skip")
                 }
             }
             AdbConnectResult.Success -> {
@@ -92,6 +92,14 @@ fun DeviceDiscovery(
                 DefaultText(
                     text = buildString {
                         append("Connected!")
+                    }
+                )
+            }
+            AdbConnectResult.Skipped -> {
+                Spacer(modifier = Modifier.height(60.dp))
+                DefaultText(
+                    text = buildString {
+                        append("Skipped!")
                     }
                 )
             }

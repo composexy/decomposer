@@ -36,5 +36,7 @@ sealed interface AdbConnectResult {
 
     data object Success : AdbConnectResult
 
+    data object Skipped : AdbConnectResult
+
     data class Failure(val errorMessage: String) : AdbConnectResult
 }

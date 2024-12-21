@@ -42,7 +42,8 @@ There are three main components of this tool:
 ### Use it in another app
 1. Build the project via ```./gradlew assemble```.
 2. Publish the artifacts to maven local: ```./gradlew publishToMavenLocal```.
-3. Add mavenLocal to your project's artifacts searching repo:
+3. Add mavenLocal to your project's artifacts searching repo.
+4. The artifacts are also published to maven central if you do not want to build it locally.
 
 ```
 gradle/libs.version.toml:
@@ -151,4 +152,4 @@ class MyApplication : Application() {
 ### notes
 
 * Each time you changed some code in your app while debugging, make sure you first uninstall your app from your phone and do a clean reinstall. Otherwise android studio may take some shortcuts which make the app's dex files in an inconsistent state.
-* The decomposer relies heavily on kotlin compiler plugin and embedded kotlin compiler internals. And the decomposer runtime uses reflection to retrieve composition data. That means this tool relies heavily on hidden apis of kotlin compiler and compose runtime. When you start the desktop app, you will see the a message about targeting compose runtime version and kotlin version. These versions are what the current decomposer tool is tested against. If your app uses a different kotlin version or compose runtime version. This tool may only partially work or not working at all.
+* The decomposer relies heavily on kotlin compiler plugin and embedded kotlin compiler internals. And the decomposer runtime uses reflection to retrieve composition data. That means this tool relies heavily on hidden apis of kotlin compiler and compose runtime. When you start the desktop app, you will see the a message about targeting compose runtime version and kotlin version. These versions are what the current decomposer tool is tested against. If your app uses a different kotlin version or compose runtime version. This tool may only partially work or not working at all. For example, your app needs to use at least kotlin 2.1.0 for decomposer to work.

@@ -12,9 +12,10 @@ class FileTreePanelTest {
                 "/home/jim/com/example/B.kt",
                 "/home/jim/android/C.kt",
                 "/home/jim/android/D.kt"
-            )
+            ),
+            packagesByPath = emptyMap()
         )
-        val fileTree = projectSnapshot.asFileTree
+        val fileTree = projectSnapshot.buildFileTree {  }
         assert(fileTree.root.level == 0)
         assert(fileTree.root.name == "/home/jim")
         assert(fileTree.root.children.size == 2)

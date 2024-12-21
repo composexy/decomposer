@@ -10,5 +10,5 @@ ALL_PROJECTS=(
 
 for PROJECT in "${ALL_PROJECTS[@]}"; do
   echo -e "Publishing $PROJECT"
-  ./gradlew "${PROJECT}:publishMavenPublicationToMavenCentralRepository"
+  ./gradlew "${PROJECT}:publishToMavenCentral"
 done

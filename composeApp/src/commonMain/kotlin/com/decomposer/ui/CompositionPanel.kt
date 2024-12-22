@@ -457,7 +457,6 @@ fun ComposeCheckBox(
     Row(
         modifier = Modifier
             .wrapContentSize()
-            .padding(horizontal = 10.dp, vertical = 4.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
             .toggleable(

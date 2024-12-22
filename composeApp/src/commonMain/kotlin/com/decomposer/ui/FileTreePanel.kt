@@ -166,7 +166,7 @@ class FileTreeNode(
         Box(
             modifier = modifier
                 .wrapContentSize()
-                .padding(4.dp)
+                .padding(horizontal = 4.dp)
                 .run {
                     if (isFolder) {
                         this.clickable { expanded = !expanded }

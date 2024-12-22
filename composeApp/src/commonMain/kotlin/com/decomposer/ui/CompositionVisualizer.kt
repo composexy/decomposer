@@ -180,7 +180,7 @@ private fun GroupIcon(modifier: Modifier, node: BaseTreeNode) {
     Box(
         modifier = modifier
             .wrapContentSize()
-            .padding(4.dp)
+            .padding(horizontal = 4.dp)
             .run {
                 if (node.children.isNotEmpty()) {
                     clickable {
@@ -644,7 +644,7 @@ private fun ExpandedStatesTable(
             items(states.size) {
                 RowWithLineNumber(lineNumber = it + 1, lines = states.size) {
                     StateItem(
-                        modifier = Modifier.padding(4.dp),
+                        modifier = Modifier.padding(horizontal = 4.dp),
                         state = states[it],
                         expanded = expandedMap[it] ?: false,
                         contexts = contexts,
@@ -692,7 +692,7 @@ private fun ExpandedStatesTable(
                         Box(modifier = Modifier.padding(start = AppSetting.fontSize.dp)) {
                             RowWithLineNumber(lineNumber = stateIndex + 1, lines = totalStates) {
                                 StateItem(
-                                    modifier = Modifier.padding(4.dp),
+                                    modifier = Modifier.padding(horizontal = 4.dp),
                                     state = statesInScope[it],
                                     expanded = false,
                                     clickable = false,
@@ -847,7 +847,7 @@ private fun DataIcon(modifier: Modifier, data: Data) {
     Box(
         modifier = modifier
             .wrapContentSize()
-            .padding(4.dp)
+            .padding(horizontal = 4.dp)
     ) {
         Image(
             painter = painterResource(Res.drawable.data),
@@ -870,7 +870,7 @@ private fun ShowDataIcon(
     Box(
         modifier = modifier
             .wrapContentSize()
-            .padding(4.dp)
+            .padding(horizontal = 4.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable { onClick() }
@@ -903,7 +903,7 @@ private fun GroupAttributesIcon(
     Box(
         modifier = modifier
             .wrapContentSize()
-            .padding(4.dp)
+            .padding(horizontal = 4.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable { onClick() }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
@@ -28,13 +29,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ToolBar(
     modifier: Modifier,
     panelsState: PanelsState
 ) {
-    FlowRow(modifier = modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         FontSizeChooser()
         ToolBarCheckBox(
             checked = panelsState.fileTreeVisible,
@@ -100,19 +100,18 @@ fun ToolBarCheckBox(
     text: String,
     onCheckedChanged: (Boolean) -> Unit
 ) {
-    val scale = AppSetting.fontSize.toFloat() / 14.0f
+    val scale = AppSetting.fontSize.toFloat() / 24.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
-            .wrapContentSize()
+            .wrapContentWidth()
             .toggleable(
                 value = checked,
                 onValueChange = { onCheckedChanged(!checked) },
                 role = Role.Checkbox
             )
             .hoverable(interactionSource)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .pointerHoverIcon(PointerIcon.Hand),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
@@ -120,8 +119,6 @@ fun ToolBarCheckBox(
             onCheckedChange = null,
             modifier = Modifier.scale(scale).padding(4.dp)
         )
-        DefaultPanelText(
-            text = text,
-        )
+        DefaultPanelText(text = text)
     }
 }

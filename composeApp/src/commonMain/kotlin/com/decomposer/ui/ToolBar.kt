@@ -73,7 +73,7 @@ fun FontSizeChooser() {
         (LocalFontSize.current * 1.25).sp.toDp()
     }
     Row(
-        modifier = Modifier.padding(horizontal = 16.dp),
+        modifier = Modifier.padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         var sliderValue by remember { mutableFloatStateOf(AppSetting.fontSize.toFloat()) }
@@ -100,7 +100,7 @@ fun ToolBarCheckBox(
     text: String,
     onCheckedChanged: (Boolean) -> Unit
 ) {
-    val scale = AppSetting.fontSize.toFloat() / 24.0f
+    val scale = AppSetting.fontSize.toFloat() / 14.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
@@ -112,7 +112,7 @@ fun ToolBarCheckBox(
             )
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(

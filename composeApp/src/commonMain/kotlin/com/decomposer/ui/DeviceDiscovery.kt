@@ -35,7 +35,7 @@ fun DeviceDiscovery(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            modifier = Modifier.heightIn(160.dp, 240.dp).widthIn(160.dp, 240.dp),
+            modifier = Modifier.heightIn(80.dp, 120.dp).widthIn(80.dp, 120.dp),
             painter = painterResource(Res.drawable.ic_launcher),
             contentDescription = "Launcher logo",
             contentScale = ContentScale.Fit
@@ -49,14 +49,14 @@ fun DeviceDiscovery(
         )
         when (adbState) {
             is AdbConnectResult.Failure -> {
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 DefaultText(
                     text = """
                         Connection failed:
                         ${adbState.errorMessage}
                     """.trimIndent(),
                 )
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = {
                         onConnect()
@@ -68,7 +68,7 @@ fun DeviceDiscovery(
                 }
             }
             AdbConnectResult.Idle -> {
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 DefaultText(
                     text = """
                         Please connect one and only one android device to this PC then click "Connect".
@@ -78,7 +78,7 @@ fun DeviceDiscovery(
                         the port number.
                     """.trimIndent()
                 )
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(onClick = { onConnect() }) {
                     DefaultText(text = "Connect")
                 }
@@ -88,7 +88,7 @@ fun DeviceDiscovery(
                 }
             }
             AdbConnectResult.Success -> {
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 DefaultText(
                     text = buildString {
                         append("Connected!")
@@ -96,7 +96,7 @@ fun DeviceDiscovery(
                 )
             }
             AdbConnectResult.Skipped -> {
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 DefaultText(
                     text = buildString {
                         append("Skipped!")

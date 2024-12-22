@@ -181,12 +181,12 @@ fun Panels(
                         ) {
                             Surface(
                                 modifier = Modifier.size(width = 1280.dp, height = 720.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colors.onSurface),
                                 color = Color.DarkGray,
                                 elevation = 4.dp
                             ) {
-                                Box(modifier = Modifier.padding(16.dp)) { it() }
+                                Box(modifier = Modifier.padding(12.dp)) { it() }
                             }
                         }
                     }
@@ -312,7 +312,7 @@ fun TreeExpander(
         Row(
             Modifier
                 .wrapContentSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(

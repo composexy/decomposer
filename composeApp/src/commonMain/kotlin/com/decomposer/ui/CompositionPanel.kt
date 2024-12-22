@@ -193,7 +193,7 @@ fun CompositionPanel(
                             .wrapContentWidth()
                             .widthIn(min = with(LocalDensity.current) { boxWidth.toDp() }),
                         state = verticalScrollState,
-                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                        contentPadding = PaddingValues(vertical = 3.dp, horizontal = 8.dp)
                     ) {
                         items(nodes.size, key = { nodes[it] }) {
                             Box(modifier = Modifier.animateItem()) {
@@ -220,7 +220,7 @@ fun CompositionPanel(
 
             SubTreeSelector(
                 modifier = Modifier.wrapContentSize()
-                    .padding(vertical = 12.dp)
+                    .padding(vertical = 8.dp)
                     .align(Alignment.CenterHorizontally),
                 selectedTreeKind = selectedTreeKind,
                 onSelectedOption = { selectedTreeKind = it }
@@ -265,7 +265,7 @@ fun RowWithLineNumber(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.padding(end = 8.dp),
+            modifier = Modifier.padding(end = 6.dp),
             contentAlignment = Alignment.CenterEnd
         ) {
             LineNumber(maxNumber, color = Color.Transparent)
@@ -343,7 +343,7 @@ fun DataExpander(
         Row(
             Modifier
                 .wrapContentSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
@@ -422,7 +422,7 @@ fun CompositionRefresh(loading: Boolean, onRefresh: () -> Unit) {
     Row(
         modifier = Modifier
             .wrapContentSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
             .run {
                 if (!loading) {
                     this.hoverable(interactionSource)
@@ -457,7 +457,7 @@ fun ComposeCheckBox(
     Row(
         modifier = Modifier
             .wrapContentSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
             .toggleable(

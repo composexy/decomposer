@@ -217,7 +217,7 @@ fun CodeContent(
                         Text(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = 8.dp),
                             text = kotlinLikeIr,
                             fontFamily = Fonts.jetbrainsMono(),
                             fontSize = fontSize.sp,
@@ -249,7 +249,7 @@ fun CodeContent(
                         Text(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = 8.dp),
                             text = standardIr,
                             fontFamily = Fonts.jetbrainsMono(),
                             fontSize = fontSize.sp,
@@ -281,7 +281,7 @@ fun LineNumbers(
         modifier = Modifier
             .wrapContentWidth()
             .fillMaxHeight()
-            .padding(end = 8.dp),
+            .padding(end = 6.dp),
         horizontalAlignment = Alignment.End
     ) {
         val fontSize = AppSetting.fontSize
@@ -304,7 +304,7 @@ fun ComposeToggle(
     checked: Boolean,
     onCheckedChanged: (Boolean) -> Unit
 ) {
-    val scale = AppSetting.fontSize.toFloat() / 24.0f
+    val scale = AppSetting.fontSize.toFloat() / 14.0f
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         Modifier
@@ -316,7 +316,7 @@ fun ComposeToggle(
             )
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(

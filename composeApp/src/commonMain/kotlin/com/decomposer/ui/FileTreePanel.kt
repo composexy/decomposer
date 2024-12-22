@@ -73,7 +73,7 @@ fun FileTreePanel(
                     LazyColumn(
                         modifier = Modifier.matchParentSize(),
                         state = verticalScrollState,
-                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp)
+                        contentPadding = PaddingValues(vertical = 3.dp, horizontal = 8.dp)
                     ) {
                         val nodes = fileTree.flattenNodes
                         items(nodes.size) {
